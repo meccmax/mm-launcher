@@ -99,3 +99,7 @@ tools/fake_dayz_servers.py   fake DayZ servers on localhost, for testing without
 - **Mods:** DayZ packs its required client mod list as an escaped binary blob inside the A2S_RULES reply. The decoder follows Bohemia's ServerBrowserProtocol3 format and was cross-checked against the open-source `dayzquery` and `node-gamedig` decoders.
 - **Workshop info:** Steam's public `GetPublishedFileDetails` endpoint. No API key or login needed.
 - **Installed mods:** read from Steam's `libraryfolders.vdf` and `appworkshop_221100.acf`. These are read only; nothing is modified.
+
+## License
+
+MIT, see [LICENSE](LICENSE). Not affiliated with Bohemia Interactive or Valve. DayZ is a trademark of Bohemia Interactive; Steam and Steamworks are trademarks of Valve.
