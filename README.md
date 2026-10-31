@@ -29,7 +29,8 @@ Server admins: download **MMServerAgent.zip** from the same page and follow `AGE
 
 - **What it is:** a small read-only Windows service that runs on each server machine. Setup steps are in `agent-package/AGENT-SETUP.txt`.
 - **What it reads:** each running DayZ server's startup line (`-mod=`, `-config=`, `-port=`), the `meta.cpp` workshop IDs, and `serverDZ.cfg`.
-- **What it serves:** the complete client mod list, the full server name, uptime and an optional message. These are served at `http://<host>:<port>/mm-agent/v1/servers`.
+- **What it serves:** the complete client mod list, the full server name, uptime and an optional message. These are served at `https://<host>:<port>/mm-agent/v1/servers`. Older launchers can also use `http://` on the same port while `AllowPlainHttp` is on.
+- **Encryption:** the agent makes its own key on first start (`agent-tls.pfx`). The launcher accepts an agent only if its key matches the fingerprint listed in [`trust/agents.jsonc`](trust/agents.jsonc), or, for unlisted agents, the key it saw the first time. `check-agent.bat` prints the fingerprint to add to that list.
 - **How the launcher uses it:** it checks ports 2994–2999 on each MM host and uses the agent's list when it gets one (shown as "VERIFIED BY MM AGENT"). If no agent answers, it falls back to the server's status reply. Servers an agent reports but the scan missed are added automatically.
 
 ### Join + mod sync (milestones 2 and 3)
@@ -133,6 +134,7 @@ A security audit of the launcher, the server agent and the release process is in
 
 In short:
 - Updates are only taken from this repository's GitHub Releases and must match the published SHA-256 checksums.
+- Launcher and agent talk over HTTPS. Agent keys are checked against the list in `trust/agents.jsonc`, and the launcher never drops back to unencrypted for an agent that supports encryption.
 - The server agent rate-limits problem reports, accepts only the files the launcher makes, and locks its folder so the Discord webhook stays private.
 - Release builds run with read-only access; only a separate publish step can create a Release, and every GitHub Action is pinned to an exact version.
 

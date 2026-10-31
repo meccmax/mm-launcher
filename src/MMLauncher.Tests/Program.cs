@@ -413,6 +413,23 @@ Console.WriteLine("== Encrypted agent connection ==");
         Check(!res.IsSuccessStatusCode && (await res.Content.ReadAsStringAsync()).Contains("only accepts encrypted"), "encrypted-only agent refuses unencrypted requests");
     }
 
+    // A refused upload (here: always "rate limited") must still deliver its reason, not a
+    // connection reset, even though the body was never read (Windows resets otherwise).
+    _ = new MMServerAgent.MiniHttpServer(2985, 9 << 20, handler,
+        (_, _, _, _) => new MMServerAgent.HttpReply(429, "application/json", "{\"ok\":false,\"message\":\"slow down\"}")).RunAsync(stop.Token);
+    await Task.Delay(200);
+    using (var raw = new HttpClient())
+    {
+        string got;
+        try
+        {
+            var res = await raw.PostAsync($"http://{lo}:2985{AgentClient.ReportPath}", new ByteArrayContent(new byte[2 << 20]));
+            got = $"{(int)res.StatusCode} {await res.Content.ReadAsStringAsync()}";
+        }
+        catch (Exception ex) { got = ex.GetBaseException().Message; }
+        Check(got.StartsWith("429") && got.Contains("slow down"), $"refused upload still gets its reason ({got})");
+    }
+
     using (var s = typeof(AgentTrust).Assembly.GetManifestResourceStream(AgentTrust.PublishedFileName))
         Check(s != null && AgentTrust.ParsePublished(new StreamReader(s).ReadToEnd()) != null, "published key list is built in and valid");
     stop.Cancel();

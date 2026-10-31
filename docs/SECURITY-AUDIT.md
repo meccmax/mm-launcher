@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Date** | 30 October 2026 |
-| **Versions reviewed** | v0.4.0. Fixes ship in v0.4.1. |
+| **Versions reviewed** | v0.4.0. Fixes ship in v0.4.1; A8, L3 and R4 are closed in v0.5.0. |
 | **Scope** | MM Launcher (player app), MM Server Agent (runs on the game servers), GitHub release workflow, third-party packages |
 | **Method** | Manual code review of every network, file-system and process boundary. Hostile-input tests run against a live agent: path traversal, executables, zip bombs, oversized JSON, fake zip headers, connection floods, rate limits. Automated checks were added to the self-check, which runs on every release build. Package scan with `dotnet list package --vulnerable --include-transitive`. |
 
@@ -14,7 +14,7 @@ No critical problems were found. The main risks were in the **server agent's pro
 | Severity | Found | Fixed | Mitigated | Accepted | Recommended action |
 |---|---|---|---|---|---|
 | High | 3 | 3 | 0 | 0 | 0 |
-| Medium | 14 | 11 | 2 | 1 | 0 |
+| Medium | 14 | 13 | 1 | 0 | 0 |
 | Low | 9 | 8 | 0 | 1 | 0 |
 | Process | 4 | 0 | 0 | 0 | 4 |
 
@@ -51,7 +51,7 @@ No critical problems were found. The main risks were in the **server agent's pro
 | A5 | Medium | **Slow-upload tie-up.** One address could hold all 32 connection slots open by sending slowly. | Fixed | At most 4 connections per address. 10 s limit for headers and 120 s for the body. 8 KB header limit. |
 | A6 | Medium | **Webhook URL readable by other users.** `agent.jsonc` holds the Discord webhook. On a default Windows install, any local user can read and change files in a new folder under `C:\`. That would also let them replace the service exe. | Fixed | `install` and `update` now limit the agent folder to Administrators, SYSTEM and the installing admin. They skip this if the folder holds unrelated files, and say so. The webhook is never sent to players, and it must be `https://`. |
 | A7 | Medium | **Service runs as LocalSystem with every privilege.** If the agent were ever compromised, the attacker would get full control of the server. | Mitigated | The service now runs with a restricted service SID and only 3 privileges (SeChangeNotify, SeCreateGlobal, SeImpersonate). Install checks the result and undoes the restriction if Windows refuses it. It still runs as LocalSystem, because it needs to read the DayZ server processes' command lines. `--full-privileges` exists for setups that need the old behaviour. |
-| A8 | Medium | **No encryption on the agent's HTTP.** The mod list and reports travel as plain HTTP. Someone on the path can read a report: crash logs, PC specs, player name. Usernames and PC names are removed before sending. | Accepted | The mod list is public information anyway; anyone can get it with A2S. For reports, see recommendation R4. |
+| A8 | Medium | **No encryption on the agent's HTTP.** The mod list and reports travel as plain HTTP. Someone on the path can read a report: crash logs, PC specs, player name. Usernames and PC names are removed before sending. | Fixed (v0.5.0) | The agent now speaks HTTPS with its own key (`agent-tls.pfx`, made on first start and kept in the locked agent folder). Launchers from v0.5.0 use it automatically, and reports are always sent encrypted to agents that support it. `AllowPlainHttp: false` in `agent.jsonc` turns off unencrypted access once everyone has updated. |
 | A9 | Low | **Non-report POSTs** were read in full before being refused. | Fixed | Unknown paths get 404 and wrong methods get 405, before the body is read. |
 | A10 | Low | **Log injection.** Player-controlled text with line breaks could forge fake lines in `agent.log`. | Fixed | Control characters are stripped. Addresses in the log are partly masked (`1.2.3.x`). |
 | A11 | Low | **Info exposure on `/mm-agent/v1/servers`.** | Fixed (verified) | Only the server name, map, ports, player slots, uptime, mod IDs, names and folder names, and the admin's optional message are returned. Passwords, admin passwords, RCON settings and file paths from `serverDZ.cfg` are never read into the reply. |
@@ -63,7 +63,7 @@ No critical problems were found. The main risks were in the **server agent's pro
 |---|---|---|---|---|
 | L1 | High | **Self-update could install a tampered exe.** | Fixed | Downloads are accepted only from `github.com` or `*.githubusercontent.com` over HTTPS, and only if the SHA-256 matches the release's `SHA256SUMS.txt`. A mismatch deletes the download and changes nothing. A test proves a tampered download is refused. Residual risk: the checksums live in the same release, so they don't protect against a hijacked GitHub account (R1, R3). |
 | L2 | Medium | **Hostile agent reply.** A fake agent, through DNS spoofing or a hijacked network, could send a huge reply to freeze or crash the launcher. | Fixed | Replies are capped at 1 MB, 32 servers and 300 mods per server. Text is clipped and control characters stripped. Agent-supplied folder names are only displayed; real mod folders always come from Steam's own files. |
-| L3 | Medium | **Fake agent suggests unwanted mods.** A spoofed agent could list Workshop items for the launcher to subscribe to. | Mitigated | Items can only come from the Steam Workshop and are downloaded by Steam itself. The launcher never runs mod files. Agents are only asked on the MM hosts set in Settings. Encrypting the agent connection (R4) would close this fully. |
+| L3 | Medium | **Fake agent suggests unwanted mods.** A spoofed agent could list Workshop items for the launcher to subscribe to. | Fixed (v0.5.0) | The launcher checks each agent's key. It must match the fingerprint published in `trust/agents.jsonc` on GitHub, or, for agents not listed there, the key seen the first time (as SSH does). Once an agent has used encryption, the launcher never talks to it unencrypted again, so it can't be downgraded. Items still only come from the Steam Workshop, downloaded by Steam. |
 | L4 | Medium | **Opening links from release data.** "Open releases page" passed a URL from GitHub's API to Windows, which would run `file://` or other schemes. | Fixed | Only `https://github.com` and `https://steamcommunity.com` links are opened. Anything else falls back to the releases page. |
 | L5 | Medium | **Command injection when launching DayZ.** Server names, passwords and mod paths end up on a command line. | Fixed | Each argument is quoted on its own, and DayZ is started directly, never through `cmd`. Folder links are made with `cmd /c mklink`, and it refuses any path containing `%`, `"` or line breaks; full paths are used instead. |
 | L6 | Medium | **Folder links could replace real folders.** | Fixed | An existing link is only replaced if it really is a link. A real folder in its place is never touched. Removal is non-recursive, so mods are never deleted through a link. |
@@ -90,7 +90,7 @@ No critical problems were found. The main risks were in the **server agent's pro
 | R1 | Turn on **two-factor authentication** on the GitHub account. Anyone who controls the account can publish an update that reaches every player. |
 | R2 | Add **branch and tag protection**: Settings → Rules → protect `main` and tags `v*` so they can't be force-pushed or deleted. Turn on **Private vulnerability reporting**, **Dependabot alerts** and **secret scanning** under Settings → Code security. |
 | R3 | **Sign the exe files** with a code-signing certificate once the project is ready for it. That removes the Windows SmartScreen warning, and a hijacked account alone couldn't produce a trusted update. |
-| R4 | Put the agent behind **HTTPS**, for example a Cloudflare Tunnel or a reverse proxy with a certificate. The launcher would then talk to `https://…`. This closes A8 and L3. |
+| R4 | ~~Put the agent behind HTTPS.~~ **Done in v0.5.0**, built into the agent (no Cloudflare or certificate needed). Remaining step for maintainers: add each agent's fingerprint to `trust/agents.jsonc`, then set `AllowPlainHttp` to `false` once players are on v0.5.0. |
 
 ## Re-running this audit
 

@@ -64,7 +64,13 @@ public sealed class MiniHttpServer(
                 {
                     try { await HandleAsync(client, ct); }
                     catch { /* bad client; ignore */ }
-                    finally { client.Dispose(); Release(address); _slots.Release(); }
+                    finally
+                    {
+                        await LingerCloseAsync(client);
+                        client.Dispose();
+                        Release(address);
+                        _slots.Release();
+                    }
                 }, CancellationToken.None);
             }
         }
@@ -72,6 +78,32 @@ public sealed class MiniHttpServer(
         {
             listener.Stop();
         }
+    }
+
+    /// <summary>
+    /// "Lingering close": after replying, stop sending and quietly read whatever the client
+    /// is still sending (briefly, and bounded). Closing a socket with unread data makes Windows
+    /// reset the connection, which throws away the reply, so a client refused early (rate
+    /// limit, too large, wrong path) would see "connection reset" instead of the reason.
+    /// </summary>
+    private static async Task LingerCloseAsync(TcpClient client)
+    {
+        try
+        {
+            var socket = client.Client;
+            if (!socket.Connected) return;
+            socket.Shutdown(SocketShutdown.Send);
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            var sink = new byte[16 * 1024];
+            long drained = 0;
+            while (drained < 16L * 1024 * 1024)
+            {
+                int n = await socket.ReceiveAsync(sink, SocketFlags.None, cts.Token);
+                if (n == 0) break;
+                drained += n;
+            }
+        }
+        catch { /* timed out or already closed; fine */ }
     }
 
     private void Release(IPAddress address)

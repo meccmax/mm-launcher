@@ -85,6 +85,21 @@ against the published checksum, stops the service, swaps the exe and starts it
 again. agent.jsonc, agent.log and the reports folder are left alone.
 
 
+ENCRYPTION (v0.5 and newer)
+---------------------------
+The agent encrypts what it sends to launchers (mod lists and problem reports). It
+makes its own key the first time it starts and keeps it in agent-tls.pfx. Nothing
+to set up, but:
+  * Keep agent-tls.pfx. It's how launchers recognise this agent. If it's deleted, a
+    new key is made and launchers will refuse the agent until the fingerprint below
+    is updated. Copy it along if you ever move the agent to another folder or PC.
+  * check-agent.bat shows "Encryption key fingerprint: ...". Send that line, with the
+    address and port players use (e.g. game.misfitmercenaries.com 2999), to whoever
+    maintains the launcher, so it goes in the published list of official agents.
+  * agent.jsonc "AllowPlainHttp": true still answers launchers older than v0.5.
+    Set it to false once players have updated, then restart the service.
+
+
 SECURITY
 --------
 install and update lock the agent folder so only Administrators, SYSTEM and
@@ -109,6 +124,7 @@ FILES
 -----
   MMServerAgent.exe    the agent
   agent.jsonc          settings (every option explained inside)
+  agent-tls.pfx        the agent's encryption key (made on first start; keep it)
   agent.log            what it's doing; send this to Claude if anything's off
   reports\             problem reports players sent (zips)
   check-agent.bat      show what it sees right now
