@@ -45,6 +45,16 @@ Any server picked in any tab opens in the same details panel, with the full mod 
 
 The full list comes from Valve's Steam Web API (`IGameServersService/GetServerList`) through the MM Server Agent, which holds the API key (`SteamWebApiKey` in `agent.jsonc`) so it never ships in the launcher. Valve answers at most 10,000 servers per request, so the agent asks in parts (servers with players, empty servers, then by map where a part is still too big) and merges them. It refreshes the list every few minutes and serves it gzip-compressed over the encrypted connection at `/mm-agent/v1/browser`. The launcher keeps a copy (`browser-cache.json.gz`), so the tab opens instantly. Favorites and recent servers are saved in `favorites.jsonc`.
 
+### Restart warnings (v0.7)
+
+When the agent knows a server's restart schedule (`RestartEveryHours`, counted from when the server started, or fixed `RestartTimes` in `agent.jsonc`), the launcher shows:
+- a **NEXT RESTART** tile ("in ~1h 52m"; "~" means estimated from uptime);
+- "restart ~8 min" in the server list once a restart is within 30 minutes;
+- a warning in the details panel once it's within 15 minutes;
+- a question before joining when it's within 5 minutes.
+
+Auto-rejoin uses it too: if DayZ closes right around a scheduled restart, the launcher waits for the restart to happen before rejoining.
+
 ### Join + mod sync (milestones 2 and 3)
 
 **JOIN SERVER** does four things in order:

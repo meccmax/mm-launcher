@@ -497,6 +497,7 @@ Console.WriteLine("== Server browser ==");
         }
     });
     Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8098");
+    File.Delete(Path.Combine(AppContext.BaseDirectory, MMServerAgent.ServerListFeed.CacheFile)); // no copy from an earlier run
     var agentLog = new List<string>();
     var feedSvc = new MMServerAgent.ServerListFeed(new MMServerAgent.AgentConfig { SteamWebApiKey = "good" }, m => { lock (agentLog) agentLog.Add(m); });
     using var feedStop = new CancellationTokenSource();
@@ -592,6 +593,26 @@ Console.WriteLine("== Server browser ==");
     lock (badLog) Check(badLog.Any(l => l.Contains("rejected the SteamWebApiKey")) && badLog.All(l => !l.Contains("wrongkey")), "a wrong Steam key is reported clearly, without showing it");
     fakeSteam.Stop();
     Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+}
+
+Console.WriteLine("== Restart schedule ==");
+{
+    var tz = TimeZoneInfo.CreateCustomTimeZone("test-5", TimeSpan.FromHours(-5), "test", "test");
+    var now = new DateTimeOffset(2026, 10, 31, 2, 50, 0, TimeSpan.FromHours(-5));
+    var started = now.AddHours(-3).AddMinutes(-10); // up 3h10m, restarts every 4h
+    var r = RestartSchedule.Next(now, started, 4, null, tz);
+    Check(r is { Approximate: true } && r.Value.At == started.AddHours(4) && RestartSchedule.Describe(r.Value.At, true, now) == "in ~50 min",
+          "every 4 hours from start: next restart in ~50 min");
+    var overdue = RestartSchedule.Next(now, now.AddHours(-4).AddMinutes(-3), 4, null, tz);
+    Check(overdue != null && RestartSchedule.Describe(overdue.Value.At, true, now) == "due now", "a restart a few minutes overdue shows as due");
+    var paused = RestartSchedule.Next(now, now.AddHours(-9), 4, null, tz);
+    Check(paused?.At == now.AddHours(-9).AddHours(12), "server up past several intervals gets its next slot");
+    var fixedT = RestartSchedule.Next(now, started, 4, ["00:00", "06:00", "bad", "12:00", "18:00"], tz);
+    Check(fixedT is { Approximate: false } && fixedT.Value.At == new DateTimeOffset(2026, 10, 31, 6, 0, 0, TimeSpan.FromHours(-5))
+          && RestartSchedule.Describe(fixedT.Value.At, false, now) == "in 3h 10m", "fixed clock times win and wrap correctly");
+    var late = RestartSchedule.Next(now.AddHours(20), null, 0, ["00:00", "06:00"], tz);
+    Check(late?.At == new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.FromHours(-5)), "fixed times roll over to the next day");
+    Check(RestartSchedule.Next(now, started, 0, [], tz) == null, "no schedule, no restart time");
 }
 
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");

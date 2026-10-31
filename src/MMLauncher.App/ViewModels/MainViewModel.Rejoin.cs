@@ -110,7 +110,11 @@ public partial class MainViewModel
             RejoinActive = true;
             RejoinTitle = $"DayZ closed. Rejoining {name}…";
 
-            // 2) Wait until the server is back and has its mod list.
+            // 2) Wait until the server is back and has its mod list. If a scheduled restart is
+            //    due right now, wait for it to actually happen instead of joining a server
+            //    that's about to go down.
+            bool expectRestart = Current().MinutesToRestart is < 5 and > -10;
+            if (expectRestart) Log.Info($"{name} has a restart due; waiting for it before rejoining.");
             bool wentDown = false;
             var waitingSince = DateTime.UtcNow;
             ServerViewModel? server;
@@ -128,14 +132,17 @@ public partial class MainViewModel
                 bool restarted = server is { ModsFromAgent: true, UptimeSeconds: > 0 } &&
                                  server.UptimeSeconds < (DateTime.UtcNow - launchedAt).TotalSeconds;
                 if (server is { Online: false } || restarted) wentDown = true;
-                if (server is { Online: true, HasMods: true, GamePort: not null }) break;
+                bool restartDone = !expectRestart || wentDown || DateTime.UtcNow - waitingSince > TimeSpan.FromMinutes(15);
+                if (server is { Online: true, GamePort: not null } && (server.HasMods || server.ModsKnown) && restartDone) break;
                 if (DateTime.UtcNow - waitingSince > GiveUpWaitingAfter)
                 {
                     RejoinActive = false;
                     ShowResult(false, "Auto-rejoin stopped", $"{name} didn't come back within {GiveUpWaitingAfter.TotalMinutes:0} minutes.");
                     return;
                 }
-                RejoinDetail = server == null ? "Looking for the server…" : "The server is restarting. Waiting for it to come back online…";
+                RejoinDetail = server is { Online: true } && expectRestart && !wentDown
+                    ? "A scheduled restart is due. Waiting for it to happen…"
+                    : "The server is restarting. Waiting for it to come back online…";
                 await Task.Delay(ServerCheckEvery, ct);
             }
 

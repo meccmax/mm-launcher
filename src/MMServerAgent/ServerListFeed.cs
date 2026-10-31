@@ -17,6 +17,7 @@ public sealed class ServerListFeed(AgentConfig config, Action<string> log)
     private const int MaxRequests = 40;
     private volatile byte[]? _gzip;
     private int _count;
+    private DateTime lastTruncationNote = DateTime.MinValue;
 
     public bool Enabled => config.SteamWebApiKey.Length > 0;
 
@@ -104,7 +105,13 @@ public sealed class ServerListFeed(AgentConfig config, Action<string> log)
         await CollectAsync(@"\appid\221100\empty\1", 0);      // servers with players
         await CollectAsync(@"\appid\221100\noplayers\1", 0);  // empty servers
         if (all.Count == 0) await CollectAsync(@"\appid\221100", 0); // in case Valve ignores those filters
-        if (truncated) log($"Warning: Steam's list is larger than the agent could fetch in {requests} requests; some empty servers may be missing.");
+        // Servers with players come in one request (a few thousand); only the long tail of empty
+        // listings can be too big to fetch completely, which doesn't matter to players.
+        if (truncated && lastTruncationNote < DateTime.UtcNow.AddHours(-24))
+        {
+            lastTruncationNote = DateTime.UtcNow;
+            log($"Note: Steam lists more empty servers than the agent fetches ({all.Count} servers in {requests} requests). All servers with players are included; this is fine.");
+        }
         return new BrowserFeed { Generated = DateTimeOffset.UtcNow, Servers = all.Values.ToList() };
     }
 

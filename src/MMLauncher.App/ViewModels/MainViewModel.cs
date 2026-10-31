@@ -20,7 +20,12 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _autoRefresh.Tick += async (_, _) => { if (!IsBusy && !IsSyncing) await RefreshAsync(); };
-        _clock.Tick += (_, _) => UpdateLastRefreshText();
+        _clock.Tick += (_, _) =>
+        {
+            UpdateLastRefreshText();
+            foreach (var s in Servers) s.TickClock();
+            if (SelectedServer is { } picked && !Servers.Contains(picked)) picked.TickClock();
+        };
         _clock.Start();
     }
 

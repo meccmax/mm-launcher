@@ -62,6 +62,12 @@ public sealed class AgentServerInfo
     /// <summary>Optional message for players, set in agent.jsonc.</summary>
     public string? Message { get; set; }
 
+    /// <summary>When the agent expects the next restart (from agent.jsonc's restart schedule), if known.</summary>
+    public DateTimeOffset? NextRestart { get; set; }
+
+    /// <summary>True when NextRestart is an estimate (interval since start) rather than a fixed time.</summary>
+    public bool RestartApproximate { get; set; }
+
     /// <summary>Client mods in -mod= order. This is the true list the server loads.</summary>
     public List<AgentMod> Mods { get; set; } = [];
 }

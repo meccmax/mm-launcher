@@ -8,6 +8,9 @@ public sealed class ServerExtras
 {
     public string DisplayName { get; set; } = "";
     public string Message { get; set; } = "";
+    /// <summary>Overrides the global restart schedule for this server (null = use the global one).</summary>
+    public double? RestartEveryHours { get; set; }
+    public List<string>? RestartTimes { get; set; }
 }
 
 /// <summary>
@@ -21,6 +24,8 @@ public sealed class AgentConfig
     public bool AllowPlainHttp { get; set; } = true;
     public string SteamWebApiKey { get; set; } = "";
     public int ServerListRefreshMinutes { get; set; } = 5;
+    public double RestartEveryHours { get; set; }
+    public List<string> RestartTimes { get; set; } = [];
     public List<string> ProcessNames { get; set; } = ["DayZServer_x64", "DayZServer"];
     // Problem reports from the launcher
     public bool AcceptReports { get; set; } = true;
@@ -68,7 +73,9 @@ public sealed class AgentConfig
                     // comments) appear, keeping every value that was already set.
                     // (Checks for the newest option; older files lack it too.)
                     cfg.SteamWebApiKey = (cfg.SteamWebApiKey ?? "").Trim();
-                    if (!text.Contains("\"ServerListRefreshMinutes\"", StringComparison.OrdinalIgnoreCase))
+                    cfg.RestartEveryHours = Math.Clamp(cfg.RestartEveryHours, 0, 168);
+                    cfg.RestartTimes ??= [];
+                    if (!text.Contains("\"RestartEveryHours\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -124,6 +131,15 @@ public sealed class AgentConfig
         sb.AppendLine("  // How often (minutes, 2 or more) to fetch a fresh list from Steam.");
         sb.AppendLine($"  \"ServerListRefreshMinutes\": {ServerListRefreshMinutes},");
         sb.AppendLine();
+        sb.AppendLine("  // ---------------- Restart schedule (shown in the launcher as \"Next restart\") ----------------");
+        sb.AppendLine("  // Use ONE of these. Each server can override them in \"Servers\" below.");
+        sb.AppendLine("  //   RestartEveryHours  restarts every N hours counted from when the server started");
+        sb.AppendLine("  //                      (how CFTools / BattlEye scheduled restarts work), e.g. 4");
+        sb.AppendLine("  //   RestartTimes       fixed clock times in this machine's time zone, e.g. [\"00:00\", \"06:00\"]");
+        sb.AppendLine("  // 0 and [] = no schedule (the launcher shows no restart times).");
+        sb.AppendLine($"  \"RestartEveryHours\": {J(RestartEveryHours)},");
+        sb.AppendLine($"  \"RestartTimes\": {J(RestartTimes)},");
+        sb.AppendLine();
         sb.AppendLine("  // Process names that count as a DayZ server (without .exe).");
         sb.AppendLine($"  \"ProcessNames\": {J(ProcessNames)},");
         sb.AppendLine();
@@ -151,13 +167,16 @@ public sealed class AgentConfig
         sb.AppendLine("  // Optional per-server extras, keyed by the server's GAME port (-port=).");
         sb.AppendLine("  //   DisplayName  name shown in the launcher instead of the cfg hostname");
         sb.AppendLine("  //   Message      short note shown to players (events, wipe dates, ...)");
+        sb.AppendLine("  //   RestartEveryHours / RestartTimes  (optional) this server's own restart schedule");
         sb.AppendLine("  // Leave as \"\" to use nothing. Copy the block for more servers.");
         sb.AppendLine("  \"Servers\": {");
         var entries = Servers.ToList();
         for (int i = 0; i < entries.Count; i++)
         {
             var (port, e) = entries[i];
-            sb.AppendLine($"    {J(port)}: {{ \"DisplayName\": {J(e.DisplayName)}, \"Message\": {J(e.Message)} }}{(i < entries.Count - 1 ? "," : "")}");
+            var schedule = (e.RestartEveryHours is { } h ? $", \"RestartEveryHours\": {J(h)}" : "") +
+                           (e.RestartTimes is { } t ? $", \"RestartTimes\": {J(t)}" : "");
+            sb.AppendLine($"    {J(port)}: {{ \"DisplayName\": {J(e.DisplayName)}, \"Message\": {J(e.Message)}{schedule} }}{(i < entries.Count - 1 ? "," : "")}");
         }
         sb.AppendLine("  }");
         sb.AppendLine("}");

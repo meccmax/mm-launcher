@@ -46,10 +46,13 @@ public partial class ServerViewModel : ObservableObject
     [ObservableProperty] private string _modNote = "";
     /// <summary>True once the mod list has been read (from the status reply or an agent), even if it's empty.</summary>
     [ObservableProperty] private bool _modsKnown;
+    [ObservableProperty] private DateTimeOffset? _nextRestart;
+    [ObservableProperty] private bool _restartApproximate;
 
     public ObservableCollection<ModViewModel> Mods { get; } = [];
 
-    public string MapLine => string.Join("  ·  ", new[] { Format.MapName(Map), TimeOfDay, Online ? QueueShort : "" }
+    public string MapLine => string.Join("  ·  ", new[] { Format.MapName(Map), TimeOfDay, Online ? QueueShort : "",
+            Online && MinutesToRestart is < 30 ? "restart " + RestartText.Replace("in ", "") : "" }
         .Where(s => !string.IsNullOrEmpty(s)));
     public string PlayersText => Online ? $"{Players}/{MaxPlayers}" : "—";
     public double PlayerFill => MaxPlayers > 0 ? Math.Clamp((double)Players / MaxPlayers, 0, 1) : 0;
@@ -73,6 +76,23 @@ public partial class ServerViewModel : ObservableObject
     public string UptimeText => UptimeSeconds <= 0 ? "—" : UptimeSeconds < 60 ? "< 1 min" : UptimeSeconds < 3600
         ? $"{UptimeSeconds / 60} min"
         : UptimeSeconds < 86400 ? $"{UptimeSeconds / 3600}h {UptimeSeconds % 3600 / 60}m" : $"{UptimeSeconds / 86400}d {UptimeSeconds % 86400 / 3600}h";
+    // ---- restart schedule (from the MM agent)
+    public bool HasRestart => NextRestart != null;
+    public double? MinutesToRestart => NextRestart is { } r ? (r - DateTimeOffset.Now).TotalMinutes : null;
+    public string RestartText => NextRestart is { } r ? Core.Agent.RestartSchedule.Describe(r, RestartApproximate, DateTimeOffset.Now) : "—";
+    public bool RestartSoon => MinutesToRestart is < 15 and > -10;
+    public string RestartWarning => MinutesToRestart is < 1
+        ? "This server is restarting about now. If you join, you'll probably be kicked within a minute or two."
+        : $"This server restarts {RestartText}. If you join now, you'll be kicked when it does.";
+
+    /// <summary>Called every few seconds so countdowns stay current.</summary>
+    public void TickClock()
+    {
+        if (NextRestart == null) return;
+        foreach (var n in new[] { nameof(MinutesToRestart), nameof(RestartText), nameof(RestartSoon), nameof(RestartWarning), nameof(MapLine) })
+            OnPropertyChanged(n);
+    }
+
     public bool HasMods => Mods.Count > 0;
     public bool WaitingForMods => !HasMods && !ModsKnown;
     public bool IsVanilla => !HasMods && ModsKnown;
@@ -118,6 +138,8 @@ public partial class ServerViewModel : ObservableObject
             Name = agent.DisplayName ?? agent.Name;
             Message = agent.Message ?? "";
             UptimeSeconds = agent.UptimeSeconds;
+            NextRestart = agent.NextRestart;
+            RestartApproximate = agent.RestartApproximate;
             GamePort ??= agent.GamePort;
             if (string.IsNullOrEmpty(Map)) Map = agent.Map;
             if (MaxPlayers == 0) MaxPlayers = agent.MaxPlayers;
@@ -140,6 +162,7 @@ public partial class ServerViewModel : ObservableObject
             ModsFromAgent = false;
             Message = "";
             UptimeSeconds = 0;
+            NextRestart = null;
         }
         RaiseDerived();
     }
@@ -193,7 +216,7 @@ public partial class ServerViewModel : ObservableObject
             nameof(PingText), nameof(PingGood), nameof(PingOk), nameof(PingBad), nameof(TimeText), nameof(MapText),
             nameof(AddressText), nameof(ConnectText), nameof(PortsText), nameof(StatusText), nameof(HasError), nameof(HasMods),
             nameof(HasMessage), nameof(HasModNote), nameof(ModsFromServer), nameof(ShowTruncatedWarning), nameof(UptimeText),
-            nameof(WaitingForMods), nameof(IsVanilla),
+            nameof(WaitingForMods), nameof(IsVanilla), nameof(HasRestart), nameof(RestartText), nameof(RestartSoon), nameof(RestartWarning),
         })
             OnPropertyChanged(name);
     }

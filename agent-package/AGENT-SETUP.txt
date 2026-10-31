@@ -85,6 +85,22 @@ against the published checksum, stops the service, swaps the exe and starts it
 again. agent.jsonc, agent.log and the reports folder are left alone.
 
 
+RESTART SCHEDULE (v0.7 and newer)
+---------------------------------
+Tell the agent when your servers restart and the launcher shows players "Next
+restart: in ~1h 52m", warns when a restart is under 15 minutes away, asks before
+joining a server that restarts within 5 minutes, and auto-rejoin waits for the
+restart instead of reconnecting just before it.
+In agent.jsonc, use ONE of:
+  "RestartEveryHours": 4,               restarts every 4 hours counted from when each
+                                        server started (CFTools / BattlEye schedules)
+  "RestartTimes": ["00:00", "04:00"],   fixed clock times, this machine's time zone
+A server with a different schedule can override it in its "Servers" entry, e.g.
+  "2302": { "DisplayName": "", "Message": "", "RestartEveryHours": 6 }
+Then restart the service. With RestartEveryHours, a manual restart starts the count
+over, so the launcher marks those times as approximate ("~").
+
+
 SERVER BROWSER FEED (v0.6 and newer)
 ------------------------------------
 The launcher's "All servers" tab lists every DayZ server. That list comes from

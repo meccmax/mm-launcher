@@ -65,6 +65,11 @@ public partial class MainViewModel
         if (server == null || !CanJoin) return;
         bool auto = _rejoinJoining;
         if (!auto) { StopRejoin(); _quickExits = 0; }
+        if (!auto && server.MinutesToRestart is <= 5 and > -10 && AskConfirm != null &&
+            !await AskConfirm("Restart coming up",
+                $"{server.Name} restarts {server.RestartText}. You'll be kicked when it does.\n\nTip: tick \"Rejoin automatically if DayZ closes\" and the launcher brings you back once it's up again.",
+                "Join anyway"))
+            return;
         Log.Info($"{(auto ? "Auto-rejoin" : "Join requested")}: {server.Name} ({server.ConnectText})");
 
         var mods = await PrepareModsAsync(server, askSteamAnyway: false);

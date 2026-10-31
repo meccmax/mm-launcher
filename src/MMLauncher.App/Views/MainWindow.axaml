@@ -225,6 +225,9 @@
             <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="DLC REQUIRED" /><TextBlock Classes="value" Text="{Binding DlcText}" /></StackPanel></Border>
             <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="VERSION" /><TextBlock Classes="value" Text="{Binding Version}" /></StackPanel></Border>
             <Border Classes="tile" IsVisible="{Binding ModsFromAgent}"><StackPanel><TextBlock Classes="label" Text="UPTIME" /><TextBlock Classes="value" Text="{Binding UptimeText}" /></StackPanel></Border>
+            <Border Classes="tile" IsVisible="{Binding HasRestart}" ToolTip.Tip="From the MM agent's restart schedule. ~ means estimated from when the server last started.">
+              <StackPanel><TextBlock Classes="label" Text="NEXT RESTART" />
+                <TextBlock Classes="value" Text="{Binding RestartText}" Classes.soon="{Binding RestartSoon}" /></StackPanel></Border>
           </WrapPanel>
 
           <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
@@ -252,6 +255,10 @@
                     IsChecked="{Binding $parent[Window].((vm:MainViewModel)DataContext).AutoRejoin}"
                     ToolTip.Tip="If DayZ crashes, or you quit to update mods, the launcher updates mods and rejoins the server you were on. If the server is restarting, it waits until it's back plus a random minute or two so everyone doesn't connect at once. You can cancel the countdown." />
 
+          <Border Background="#3A2C0E" BorderBrush="{StaticResource Warn}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,10,0,0"
+                  IsVisible="{Binding RestartSoon}">
+            <TextBlock Text="{Binding RestartWarning}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12" />
+          </Border>
           <Border Background="#3A2C0E" CornerRadius="4" Padding="12,8" Margin="0,10,0,0" IsVisible="{Binding HasError}">
             <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12" />
           </Border>

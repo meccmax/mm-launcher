@@ -77,6 +77,11 @@ public static partial class ServerDetector
         }
 
         var extras = config.ExtrasFor(gamePort);
+        var restart = MMLauncher.Core.Agent.RestartSchedule.Next(
+            DateTimeOffset.Now,
+            p.Started is { } started ? new DateTimeOffset(started) : null,
+            extras?.RestartEveryHours ?? config.RestartEveryHours,
+            extras?.RestartTimes ?? config.RestartTimes);
         return new AgentServerInfo
         {
             Name = cfg.Hostname?.Trim() is { Length: > 0 } h ? h : $"DayZ server on port {gamePort}",
@@ -87,6 +92,8 @@ public static partial class ServerDetector
             MaxPlayers = cfg.MaxPlayers ?? 0,
             Map = cfg.Map ?? "",
             UptimeSeconds = p.Started is { } s ? (long)Math.Max(0, (DateTime.Now - s).TotalSeconds) : 0,
+            NextRestart = restart?.At,
+            RestartApproximate = restart?.Approximate ?? false,
             Mods = mods,
         };
     }

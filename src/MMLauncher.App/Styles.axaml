@@ -59,6 +59,8 @@
     <Setter Property="Foreground" Value="{StaticResource Orange}" />
   </Style>
 
+  <Style Selector="TextBlock.value.soon"><Setter Property="Foreground" Value="{StaticResource Warn}" /></Style>
+
   <!-- List tabs -->
   <Style Selector="Button.tab">
     <Setter Property="Background" Value="Transparent" />
