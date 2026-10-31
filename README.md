@@ -43,7 +43,7 @@ The left panel has four tabs:
 
 Any server picked in any tab opens in the same details panel, with the full mod list, JOIN SERVER (with mod sync), Verify files, Repair and auto-rejoin. Vanilla servers with no mods can be joined too.
 
-The full list comes from Valve's Steam Web API (`IGameServersService/GetServerList`) through the MM Server Agent, which holds the API key (`SteamWebApiKey` in `agent.jsonc`) so it never ships in the launcher. The agent refreshes it every few minutes and serves it gzip-compressed over the encrypted connection at `/mm-agent/v1/browser`. The launcher keeps a copy (`browser-cache.json.gz`), so the tab opens instantly. Favorites and recent servers are saved in `favorites.jsonc`.
+The full list comes from Valve's Steam Web API (`IGameServersService/GetServerList`) through the MM Server Agent, which holds the API key (`SteamWebApiKey` in `agent.jsonc`) so it never ships in the launcher. Valve answers at most 10,000 servers per request, so the agent asks in parts (servers with players, empty servers, then by map where a part is still too big) and merges them. It refreshes the list every few minutes and serves it gzip-compressed over the encrypted connection at `/mm-agent/v1/browser`. The launcher keeps a copy (`browser-cache.json.gz`), so the tab opens instantly. Favorites and recent servers are saved in `favorites.jsonc`.
 
 ### Join + mod sync (milestones 2 and 3)
 

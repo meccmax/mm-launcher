@@ -520,6 +520,69 @@ Console.WriteLine("== Server browser ==");
     feedStop.Cancel();
     stopFeedServer.Cancel();
 
+    // Valve answers at most 10,000 servers per request; the agent must ask in parts.
+    var universe = Enumerable.Range(0, 26000).Select(i => (
+        Addr: $"10.{i / 65536 % 256}.{i / 256 % 256}.{i % 256}:2303",
+        Map: (i % 13) switch { < 5 => "chernarusplus", < 9 => "nasdara", < 11 => "enoch", < 12 => "namalsk", _ => "sakhal" },
+        Players: i % 9 == 0 ? 5 : 0)).ToList();
+    bool Matches((string Addr, string Map, int Players) e, string filter)
+    {
+        var t = filter.Split('\\', StringSplitOptions.RemoveEmptyEntries);
+        bool Cond(string k, string v) => k switch
+        {
+            "empty" => e.Players > 0,
+            "noplayers" => e.Players == 0,
+            "map" => e.Map.Equals(v, StringComparison.OrdinalIgnoreCase),
+            _ => true,
+        };
+        for (int i = 0; i + 1 < t.Length; i += 2)
+        {
+            if (t[i] == "nor")
+            {
+                int n = int.Parse(t[i + 1]);
+                for (int j = 0; j < n; j++, i += 2)
+                    if (Cond(t[i + 2], t[i + 3])) return false;
+                continue;
+            }
+            if (!Cond(t[i], t[i + 1])) return false;
+        }
+        return true;
+    }
+    using var cappedSteam = new HttpListener();
+    cappedSteam.Prefixes.Add("http://127.0.0.1:8096/");
+    cappedSteam.Start();
+    int cappedRequests = 0;
+    _ = Task.Run(async () =>
+    {
+        while (cappedSteam.IsListening)
+        {
+            HttpListenerContext ctx;
+            try { ctx = await cappedSteam.GetContextAsync(); } catch { break; }
+            Interlocked.Increment(ref cappedRequests);
+            var filter = ctx.Request.QueryString["filter"] ?? "";
+            var hits = universe.Where(e => Matches(e, filter)).Take(10000).Select(e => new Dictionary<string, object>
+            {
+                ["addr"] = e.Addr, ["gameport"] = 2302, ["name"] = "S " + e.Addr, ["appid"] = 221100, ["map"] = e.Map,
+                ["players"] = e.Players, ["max_players"] = 60, ["gametype"] = "battleye", ["version"] = "1",
+            });
+            var bytes = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(new { response = new { servers = hits } });
+            await ctx.Response.OutputStream.WriteAsync(bytes);
+            ctx.Response.Close();
+        }
+    });
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8096");
+    File.Delete(Path.Combine(AppContext.BaseDirectory, MMServerAgent.ServerListFeed.CacheFile)); // start without the earlier test's copy
+    var capLog = new List<string>();
+    var capSvc = new MMServerAgent.ServerListFeed(new MMServerAgent.AgentConfig { SteamWebApiKey = "good" }, m => { lock (capLog) capLog.Add(m); });
+    using var capStop = new CancellationTokenSource();
+    var capRun = capSvc.RunAsync(capStop.Token);
+    for (int i = 0; i < 300 && capSvc.Gzip == null; i++) await Task.Delay(100);
+    capStop.Cancel();
+    cappedSteam.Stop();
+    lock (capLog) Check(capSvc.Count == 26000 && capLog.All(l => !l.Contains("Warning")),
+        $"agent gets past Steam's 10,000-per-request limit ({capSvc.Count} of 26000 servers in {cappedRequests} requests)");
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8098");
+
     var badLog = new List<string>();
     var badSvc = new MMServerAgent.ServerListFeed(new MMServerAgent.AgentConfig { SteamWebApiKey = "wrongkey" }, m => { lock (badLog) badLog.Add(m); });
     using var badStop = new CancellationTokenSource();

@@ -15,6 +15,9 @@ public sealed class BrowserFeed
     [JsonPropertyName("generated")] public DateTimeOffset Generated { get; set; }
     [JsonPropertyName("servers")] public List<BrowserEntry> Servers { get; set; } = [];
 
+    /// <summary>How many entries Valve sent before filtering (to spot its 10,000-per-request limit).</summary>
+    [JsonIgnore] public int RawCount { get; set; }
+
     public const string Path = "/mm-agent/v1/browser";
     public const int MaxBytes = 32 * 1024 * 1024; // decompressed; far above any real list
 
@@ -71,6 +74,7 @@ public sealed class BrowserFeed
             return feed; // Valve answers {"response":{}} when nothing matches
         foreach (var s in servers.EnumerateArray())
         {
+            feed.RawCount++;
             if (s.TryGetProperty("appid", out var app) && app.TryGetInt32(out var appId) && appId != 221100) continue;
             var entry = new BrowserEntry
             {

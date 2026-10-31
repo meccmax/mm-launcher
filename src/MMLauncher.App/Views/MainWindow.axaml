@@ -75,7 +75,7 @@
             </Grid>
             <Grid ColumnDefinitions="*,6,*">
               <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding PerspectiveChoices}" SelectedIndex="{Binding PerspectiveIndex}"
-                        ToolTip.Tip="Camera: first person only, or third person allowed" />
+                        ToolTip.Tip="Camera: first person only, or third person allowed. Taken from each server's own setting; a few servers force 1PP with a mod instead and show as 3PP here." />
               <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding ModsChoices}" SelectedIndex="{Binding ModsIndex}"
                         ToolTip.Tip="Based on the tags each server reports" />
             </Grid>
