@@ -28,6 +28,8 @@ public partial class MainViewModel
     [ObservableProperty] private bool _syncIndeterminate;
     [ObservableProperty] private bool _syncFailed;
     [ObservableProperty] private bool _syncSucceeded;
+    /// <summary>Shown in orange instead of red: nothing is broken, but something needs doing.</summary>
+    [ObservableProperty] private bool _syncWarning;
 
     // Optional buttons on the result panel (e.g. "Repair 3 mods", "Join anyway").
     [ObservableProperty] private string _panelActionText = "";
@@ -156,29 +158,46 @@ public partial class MainViewModel
     // ------------------------------------------------------------------ Verify + Repair
 
     [RelayCommand]
-    private Task VerifyFilesAsync()
+    private async Task VerifyFilesAsync()
     {
         var server = SelectedServer;
-        if (server == null || IsSyncing) return Task.CompletedTask;
+        if (server == null || IsSyncing) return;
         DetectSteam();
-        var damaged = CheckHealth(server);
-        int onDisk = server.Mods.Count(m => _steam?.Mods.ContainsKey(m.WorkshopId) == true);
-        int missing = server.Mods.Count - onDisk;
-        Log.Info($"Verify {server.Name}: {onDisk} on disk, {damaged.Count} damaged, {missing} not downloaded.");
 
-        if (damaged.Count == 0)
+        // Versions too, not just files: fetch fresh Workshop details so an update published
+        // a few minutes ago shows up.
+        var workshop = await SafeWorkshopAsync(server);
+        server.ApplyModDetails(workshop, _steam);
+
+        var damaged = CheckHealth(server);
+        var outdated = server.Mods.Where(m => m.IsUpdate).ToList();
+        var notDownloaded = server.Mods.Where(m => m.IsMissing && !m.IsDamaged && m.WorkshopId != 0).ToList();
+        int onDisk = server.Mods.Count(m => _steam?.Mods.ContainsKey(m.WorkshopId) == true);
+        Log.Info($"Verify {server.Name}: {onDisk} on disk, {damaged.Count} damaged, {outdated.Count} outdated, {notDownloaded.Count} not downloaded.");
+
+        if (damaged.Count > 0)
         {
-            ShowResult(true, "Mod files look good",
-                $"Checked {onDisk} downloaded mod(s): folders, .pbo files and signatures are all in place." +
-                (missing > 0 ? $" {missing} mod(s) aren't downloaded yet; Update mods or JOIN SERVER will get them." : ""));
-            SetPanelActions(("Repair all mods anyway", () => RepairAllAsync()), null);
-        }
-        else
-        {
-            ShowResult(false, $"{damaged.Count} mod(s) look damaged", Names(damaged) + ". Hover a red \"Damaged\" badge for details.");
+            ShowResult(false, $"{damaged.Count} mod(s) look damaged", Names(damaged) + ". Hover a red \"Damaged\" badge for details." +
+                (outdated.Count + notDownloaded.Count > 0 ? $" Also {outdated.Count + notDownloaded.Count} mod(s) need downloading or updating." : ""));
             SetPanelActions(($"Repair {damaged.Count} mod(s)", () => RepairModsAsync(server, damaged, confirm: false, joinAfter: false)), null);
+            return;
         }
-        return Task.CompletedTask;
+
+        if (outdated.Count + notDownloaded.Count > 0)
+        {
+            var parts = new List<string>();
+            if (outdated.Count > 0) parts.Add($"{outdated.Count} {(outdated.Count == 1 ? "has" : "have")} a newer version on the Workshop: {Names(outdated)}");
+            if (notDownloaded.Count > 0) parts.Add($"{notDownloaded.Count} {(notDownloaded.Count == 1 ? "isn't" : "aren't")} downloaded yet: {Names(notDownloaded)}");
+            ShowResult(false, "Files are fine, but mods need updating",
+                $"Checked {onDisk} downloaded mod(s): no damaged files. {string.Join(". ", parts)}.");
+            SyncWarning = true;
+            SetPanelActions(($"Update {outdated.Count + notDownloaded.Count} mod(s)", UpdateModsAsync), null);
+            return;
+        }
+
+        ShowResult(true, "Mods are up to date and look good",
+            $"Checked {onDisk} mod(s): all match the latest Workshop version, and their folders, .pbo files and signatures are in place.");
+        SetPanelActions(("Repair all mods anyway", () => RepairAllAsync()), null);
     }
 
     [RelayCommand]
@@ -340,6 +359,7 @@ public partial class MainViewModel
     {
         SyncFailed = false;
         SyncSucceeded = false;
+        SyncWarning = false;
         SetPanelActions(null, null);
     }
 
@@ -462,6 +482,7 @@ public partial class MainViewModel
         SyncDetail = detail;
         SyncSucceeded = ok;
         SyncFailed = !ok;
+        SyncWarning = false;
         if (!ok) Log.Warn($"{title}: {detail}");
     }
 }

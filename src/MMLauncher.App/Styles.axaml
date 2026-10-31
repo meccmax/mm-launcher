@@ -186,6 +186,11 @@
     <Setter Property="BorderBrush" Value="{StaticResource Bad}" />
   </Style>
   <Style Selector="Border.sync.failed TextBlock.synctitle"><Setter Property="Foreground" Value="{StaticResource Bad}" /></Style>
+  <Style Selector="Border.sync.warn">
+    <Setter Property="Background" Value="#2E2410" />
+    <Setter Property="BorderBrush" Value="{StaticResource Warn}" />
+  </Style>
+  <Style Selector="Border.sync.warn TextBlock.synctitle"><Setter Property="Foreground" Value="{StaticResource Warn}" /></Style>
   <Style Selector="Border.sync.done">
     <Setter Property="Background" Value="#132A19" />
     <Setter Property="BorderBrush" Value="{StaticResource Good}" />

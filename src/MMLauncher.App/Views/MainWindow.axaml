@@ -276,7 +276,7 @@
             <TextBlock Text="{Binding RejoinDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" />
           </StackPanel>
         </Border>
-        <Border Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}"
+        <Border Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}" Classes.warn="{Binding SyncWarning}"
                 IsVisible="{Binding ShowSyncPanel}" Margin="0,14,0,0">
           <StackPanel Spacing="8">
             <DockPanel>
