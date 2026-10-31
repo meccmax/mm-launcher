@@ -1,0 +1,242 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MMLauncher.App.ViewModels"
+        x:Class="MMLauncher.App.Views.MainWindow"
+        x:DataType="vm:MainViewModel"
+        Title="MM Launcher — Misfit Mercenaries"
+        Icon="avares://MMLauncher/Assets/mm.ico"
+        Width="1200" Height="780" MinWidth="960" MinHeight="600"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Bg}">
+
+  <Grid RowDefinitions="Auto,*,Auto">
+
+    <!-- ============ Header ============ -->
+    <Border Grid.Row="0" Background="#09090B" BorderBrush="{StaticResource Orange}" BorderThickness="0,0,0,2" Padding="18,12">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
+          <Image Source="avares://MMLauncher/Assets/mm.png" Width="40" Height="40" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="MISFIT MERCENARIES" FontSize="19" FontWeight="Black" LetterSpacing="1.5" Foreground="{StaticResource Orange}" />
+            <TextBlock Text="SERVER LAUNCHER" FontSize="11" FontWeight="SemiBold" LetterSpacing="4" Foreground="{StaticResource Silver}" />
+          </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Classes="ghost" Content="Report a problem" Command="{Binding ReportProblemCommand}"
+                  ToolTip.Tip="Crashed or kicked? Bundle the logs and send them to staff" />
+          <Button Classes="ghost" Content="Settings" Command="{Binding OpenSettingsCommand}"
+                  ToolTip.Tip="Folders, launch options and maintenance" />
+          <Button Classes="ghost" Content="Rescan" Command="{Binding RescanCommand}"
+                  ToolTip.Tip="Scan the MM hosts again for new or moved servers" />
+          <Button Classes="primary" Content="Refresh" Command="{Binding RefreshCommand}"
+                  ToolTip.Tip="Update player counts, ping and mod status now" />
+        </StackPanel>
+
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,18,0">
+          <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Right" FontSize="12" Foreground="{StaticResource Silver}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding LastRefreshText}" HorizontalAlignment="Right" FontSize="11" Classes="muted" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ============ Body ============ -->
+    <Grid Grid.Row="1" ColumnDefinitions="390,*">
+
+      <!-- Server list -->
+      <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,*">
+          <TextBlock Grid.Row="0" Classes="label" Text="{Binding ServerCountText}" Margin="16,16,16,10" />
+          <ListBox Grid.Row="1" Classes="servers" Margin="10,0,10,10"
+                   ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ServerViewModel">
+                <Grid ColumnDefinitions="4,*">
+                  <Border Classes="accent" Grid.Column="0" Background="Transparent" CornerRadius="4,0,0,4" />
+                  <Grid Grid.Column="1" Margin="12,10" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
+                    <Ellipse Grid.Row="0" Grid.Column="0" Classes="dot" Classes.online="{Binding Online}"
+                             Classes.offline="{Binding !Online}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding PingText}" FontSize="12" Margin="10,0,0,0"
+                               Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PlayersText}" FontSize="12" FontWeight="SemiBold"
+                               Foreground="{StaticResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
+                    <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}"
+                                 Margin="0,8,0,0" IsVisible="{Binding Online}" />
+                  </Grid>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <!-- Scanning / empty states -->
+          <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="30" Spacing="12" IsVisible="{Binding IsScanning}">
+            <ProgressBar IsIndeterminate="True" Foreground="{StaticResource Orange}" />
+            <TextBlock Text="Looking for MM servers…" HorizontalAlignment="Center" FontWeight="SemiBold" />
+            <TextBlock Text="{Binding HostsText}" HorizontalAlignment="Center" Classes="muted" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" />
+          </StackPanel>
+          <StackPanel Grid.Row="1" VerticalAlignment="Center" Margin="30" Spacing="10" IsVisible="{Binding NoServers}">
+            <TextBlock Text="No servers found" HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="15" />
+            <TextBlock Text="Check your internet connection, then click Rescan." HorizontalAlignment="Center" Classes="muted"
+                       TextWrapping="Wrap" TextAlignment="Center" />
+          </StackPanel>
+        </Grid>
+      </Border>
+
+      <!-- Details -->
+      <Grid Grid.Column="1" IsVisible="{Binding HasSelection}" RowDefinitions="Auto,Auto,Auto,*" Margin="26,20,26,12">
+
+        <StackPanel Grid.Row="0" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" Spacing="4">
+          <StackPanel Orientation="Horizontal" Spacing="10">
+            <Ellipse Classes="dot" Classes.online="{Binding Online}" Classes.offline="{Binding !Online}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding StatusText}" Classes="label" VerticalAlignment="Center" />
+            <Border Background="#3D1916" CornerRadius="3" Padding="6,1" IsVisible="{Binding Passworded}">
+              <TextBlock Text="PASSWORD" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Bad}" />
+            </Border>
+          </StackPanel>
+          <TextBlock Text="{Binding Name}" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" />
+          <SelectableTextBlock Text="{Binding PortsText}" Classes="muted" FontSize="12" Foreground="{StaticResource Muted}" />
+          <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"
+                     IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <Border Background="#2A1D12" BorderBrush="{StaticResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3"
+                  Padding="12,8" Margin="0,8,0,0" IsVisible="{Binding HasMessage}" HorizontalAlignment="Left">
+            <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="13" />
+          </Border>
+
+          <WrapPanel Margin="0,14,0,0">
+            <Border Classes="tile" MinWidth="150">
+              <StackPanel>
+                <TextBlock Classes="label" Text="PLAYERS" />
+                <TextBlock Classes="value" Text="{Binding PlayersText}" />
+                <ProgressBar Classes="players" Value="{Binding PlayerFill}" Margin="0,6,0,0" />
+              </StackPanel>
+            </Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="QUEUE" /><TextBlock Classes="value" Text="{Binding QueueText}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="MAP" /><TextBlock Classes="value" Text="{Binding MapText}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="IN-GAME TIME" /><TextBlock Classes="value" Text="{Binding TimeText}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="PING" />
+              <TextBlock Classes="value ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" Text="{Binding PingText}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="VIEW" /><TextBlock Classes="value" Text="{Binding Perspective}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="DLC REQUIRED" /><TextBlock Classes="value" Text="{Binding DlcText}" /></StackPanel></Border>
+            <Border Classes="tile"><StackPanel><TextBlock Classes="label" Text="VERSION" /><TextBlock Classes="value" Text="{Binding Version}" /></StackPanel></Border>
+            <Border Classes="tile" IsVisible="{Binding ModsFromAgent}"><StackPanel><TextBlock Classes="label" Text="UPTIME" /><TextBlock Classes="value" Text="{Binding UptimeText}" /></StackPanel></Border>
+          </WrapPanel>
+
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
+            <Button Classes="primary" Content="JOIN SERVER"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).JoinCommand}"
+                    IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanJoin}"
+                    ToolTip.Tip="Download any missing or outdated mods through Steam, then start DayZ connected to this server" />
+            <Button Classes="ghost" Content="Update mods"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).UpdateModsCommand}"
+                    IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanUpdateMods}"
+                    ToolTip.Tip="Download and update this server's mods without joining (e.g. before a wipe)" />
+            <Button Classes="ghost" Content="Verify files"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).VerifyFilesCommand}"
+                    IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanUpdateMods}"
+                    ToolTip.Tip="Check this server's downloaded mods for missing or broken files, and repair them" />
+            <Button Classes="ghost" Content="Copy address" Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).CopyAddressCommand}"
+                    ToolTip.Tip="{Binding ConnectText}" />
+          </StackPanel>
+
+          <Border Background="#3A2C0E" CornerRadius="4" Padding="12,8" Margin="0,10,0,0" IsVisible="{Binding HasError}">
+            <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12" />
+          </Border>
+        </StackPanel>
+
+        <!-- Download / launch progress -->
+        <Border Grid.Row="1" Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}"
+                IsVisible="{Binding ShowSyncPanel}" Margin="0,14,0,0">
+          <StackPanel Spacing="8">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Classes="link" Content="Cancel" Command="{Binding CancelSyncCommand}" IsVisible="{Binding IsSyncing}" />
+              <Button DockPanel.Dock="Right" Classes="link" Content="Dismiss" Command="{Binding DismissSyncCommand}" IsVisible="{Binding !IsSyncing}" />
+              <Button DockPanel.Dock="Right" Classes="link" Content="Open log" Command="{Binding OpenLogCommand}" IsVisible="{Binding SyncFailed}" />
+              <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </DockPanel>
+            <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
+                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
+            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                       IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0" IsVisible="{Binding HasPanelAction}">
+              <Button Classes="primary" Padding="14,5" FontSize="12" Content="{Binding PanelActionText}" Command="{Binding PanelAction}" />
+              <Button Classes="ghost" Padding="14,5" FontSize="12" Content="{Binding PanelAction2Text}" Command="{Binding PanelAction2}"
+                      IsVisible="{Binding HasPanelAction2}" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <!-- Mods header -->
+        <StackPanel Grid.Row="2" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" Margin="0,22,0,8" Spacing="4">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Classes="label" Text="REQUIRED MODS" VerticalAlignment="Bottom" />
+            <Border DockPanel.Dock="Right" Background="#16351F" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
+                    ToolTip.Tip="This list comes from the MM Server Agent, which reads the server's own startup line. It is complete.">
+              <TextBlock Text="VERIFIED BY MM AGENT" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Good}" />
+            </Border>
+            <Border DockPanel.Dock="Right" Background="#2A2A31" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromServer}"
+                    ToolTip.Tip="No MM agent answered for this server, so the list comes from the server's status reply.">
+              <TextBlock Text="FROM SERVER STATUS" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Silver}" />
+            </Border>
+            <TextBlock Text="{Binding ModSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
+          </DockPanel>
+          <TextBlock IsVisible="{Binding ShowTruncatedWarning}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"
+                     Text="This server reported more mods than fit in its status reply, so this list may be incomplete. (Raise steamProtocolMaxDataSize in serverDZ.cfg, or run the MM Server Agent.)" />
+          <TextBlock IsVisible="{Binding HasModNote}" Text="{Binding ModNote}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="96,*,90,120,150" Margin="10,10,10,0">
+            <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
+            <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
+            <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" />
+          </Grid>
+        </StackPanel>
+
+        <!-- Mods list -->
+        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1">
+          <Grid>
+            <ListBox Classes="mods" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" ItemsSource="{Binding Mods}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:ModViewModel">
+                  <Grid ColumnDefinitions="96,*,90,120,150" ToolTip.Tip="{Binding Tooltip}">
+                    <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
+                            Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding StateText}" />
+                    </Border>
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted"
+                               HorizontalAlignment="Right" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                      <Button Classes="link" Content="Repair" IsVisible="{Binding CanRepair}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RepairModCommand}" CommandParameter="{Binding}"
+                              ToolTip.Tip="Delete this mod's files and download it fresh through Steam" />
+                      <Button Classes="link" Content="Workshop" Command="{Binding OpenWorkshopCommand}" />
+                    </StackPanel>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="Waiting for this server's mod list…" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                       DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" IsVisible="{Binding !HasMods}" />
+          </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+
+    <!-- ============ Status bar ============ -->
+    <Border Grid.Row="2" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,6">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="link" Content="Settings folder" Command="{Binding OpenSettingsFolderCommand}"
+                ToolTip.Tip="Open the folder with settings.jsonc and the server cache" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding AgentText}" FontSize="11" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,14,0" />
+        <TextBlock Text="{Binding SteamText}" FontSize="11" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

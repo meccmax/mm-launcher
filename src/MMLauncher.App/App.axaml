@@ -1,0 +1,31 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="MMLauncher.App.App"
+             RequestedThemeVariant="Dark">
+
+  <!-- MM colorway: orange, black, silver. Change these to re-skin the whole launcher. -->
+  <Application.Resources>
+    <Color x:Key="MmOrange">#FF7A00</Color>
+    <SolidColorBrush x:Key="Orange" Color="{StaticResource MmOrange}" />
+    <SolidColorBrush x:Key="OrangeSoft" Color="#33FF7A00" />
+    <SolidColorBrush x:Key="Bg" Color="#0D0D0F" />
+    <SolidColorBrush x:Key="Panel" Color="#151518" />
+    <SolidColorBrush x:Key="Panel2" Color="#1C1C21" />
+    <SolidColorBrush x:Key="Line" Color="#2A2A31" />
+    <SolidColorBrush x:Key="Silver" Color="#C0C4CC" />
+    <SolidColorBrush x:Key="Text" Color="#ECECEE" />
+    <SolidColorBrush x:Key="Muted" Color="#8C9099" />
+    <SolidColorBrush x:Key="Good" Color="#3FB950" />
+    <SolidColorBrush x:Key="Warn" Color="#E3A21A" />
+    <SolidColorBrush x:Key="Bad" Color="#F05A4F" />
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme>
+      <FluentTheme.Palettes>
+        <ColorPaletteResources x:Key="Dark" Accent="#FF7A00" RegionColor="#0D0D0F" />
+      </FluentTheme.Palettes>
+    </FluentTheme>
+    <StyleInclude Source="avares://MMLauncher/Styles.axaml" />
+  </Application.Styles>
+</Application>

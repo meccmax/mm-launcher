@@ -1,0 +1,148 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MMLauncher.App.ViewModels"
+        x:Class="MMLauncher.App.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="Settings — MM Launcher"
+        Width="760" Height="720" MinWidth="620" MinHeight="520"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://MMLauncher/Assets/mm.ico"
+        Background="{StaticResource Bg}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="Foreground" Value="{StaticResource Orange}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.5" />
+      <Setter Property="Margin" Value="0,6,0,2" />
+    </Style>
+    <Style Selector="TextBlock.field">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.help">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.status">
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Foreground" Value="{StaticResource Bad}" />
+    </Style>
+    <Style Selector="TextBlock.status.ok">
+      <Setter Property="Foreground" Value="{StaticResource Good}" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="16,14" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="*,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Margin="22,18,22,18" Spacing="14">
+
+        <!-- ================= Folders ================= -->
+        <TextBlock Classes="section" Text="FOLDERS" />
+        <TextBlock Classes="help" Text="Leave a box empty to find it automatically (recommended). Set one only if the launcher can't find it, or finds the wrong one." />
+
+        <Border Classes="card">
+          <StackPanel Spacing="16">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Steam folder" />
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBox Text="{Binding SteamPath}" Watermark="Automatic" />
+                <Button Grid.Column="1" Classes="ghost" Content="Browse…" Command="{Binding BrowseCommand}" CommandParameter="steam" />
+                <Button Grid.Column="2" Classes="link" Content="Automatic" Command="{Binding AutomaticCommand}" CommandParameter="steam" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Classes="status" Classes.ok="{Binding SteamOk}" Text="{Binding SteamStatus}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="DayZ folder" />
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBox Text="{Binding DayZPath}" Watermark="Automatic" />
+                <Button Grid.Column="1" Classes="ghost" Content="Browse…" Command="{Binding BrowseCommand}" CommandParameter="dayz" />
+                <Button Grid.Column="2" Classes="link" Content="Automatic" Command="{Binding AutomaticCommand}" CommandParameter="dayz" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Classes="status" Classes.ok="{Binding DayZOk}" Text="{Binding DayZStatus}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="DayZ workshop mods folder" />
+              <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <TextBox Text="{Binding WorkshopPath}" Watermark="Automatic" />
+                <Button Grid.Column="1" Classes="ghost" Content="Browse…" Command="{Binding BrowseCommand}" CommandParameter="workshop" />
+                <Button Grid.Column="2" Classes="link" Content="Automatic" Command="{Binding AutomaticCommand}" CommandParameter="workshop" VerticalAlignment="Center" />
+              </Grid>
+              <TextBlock Classes="status" Classes.ok="{Binding WorkshopOk}" Text="{Binding WorkshopStatus}" />
+              <TextBlock Classes="help" Text="Steam always downloads DayZ mods into the same Steam library DayZ is installed in. Only point this somewhere else if your mods really live there." />
+            </StackPanel>
+
+            <Button Classes="ghost" Content="Detect again" Command="{Binding DetectAgainCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Border>
+
+        <!-- ================= Launch ================= -->
+        <TextBlock Classes="section" Text="JOINING A SERVER" />
+        <Border Classes="card">
+          <StackPanel Spacing="14">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="How to start DayZ" />
+              <ComboBox ItemsSource="{Binding LaunchMethods}" SelectedIndex="{Binding LaunchMethodIndex}" HorizontalAlignment="Stretch" />
+              <TextBlock Classes="help" Text="{Binding LaunchMethodHelp}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Profile name" />
+              <TextBox Text="{Binding PlayerName}" Watermark="Use DayZ's own profile name" />
+              <TextBlock Classes="help" Text="The name other players see. Leave empty to keep the one set in DayZ." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Extra start parameters" />
+              <TextBox Text="{Binding ExtraParameters}" FontFamily="Consolas,Menlo,monospace" />
+              <TextBlock Classes="help" Text="Added to every launch. Default: -nolauncher -world=empty (skip DayZ's own launcher window and load faster). Leave as is unless you know you need something." />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Refresh server status every (seconds)" />
+              <NumericUpDown Value="{Binding AutoRefreshSeconds}" Minimum="0" Maximum="3600" Increment="10" FormatString="0" Width="160" HorizontalAlignment="Left" />
+              <TextBlock Classes="help" Text="0 = only when you click Refresh. Minimum 10." />
+            </StackPanel>
+
+            <Button Classes="link" Content="Reset these to defaults" Command="{Binding ResetLaunchOptionsCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Border>
+
+        <!-- ================= Maintenance ================= -->
+        <TextBlock Classes="section" Text="MAINTENANCE" />
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Classes="help" Text="To check or repair a server's mods, select the server and use Verify files, or the Repair link next to any mod." />
+            <WrapPanel>
+              <Button Classes="ghost" Content="Rebuild mod links" Command="{Binding RebuildModLinksCommand}" Margin="0,0,8,8"
+                      ToolTip.Tip="Removes the shortcuts in DayZ\!MMWorkshop. They're recreated on the next join. Doesn't touch any mod files." />
+              <Button Classes="ghost" Content="Open launcher folder" Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8" />
+              <Button Classes="ghost" Content="Open log" Command="{Binding OpenLogFileCommand}" Margin="0,0,8,8" />
+            </WrapPanel>
+            <TextBlock Classes="help" Foreground="{StaticResource Silver}" Text="{Binding MaintenanceMessage}"
+                       IsVisible="{Binding MaintenanceMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+
+    <Border Grid.Row="1" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" />
+        <Button Classes="primary" Content="Save" Command="{Binding SaveCommand}" />
+      </StackPanel>
+    </Border>
+  </Grid>
+</Window>

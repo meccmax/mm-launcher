@@ -1,0 +1,11 @@
+# Build output
+bin/
+obj/
+dist/
+*.user
+.vs/
+__pycache__/
+
+# Test/scratch output
+*.log
+reports/

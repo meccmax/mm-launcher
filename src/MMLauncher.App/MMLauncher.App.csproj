@@ -1,0 +1,48 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MM Launcher: the window players see.
+    WinExe = no console window behind the app on Windows.
+    Publishing (see build.bat) produces one self-contained MMLauncher.exe that
+    runs on any 64-bit Windows 10/11 PC with nothing else installed.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MMLauncher</AssemblyName>
+    <RootNamespace>MMLauncher.App</RootNamespace>
+    <ApplicationIcon>Assets\mm.ico</ApplicationIcon>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <Version>0.4.0</Version>
+    <Product>MM Launcher</Product>
+    <Company>Misfit Mercenaries</Company>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+    <!-- Valve's Steam API library, taken straight from the Facepunch.Steamworks NuGet package
+         (not kept in this repo) and embedded so the launcher stays a single exe.
+         Extracted to %LOCALAPPDATA%\MMLauncher\native when first needed. -->
+    <EmbeddedResource Include="$(NuGetPackageRoot)facepunch.steamworks/2.3.3/content/steam_api64.dll" LogicalName="steam_api64.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- Steam Workshop subscribe/download (talks to the player's own Steam client). -->
+    <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
+    <!-- Reads graphics card name + driver for problem reports. -->
+    <PackageReference Include="System.Management" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MMLauncher.Core\MMLauncher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

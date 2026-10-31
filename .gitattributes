@@ -1,0 +1,7 @@
+# Windows batch files and the agent's setup notes must keep Windows line endings.
+*.bat text eol=crlf
+agent-package/*.txt text eol=crlf
+# Everything else: normalise to LF in the repo.
+* text=auto
+*.ico binary
+*.png binary

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MMLauncher.App/MMLauncher.App.csproj" />
+    <Project Path="src/MMLauncher.Core/MMLauncher.Core.csproj" />
+    <Project Path="src/MMLauncher.Tests/MMLauncher.Tests.csproj" />
+    <Project Path="src/MMServerAgent/MMServerAgent.csproj" />
+  </Folder>
+</Solution>

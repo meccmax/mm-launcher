@@ -1,0 +1,87 @@
+MM SERVER AGENT - SETUP (one-time per server machine)
+=====================================================
+
+What it does
+  Watches the DayZ servers running on this machine (the ones CFTools starts)
+  and tells the MM Launcher each server's complete client mod list, full name,
+  uptime and an optional message for players. It only reads: it never changes
+  server files and never touches CFTools.
+
+How it knows the mods
+  It reads each running DayZServer_x64.exe's own startup line (-mod=, -config=,
+  -port=) and the meta.cpp inside each mod folder (publishedid = workshop ID).
+  Server-side mods (-servermod=) are NOT reported. Passwords are never read
+  out or sent anywhere.
+
+
+SETUP
+-----
+1. Copy this whole folder somewhere permanent on the server machine,
+   e.g.  C:\Apps\MMServerAgent
+
+2. Double-click check-agent.bat.
+   You should see every running DayZ server with its ports and full mod list.
+   If it says it can't read a startup line, right-click check-agent.bat and
+   "Run as administrator".
+   (The first run also creates agent.jsonc next to the exe.)
+
+3. Pick this machine's port.
+   One machine: leave it at 2999.
+   Several machines behind the same public IP: give each its own port
+   (2999, 2998, 2997, ...). Edit "Port" in agent.jsonc. The launcher checks
+   2994-2999 out of the box.
+
+4. Right-click install-agent.bat > Run as administrator.
+   This installs the "MM Server Agent" Windows service (starts with Windows,
+   auto-restarts) and opens the port in Windows Firewall.
+
+5. On your router, forward TCP <that port> to this machine.
+
+6. Test from any PC outside your network (or your phone on mobile data):
+      http://game.misfitmercenaries.com:2999/
+   You should see a short text page listing the servers.
+   Then open the MM Launcher: the bottom bar says "1 MM agent connected" and
+   each server's mod list shows "VERIFIED BY MM AGENT".
+
+
+PROBLEM REPORTS -> DISCORD
+--------------------------
+Players can click "Report a problem" in the launcher. It bundles their latest
+DayZ logs, crash info, the server's mod list and PC basics, and sends it here.
+Every report is saved in the "reports" folder next to the exe (oldest deleted
+past KeepReportsMB). To also post them to a staff channel:
+
+1. In Discord: make the channel (staff-only), then Edit Channel > Integrations
+   > Webhooks > New Webhook. Name it "MM Launcher" and copy the Webhook URL.
+2. Open agent.jsonc and paste it into "DiscordWebhookUrl" (inside the quotes).
+3. Restart the service: services.msc > MM Server Agent > Restart.
+4. Check http://<this machine>:2999/  ->  it should say "Problem reports: on (Discord)".
+
+Each post shows player, server, the crash reason pulled from the logs, error
+codes, PC info and a reference number, with the zip attached. Posts can't ping
+anyone (@everyone/@here are ignored). Limits: MaxReportsPerHourPerAddress,
+MaxReportsPerDay, MaxReportMB (Discord's own cap is 10 MB). Keep the webhook URL
+private - anyone who has it can post to that channel. If it ever leaks, delete
+the webhook in Discord and make a new one.
+
+To switch reports off: "AcceptReports": false.
+
+
+OPTIONAL: names and messages
+----------------------------
+In agent.jsonc, under "Servers", add an entry per GAME port (-port=):
+
+    "2902": { "DisplayName": "MM Deer Isle", "Message": "Wipe Saturday, Badlands drop!" }
+
+Save, then restart the service (services.msc > MM Server Agent > Restart).
+
+
+FILES
+-----
+  MMServerAgent.exe    the agent
+  agent.jsonc          settings (every option explained inside)
+  agent.log            what it's doing; send this to Claude if anything's off
+  reports\             problem reports players sent (zips)
+  check-agent.bat      show what it sees right now
+  install-agent.bat    install/reinstall the service (run as admin)
+  uninstall-agent.bat  remove the service + firewall rule (run as admin)

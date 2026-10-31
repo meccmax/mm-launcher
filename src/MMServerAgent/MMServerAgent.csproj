@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MM Server Agent: runs on each DayZ server machine and tells the MM Launcher the
+    true list of servers and mods (read from the running servers themselves).
+    Runs as a console app or as a Windows service. Published as one self-contained
+    MMServerAgent.exe (see build.bat).
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>MMServerAgent</AssemblyName>
+    <RootNamespace>MMServerAgent</RootNamespace>
+    <Version>0.4.0</Version>
+    <Product>MM Server Agent</Product>
+    <Company>Misfit Mercenaries</Company>
+    <ApplicationIcon>..\MMLauncher.App\Assets\mm.ico</ApplicationIcon>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.14" />
+    <PackageReference Include="System.Management" Version="10.0.14" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MMLauncher.Core\MMLauncher.Core.csproj" />
+  </ItemGroup>
+
+</Project>

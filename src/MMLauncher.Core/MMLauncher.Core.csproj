@@ -1,0 +1,18 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MMLauncher.Core: everything that isn't the window.
+    Server queries (A2S), DayZ mod-list decoding, MM server discovery,
+    Steam Workshop lookups, local Steam install detection and settings files.
+    Kept separate from the UI so it can be tested on its own.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>MMLauncher.Core</RootNamespace>
+    <!-- Registry calls are guarded with OperatingSystem.IsWindows(); silence the cross-platform analyzer. -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+
+</Project>

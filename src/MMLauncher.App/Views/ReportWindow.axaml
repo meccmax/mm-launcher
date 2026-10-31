@@ -1,0 +1,122 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:MMLauncher.App.ViewModels"
+        x:Class="MMLauncher.App.Views.ReportWindow"
+        x:DataType="vm:ReportViewModel"
+        Title="Report a problem — MM Launcher"
+        Width="760" Height="760" MinWidth="620" MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://MMLauncher/Assets/mm.ico"
+        Background="{StaticResource Bg}">
+
+  <Window.Styles>
+    <Style Selector="TextBlock.section">
+      <Setter Property="Foreground" Value="{StaticResource Orange}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="LetterSpacing" Value="1.5" />
+    </Style>
+    <Style Selector="TextBlock.field">
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="TextBlock.help">
+      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource Panel}" />
+      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="16,14" />
+    </Style>
+    <Style Selector="Border.result">
+      <Setter Property="Background" Value="#2B1513" />
+      <Setter Property="BorderBrush" Value="{StaticResource Bad}" />
+      <Setter Property="BorderThickness" Value="3,0,0,0" />
+      <Setter Property="CornerRadius" Value="4" />
+      <Setter Property="Padding" Value="14,10" />
+    </Style>
+    <Style Selector="Border.result.ok">
+      <Setter Property="Background" Value="#132A19" />
+      <Setter Property="BorderBrush" Value="{StaticResource Good}" />
+    </Style>
+  </Window.Styles>
+
+  <Grid RowDefinitions="*,Auto,Auto">
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Margin="22,18,22,18" Spacing="14">
+        <StackPanel Spacing="4">
+          <TextBlock Text="Report a problem" FontSize="20" FontWeight="Bold" />
+          <TextBlock Classes="help" Text="Crashed, kicked, stuck loading? This bundles the logs staff need. Nothing is sent until you click Send to staff. Your Windows username and PC name are removed from the files." />
+        </StackPanel>
+
+        <Border Classes="card">
+          <StackPanel Spacing="12">
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Your name (Discord or in-game)" />
+              <TextBox Text="{Binding Player}" Watermark="So staff know who to get back to" MaxLength="80" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Which server?" />
+              <ComboBox ItemsSource="{Binding ServerNames}" SelectedIndex="{Binding SelectedServerIndex}" HorizontalAlignment="Stretch" />
+            </StackPanel>
+            <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="What happened?" />
+              <TextBox Text="{Binding Description}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="90" MaxLength="3000"
+                       Watermark="e.g. Crashed to desktop when I opened the trader at Nasdara Airfield, about 8:15pm." />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
+        <TextBlock Classes="section" Text="WHAT'S INCLUDED" />
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding SessionText}" FontSize="13" Foreground="{StaticResource Silver}" />
+            <TextBlock Text="{Binding CrashText}" FontSize="12" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasCrash}" />
+            <ItemsControl ItemsSource="{Binding Items}">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:ReportItem">
+                  <Grid ColumnDefinitions="*,Auto" Margin="0,3">
+                    <StackPanel>
+                      <TextBlock Text="{Binding Description}" FontSize="13" />
+                      <TextBlock Text="{Binding FileName}" FontSize="11" Classes="help" />
+                    </StackPanel>
+                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" VerticalAlignment="Center" />
+                  </Grid>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+            <CheckBox IsChecked="{Binding IncludeCrashDump}" IsVisible="{Binding HasCrashDump}">
+              <TextBlock Text="Include the crash dump (helps with hard crashes; contains a snapshot of the game's memory)" TextWrapping="Wrap" FontSize="12" />
+            </CheckBox>
+            <TextBlock Classes="help" Text="{Binding SystemText}" />
+            <Button Classes="link" Content="Check again (after DayZ crashes again)" Command="{Binding RebuildCommand}" HorizontalAlignment="Left" />
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+
+    <!-- Result sits right above the buttons so it's always visible after Save / Send. -->
+    <Border Grid.Row="1" Classes="result" Classes.ok="{Binding ResultOk}" IsVisible="{Binding HasResult}" Margin="22,0,22,10">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Text="{Binding ResultText}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Classes="link" Content="Show in folder" Command="{Binding OpenSavedFolderCommand}" IsVisible="{Binding HasSavedPath}" VerticalAlignment="Center" />
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Classes="help" Text="{Binding SendHint}" VerticalAlignment="Center" Margin="0,0,16,0" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+          <Button Classes="ghost" Content="Close" Command="{Binding CloseWindowCommand}" />
+          <Button Classes="ghost" Content="Save zip to Desktop" Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+          <Button Classes="primary" Content="Send to staff" Command="{Binding SendCommand}" IsEnabled="{Binding CanSend}" />
+        </StackPanel>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>
