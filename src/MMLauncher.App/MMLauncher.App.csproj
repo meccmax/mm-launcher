@@ -15,7 +15,7 @@
     <RootNamespace>MMLauncher.App</RootNamespace>
     <ApplicationIcon>Assets\mm.ico</ApplicationIcon>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <Product>MM Launcher</Product>
     <Company>Misfit Mercenaries</Company>
     <NoWarn>$(NoWarn);CA1416</NoWarn>

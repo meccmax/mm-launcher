@@ -15,6 +15,11 @@ public partial class MainWindow : Window
             {
                 if (Clipboard != null) await Clipboard.SetTextAsync(text);
             };
+            vm.BringToFront = () =>
+            {
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                Activate();
+            };
             vm.AskPassword = async serverName =>
                 await new PasswordDialog(serverName).ShowDialog<string?>(this);
             vm.AskConfirm = async (title, message, ok) =>

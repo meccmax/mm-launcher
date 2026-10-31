@@ -63,7 +63,9 @@ public partial class MainViewModel
     {
         var server = SelectedServer;
         if (server == null || !CanJoin) return;
-        Log.Info($"Join requested: {server.Name} ({server.ConnectText})");
+        bool auto = _rejoinJoining;
+        if (!auto) { StopRejoin(); _quickExits = 0; }
+        Log.Info($"{(auto ? "Auto-rejoin" : "Join requested")}: {server.Name} ({server.ConnectText})");
 
         var mods = await PrepareModsAsync(server, askSteamAnyway: false);
         if (mods == null) return;
@@ -87,7 +89,9 @@ public partial class MainViewModel
         string? password = null;
         if (server.Passworded)
         {
-            password = AskPassword == null ? null : await AskPassword(server.Name);
+            password = auto && _rejoinServerKey == server.Key && _rejoinPassword != null
+                ? _rejoinPassword
+                : AskPassword == null ? null : await AskPassword(server.Name);
             if (password == null) { ShowResult(false, "Join cancelled", "No password entered."); return; }
         }
 
@@ -114,6 +118,7 @@ public partial class MainViewModel
                 Log.Info("DayZ process detected.");
                 ShowResult(true, "DayZ is starting", $"Joining {server.Name} with {mods.Count} mods. Good hunting.");
                 StatusMessage = "DayZ launched";
+                StartRejoinWatch(server, password);
             }
             else
             {

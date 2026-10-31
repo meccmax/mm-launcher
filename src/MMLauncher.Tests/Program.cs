@@ -163,9 +163,17 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     // Old settings file (no SettingsVersion, LaunchMethod Steam) is moved to Direct.
     File.WriteAllText(LauncherSettings.FilePath, "{ \"LaunchMethod\": \"Steam\", \"Hosts\": [\"x\"] }");
     var migrated = LauncherSettings.Load();
-    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 2"), "old settings migrated to Direct launch");
+    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 3"), "old settings migrated to Direct launch");
     File.WriteAllText(LauncherSettings.FilePath, File.ReadAllText(LauncherSettings.FilePath).Replace("\"LaunchMethod\": \"Direct\"", "\"LaunchMethod\": \"Steam\""));
     Check(LauncherSettings.Load().LaunchMethod == "Steam", "a deliberate Steam choice in a new file is kept");
+    // v0.4.x file (version 2): rewritten so the new AutoRejoin option and its comment appear; choices kept.
+    File.WriteAllText(LauncherSettings.FilePath, "{ \"LaunchMethod\": \"Steam\", \"Hosts\": [\"x\"], \"SettingsVersion\": 2 }");
+    var v2 = LauncherSettings.Load();
+    var v2text = File.ReadAllText(LauncherSettings.FilePath);
+    Check(v2.LaunchMethod == "Steam" && !v2.AutoRejoin && v2text.Contains("\"AutoRejoin\": false") && v2text.Contains("// Rejoin automatically")
+          && v2text.Contains("\"SettingsVersion\": 3"), "version 2 settings gain the AutoRejoin option (off) and keep choices");
+    v2.AutoRejoin = true; v2.Save();
+    Check(LauncherSettings.Load().AutoRejoin, "AutoRejoin choice is saved");
 }
 
 Console.WriteLine("== Folder overrides + mod file check ==");

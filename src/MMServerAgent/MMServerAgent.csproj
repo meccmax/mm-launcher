@@ -13,7 +13,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>MMServerAgent</AssemblyName>
     <RootNamespace>MMServerAgent</RootNamespace>
-    <Version>0.4.1</Version>
+    <Version>0.4.2</Version>
     <Product>MM Server Agent</Product>
     <Company>Misfit Mercenaries</Company>
     <ApplicationIcon>..\MMLauncher.App\Assets\mm.ico</ApplicationIcon>

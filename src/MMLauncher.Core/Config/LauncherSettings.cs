@@ -25,10 +25,11 @@ public sealed class LauncherSettings
     public string ExtraLaunchParameters { get; set; } = "-nolauncher -world=empty";
     public string ReportName { get; set; } = "";
     public bool CheckForUpdates { get; set; } = true;
+    public bool AutoRejoin { get; set; }
     public int SettingsVersion { get; set; } = CurrentVersion;
 
     /// <summary>Bump when a default changes in a way existing files should pick up.</summary>
-    private const int CurrentVersion = 2;
+    private const int CurrentVersion = 3;
 
     public bool LaunchDirect => LaunchMethod.Equals("Direct", StringComparison.OrdinalIgnoreCase);
     public bool UseJunctions => !ModFolderMode.Equals("Absolute", StringComparison.OrdinalIgnoreCase);
@@ -79,6 +80,10 @@ public sealed class LauncherSettings
                         // (kicked with 0x000400F0), so move them to the new "Direct" default.
                         if (loaded.LaunchMethod.Equals("Steam", StringComparison.OrdinalIgnoreCase))
                             loaded.LaunchMethod = "Direct";
+                        loaded.SettingsVersion = 1;
+                    }
+                    if (loaded.SettingsVersion < CurrentVersion)
+                    {
                         loaded.SettingsVersion = CurrentVersion;
                         loaded.Save();
                     }
@@ -187,6 +192,11 @@ public sealed class LauncherSettings
         sb.AppendLine("  // Check GitHub for a newer launcher on startup and every few hours, and offer a");
         sb.AppendLine("  // one-click update. Nothing is installed without you clicking Update. false = never check.");
         sb.AppendLine($"  \"CheckForUpdates\": {J(CheckForUpdates)},");
+        sb.AppendLine();
+        sb.AppendLine("  // Rejoin automatically when DayZ closes (crash, or quitting to update mods) after the");
+        sb.AppendLine("  // launcher started it. Waits for the server if it's restarting, updates mods first, and");
+        sb.AppendLine("  // shows a countdown you can cancel. Same as the checkbox under JOIN SERVER.");
+        sb.AppendLine($"  \"AutoRejoin\": {J(AutoRejoin)},");
         sb.AppendLine();
         sb.AppendLine("  // Format version of this file. Managed by the launcher; don't change it.");
         sb.AppendLine($"  \"SettingsVersion\": {SettingsVersion}");
