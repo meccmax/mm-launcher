@@ -50,6 +50,18 @@ int Check()
 {
     var config = AgentConfig.Load();
     Console.WriteLine($"MM Server Agent {AgentWorker.Version}  ·  port {config.Port}  ·  config {AgentConfig.FilePath}");
+    try
+    {
+        var fp = TlsIdentity.ReadFingerprint();
+        if (fp == null) { using var made = TlsIdentity.LoadOrCreate(); fp = TlsIdentity.Fingerprint(made); }
+        Console.WriteLine($"Encryption key fingerprint: {fp}");
+        Console.WriteLine($"  Send this line, with the address and port players use, to whoever maintains");
+        Console.WriteLine($"  trust/agents.jsonc in the MM Launcher repository.{(config.AllowPlainHttp ? "" : " (Encrypted connections only.)")}");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Encryption key: couldn't read {TlsIdentity.FileName} ({ex.Message})");
+    }
     Console.WriteLine();
     var d = ServerDetector.Detect(config);
     if (d.Servers.Count == 0) Console.WriteLine("No running DayZ servers found.");
@@ -241,7 +253,7 @@ int Install()
 // things too, so we never lock down e.g. the Desktop by accident.
 void LockDownFolder(string dir)
 {
-    var allowed = new[] { "MMServerAgent.exe", "MMServerAgent.exe.old", "agent.jsonc", "agent.log", "agent.log.old", "AGENT-SETUP.txt", "reports" };
+    var allowed = new[] { "MMServerAgent.exe", "MMServerAgent.exe.old", "agent.jsonc", "agent.log", "agent.log.old", "AGENT-SETUP.txt", "reports", TlsIdentity.FileName };
     var strangers = Directory.EnumerateFileSystemEntries(dir)
         .Select(Path.GetFileName)
         .Where(n => n != null && !allowed.Contains(n, StringComparer.OrdinalIgnoreCase) && !n.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))

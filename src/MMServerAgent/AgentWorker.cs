@@ -25,7 +25,19 @@ public sealed class AgentWorker : BackgroundService
             : _reports.DiscordConfigured ? "Problem reports: on, posting to Discord and saving to the reports folder"
             : "Problem reports: on, saving to the reports folder (no Discord webhook set)");
         Rescan();
-        var http = new MiniHttpServer(_config.Port, (long)_config.MaxReportMB * 1024 * 1024, HandleAsync, BeforeBody);
+        System.Security.Cryptography.X509Certificates.X509Certificate2? certificate = null;
+        try
+        {
+            certificate = TlsIdentity.LoadOrCreate();
+            Log($"Encryption: on. Key fingerprint {TlsIdentity.Fingerprint(certificate)}" +
+                (_config.AllowPlainHttp ? " (older launchers still answered unencrypted)" : " (encrypted connections only)"));
+        }
+        catch (Exception ex)
+        {
+            Log($"Encryption: OFF, couldn't load or create {TlsIdentity.FileName}: {ex.Message}");
+        }
+        var http = new MiniHttpServer(_config.Port, (long)_config.MaxReportMB * 1024 * 1024, HandleAsync, BeforeBody,
+            certificate, allowPlain: _config.AllowPlainHttp || certificate == null);
         var server = http.RunAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)

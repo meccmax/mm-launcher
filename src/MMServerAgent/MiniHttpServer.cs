@@ -1,11 +1,14 @@
 using System.Net;
+using System.Net.Security;
 using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 
 namespace MMServerAgent;
 
 /// <summary>A request as the agent's handlers see it.</summary>
-public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType);
+public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false);
 
 /// <summary>A response from a handler.</summary>
 public sealed record HttpReply(int Status, string ContentType, string Body);
@@ -14,12 +17,17 @@ public sealed record HttpReply(int Status, string ContentType, string Body);
 /// A deliberately tiny web server: GET for the server list, plus POST bodies only up to a
 /// fixed size (problem reports). Small header limits and short timeouts so a slow or hostile
 /// client can't tie it up. No admin URL reservation needed on Windows.
+///
+/// HTTPS and plain HTTP share the one port: a TLS handshake always starts with byte 0x16,
+/// which no HTTP request does, so the first byte says which one the client speaks.
 /// </summary>
 public sealed class MiniHttpServer(
     int port,
     long maxBodyBytes,
     Func<HttpRequestInfo, Task<HttpReply>> handler,
-    Func<string, string, IPAddress, long, HttpReply?>? beforeBody = null)
+    Func<string, string, IPAddress, long, HttpReply?>? beforeBody = null,
+    X509Certificate2? certificate = null,
+    bool allowPlain = true)
 {
     private const int MaxHeaderBytes = 8 * 1024;
     private const int MaxConnectionsPerAddress = 4;
@@ -76,12 +84,35 @@ public sealed class MiniHttpServer(
 
     private async Task HandleAsync(TcpClient client, CancellationToken ct)
     {
-        var stream = client.GetStream();
+        Stream stream = client.GetStream();
         var remote = Normalize((client.Client.RemoteEndPoint as IPEndPoint)?.Address ?? IPAddress.None);
-
-        // ---- headers
         using var headerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         headerCts.CancelAfter(HeaderTimeout);
+
+        // ---- HTTPS or plain?
+        var first = new byte[1];
+        if (await client.Client.ReceiveAsync(first, SocketFlags.Peek, headerCts.Token) == 0) return;
+        bool encrypted = false;
+        if (first[0] == 0x16 && certificate != null)
+        {
+            var ssl = new SslStream(stream, leaveInnerStreamOpen: false);
+            await ssl.AuthenticateAsServerAsync(new SslServerAuthenticationOptions
+            {
+                ServerCertificate = certificate,
+                ClientCertificateRequired = false,
+                EnabledSslProtocols = SslProtocols.Tls12 | SslProtocols.Tls13,
+            }, headerCts.Token);
+            stream = ssl;
+            encrypted = true;
+        }
+        else if (!allowPlain)
+        {
+            await WriteAsync(stream, new HttpReply(400, "application/json",
+                "{\"ok\":false,\"message\":\"This MM server agent only accepts encrypted connections. Update the MM Launcher.\"}"), ct);
+            return;
+        }
+
+        // ---- headers
         var buffer = new byte[MaxHeaderBytes];
         int read = 0, headerEnd = -1;
         while (read < buffer.Length)
@@ -149,11 +180,11 @@ public sealed class MiniHttpServer(
         }
 
         headers.TryGetValue("Content-Type", out var contentType);
-        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? ""));
+        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? "", encrypted));
         await WriteAsync(stream, reply, ct);
     }
 
-    private static async Task WriteAsync(NetworkStream stream, HttpReply reply, CancellationToken ct)
+    private static async Task WriteAsync(Stream stream, HttpReply reply, CancellationToken ct)
     {
         var bodyBytes = Encoding.UTF8.GetBytes(reply.Body);
         var reason = reply.Status switch

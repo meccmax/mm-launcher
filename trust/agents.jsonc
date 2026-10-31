@@ -1,0 +1,23 @@
+// ===================================================================
+// Official MM Server Agent encryption keys
+// Purpose: the MM Launcher only accepts an agent's encryption key if it matches
+// the fingerprint listed here for that host and port. This stops anyone from
+// pretending to be an MM server agent (fake mod lists, intercepted reports).
+//
+// The launcher downloads this file from GitHub every few hours and keeps a copy;
+// a copy is also built into each release.
+//
+// Fields per agent:
+//   Host         the address players' launchers use (as in the launcher's Hosts setting)
+//   Port         the agent's TCP port (agent.jsonc "Port")
+//   Fingerprint  printed by check-agent.bat ("Encryption key fingerprint")
+//   Note         free text for maintainers; ignored by the launcher
+//
+// The same host and port can be listed twice with different fingerprints while a key
+// is being replaced. Agents not listed here are still encrypted; the launcher just
+// remembers their key the first time it sees it.
+// ===================================================================
+{
+  "Agents": [
+  ]
+}

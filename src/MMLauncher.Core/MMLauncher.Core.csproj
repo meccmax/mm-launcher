@@ -15,4 +15,9 @@
     <NoWarn>$(NoWarn);CA1416</NoWarn>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- Published agent keys, built in so the first start works offline (see trust/agents.jsonc). -->
+    <EmbeddedResource Include="..\..\trust\agents.jsonc" LogicalName="agents.jsonc" />
+  </ItemGroup>
+
 </Project>

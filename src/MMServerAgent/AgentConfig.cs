@@ -18,6 +18,7 @@ public sealed class AgentConfig
 {
     public int Port { get; set; } = 2999;
     public int RescanSeconds { get; set; } = 30;
+    public bool AllowPlainHttp { get; set; } = true;
     public List<string> ProcessNames { get; set; } = ["DayZServer_x64", "DayZServer"];
     // Problem reports from the launcher
     public bool AcceptReports { get; set; } = true;
@@ -63,7 +64,8 @@ public sealed class AgentConfig
                     cfg.DiscordWebhookUrl = (cfg.DiscordWebhookUrl ?? "").Trim();
                     // File from an older agent: rewrite it so the new options (with their
                     // comments) appear, keeping every value that was already set.
-                    if (!text.Contains("\"DiscordWebhookUrl\"", StringComparison.OrdinalIgnoreCase))
+                    // (Checks for the newest option; older files lack it too.)
+                    if (!text.Contains("\"AllowPlainHttp\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -103,6 +105,11 @@ public sealed class AgentConfig
         sb.AppendLine("  // How often (seconds) to re-check which servers are running and with");
         sb.AppendLine("  // which mods. A restart with new mods shows up within this time.");
         sb.AppendLine($"  \"RescanSeconds\": {RescanSeconds},");
+        sb.AppendLine();
+        sb.AppendLine("  // Launchers from v0.5 on talk to the agent encrypted (HTTPS, with the key in");
+        sb.AppendLine("  // agent-tls.pfx). true = also answer older launchers unencrypted while players update.");
+        sb.AppendLine("  // false = encrypted only (recommended once everyone is on v0.5 or newer).");
+        sb.AppendLine($"  \"AllowPlainHttp\": {J(AllowPlainHttp)},");
         sb.AppendLine();
         sb.AppendLine("  // Process names that count as a DayZ server (without .exe).");
         sb.AppendLine($"  \"ProcessNames\": {J(ProcessNames)},");

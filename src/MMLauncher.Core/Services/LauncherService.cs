@@ -90,10 +90,12 @@ public sealed class LauncherService
     public LauncherSettings Settings { get; private set; }
     public ServerCache Cache { get; private set; }
     public WorkshopClient Workshop { get; } = new(Http);
-    public AgentClient Agents { get; } = new(Http);
+    /// <summary>Which agent encryption keys are genuine (published list + remembered keys).</summary>
+    public AgentTrust AgentTrust { get; } = new();
+    public AgentClient Agents { get; }
 
     /// <summary>Separate client for report uploads: a few MB can take a while on slow upload links.</summary>
-    public AgentClient ReportUploads { get; } = new(new HttpClient { Timeout = TimeSpan.FromMinutes(3) });
+    public AgentClient ReportUploads { get; }
 
     /// <summary>What the agents said on the last refresh.</summary>
     public AgentSnapshot LastAgents { get; private set; } = new();
@@ -105,6 +107,8 @@ public sealed class LauncherService
 
     public LauncherService()
     {
+        Agents = new AgentClient(AgentTrust);
+        ReportUploads = new AgentClient(AgentTrust, TimeSpan.FromMinutes(3));
         Settings = LauncherSettings.Load();
         Cache = ServerCache.Load();
     }
@@ -147,6 +151,7 @@ public sealed class LauncherService
         if (Settings.AgentPorts.Count == 0) return snapshot;
 
         var hosts = Settings.Hosts.Concat(Cache.Servers.Select(s => s.Host)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        await AgentTrust.RefreshPublishedAsync(Http, ct);
         var replies = await Agents.QueryAllAsync(hosts, Settings.AgentPorts, ct);
         var seenAgents = new HashSet<string>();
         foreach (var reply in replies)

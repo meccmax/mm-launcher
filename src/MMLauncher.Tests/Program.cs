@@ -354,8 +354,72 @@ Console.WriteLine("== Hardening checks ==");
           "server password hidden in the launcher log (spaces and quotes)");
 }
 
+Console.WriteLine("== Encrypted agent connection ==");
+{
+    var dir = Path.Combine(root, "trust");
+    if (Directory.Exists(dir)) Directory.Delete(dir, true);
+    Directory.CreateDirectory(dir);
+    using var certA = MMServerAgent.TlsIdentity.Load(MMServerAgent.TlsIdentity.Create());
+    using var certB = MMServerAgent.TlsIdentity.Load(MMServerAgent.TlsIdentity.Create());
+    string fpA = AgentTrust.Fingerprint(certA), fpB = AgentTrust.Fingerprint(certB);
+    Check(fpA.Length == 43 && fpA != fpB, "agent keys get distinct 43-character fingerprints");
+
+    var pfxPath = Path.Combine(dir, "agent-tls.pfx");
+    using (var made = MMServerAgent.TlsIdentity.LoadOrCreate(pfxPath))
+    using (var again = MMServerAgent.TlsIdentity.LoadOrCreate(pfxPath))
+        Check(AgentTrust.Fingerprint(made) == AgentTrust.Fingerprint(again) && MMServerAgent.TlsIdentity.ReadFingerprint(pfxPath) == AgentTrust.Fingerprint(made),
+              "agent key is made once and kept");
+
+    Func<MMServerAgent.HttpRequestInfo, Task<MMServerAgent.HttpReply>> handler = r => Task.FromResult(r.Method == "POST"
+        ? new MMServerAgent.HttpReply(200, "application/json", System.Text.Json.JsonSerializer.Serialize(new ReportUploadResult { Ok = true, Message = r.Encrypted ? "enc" : "plain" }, AgentResponse.Json))
+        : new MMServerAgent.HttpReply(200, "application/json", System.Text.Json.JsonSerializer.Serialize(
+            new AgentResponse { Version = "t", Servers = [new AgentServerInfo { Name = r.Encrypted ? "enc" : "plain" }] }, AgentResponse.Json)));
+    using var stop = new CancellationTokenSource();
+    _ = new MMServerAgent.MiniHttpServer(2988, 1 << 20, handler, null, certA, allowPlain: true).RunAsync(stop.Token);   // new agent
+    _ = new MMServerAgent.MiniHttpServer(2987, 1 << 20, handler).RunAsync(stop.Token);                                  // pre-0.5 agent
+    _ = new MMServerAgent.MiniHttpServer(2986, 1 << 20, handler, null, certB, allowPlain: false).RunAsync(stop.Token);  // encrypted only
+    await Task.Delay(400);
+    const string lo = "127.0.0.1";
+
+    var trust = new AgentTrust(dir);
+    var client = new AgentClient(trust);
+    var r1 = await client.QueryAsync(lo, 2988);
+    Check(r1 is { Encrypted: true } && r1.Response.Servers[0].Name == "enc" && trust.RequiresTls(lo, 2988), "new agent answers encrypted; its key is remembered");
+    var r2 = await new AgentClient(new AgentTrust(dir)).QueryAsync(lo, 2988);
+    Check(r2 is { Encrypted: true }, "remembered key survives a launcher restart");
+    var up = await client.UploadReportAsync(lo, 2988, [1, 2, 3]);
+    Check(up.Ok && up.Message == "enc", "reports go encrypted to an agent that supports it");
+
+    var old = await client.QueryAsync(lo, 2987);
+    Check(old is { Encrypted: false } && !trust.RequiresTls(lo, 2987), "older agent without encryption still works");
+
+    trust.Remember(lo, 2987, fpA);
+    Check(await client.QueryAsync(lo, 2987) == null, "no fallback to unencrypted once an agent has used encryption");
+
+    trust.Remember(lo, 2986, fpA); // we "know" this agent with key A, but it now shows key B
+    Check(await client.QueryAsync(lo, 2986) == null && trust.TakeProblems().Any(p => p.Contains("different encryption key")),
+          "agent with a changed key is refused, with a warning");
+
+    var published = new AgentTrust(Path.Combine(dir, "pub"));
+    Directory.CreateDirectory(Path.Combine(dir, "pub"));
+    published.SetPublished($"// test\n{{ \"Agents\": [ {{ \"Host\": \"{lo}\", \"Port\": 2988, \"Fingerprint\": \"{fpB}\" }} ] }}");
+    Check(await new AgentClient(published).QueryAsync(lo, 2988) == null, "agent whose key doesn't match the published list is refused");
+    published.SetPublished($"{{ \"Agents\": [ {{ \"Host\": \"{lo}\", \"Port\": 2988, \"Fingerprint\": \"{fpB}\" }}, {{ \"Host\": \"{lo}\", \"Port\": 2988, \"Fingerprint\": \"{fpA}\" }} ] }}");
+    Check(await new AgentClient(published).QueryAsync(lo, 2988) is { Encrypted: true }, "agent matching the published list is accepted");
+
+    using (var raw = new HttpClient())
+    {
+        var res = await raw.GetAsync($"http://{lo}:2986{AgentClient.Path}");
+        Check(!res.IsSuccessStatusCode && (await res.Content.ReadAsStringAsync()).Contains("only accepts encrypted"), "encrypted-only agent refuses unencrypted requests");
+    }
+
+    using (var s = typeof(AgentTrust).Assembly.GetManifestResourceStream(AgentTrust.PublishedFileName))
+        Check(s != null && AgentTrust.ParsePublished(new StreamReader(s).ReadToEnd()) != null, "published key list is built in and valid");
+    stop.Cancel();
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
-var agentReply = await new AgentClient(new HttpClient()).QueryAsync("localhost", 2999);
+var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");
 else
 {

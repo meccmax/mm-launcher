@@ -192,7 +192,8 @@ public partial class MainViewModel : ObservableObject
             _lastRefresh = DateTimeOffset.Now;
             UpdateLastRefreshText();
             int online = snapshot.Count(s => s.Online);
-            StatusMessage = workshopError ?? $"{online} of {snapshot.Count} servers online";
+            var keyProblem = _service.AgentTrust.TakeProblems().FirstOrDefault();
+            StatusMessage = keyProblem ?? workshopError ?? $"{online} of {snapshot.Count} servers online";
             RaiseListChanged();
         }
         finally
