@@ -19,5 +19,6 @@
 // ===================================================================
 {
   "Agents": [
+    { "Host": "game.misfitmercenaries.com", "Port": 2999, "Fingerprint": "YfP+cj5uaGdMRO7U45F/N75GafRsKpzbVPTqKLmpAts", "Note": "Main MM server machine (C:\\Apps\\MMServerAgent), added 2026-10-31" }
   ]
 }
