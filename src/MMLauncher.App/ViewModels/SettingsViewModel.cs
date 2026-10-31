@@ -27,6 +27,7 @@ public partial class SettingsViewModel : ObservableObject
         _playerName = settings.PlayerName;
         _extraParameters = settings.ExtraLaunchParameters;
         _autoRefreshSeconds = settings.AutoRefreshSeconds;
+        _checkForUpdates = settings.CheckForUpdates;
         Recheck();
     }
 
@@ -47,6 +48,20 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _playerName;
     [ObservableProperty] private string _extraParameters;
     [ObservableProperty] private decimal? _autoRefreshSeconds;
+    [ObservableProperty] private bool _checkForUpdates;
+    [ObservableProperty] private string _updateStatus = "";
+
+    /// <summary>Set by the main window: runs an update check now and returns a sentence about it.</summary>
+    public Func<Task<string>>? CheckUpdatesNow { get; set; }
+    public string VersionText => $"You're on MM Launcher v{MMLauncher.App.Updates.SelfUpdater.CurrentVersion}.";
+
+    [RelayCommand]
+    private async Task CheckNowAsync()
+    {
+        if (CheckUpdatesNow == null) return;
+        UpdateStatus = "Checking…";
+        UpdateStatus = await CheckUpdatesNow();
+    }
 
     // What detection makes of them
     [ObservableProperty] private string _steamStatus = "";
@@ -205,6 +220,7 @@ public partial class SettingsViewModel : ObservableObject
         s.ExtraLaunchParameters = ExtraParameters.Trim();
         s.AutoRefreshSeconds = (int)Math.Clamp(AutoRefreshSeconds ?? 30, 0, 3600);
         if (s.AutoRefreshSeconds is > 0 and < 10) s.AutoRefreshSeconds = 10;
+        s.CheckForUpdates = CheckForUpdates;
         s.Save();
         Log.Info($"Settings saved: Steam='{s.SteamPathOverride}' DayZ='{s.DayZPathOverride}' Workshop='{s.WorkshopPathOverride}' Launch={s.LaunchMethod}");
         Saved = true;

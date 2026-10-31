@@ -1,0 +1,97 @@
+# Builds MM Launcher + MM Server Agent on GitHub's Windows machines and publishes a Release.
+#
+# How to release a new version:
+#   1. Put player-facing notes in release-notes/vX.Y.Z.md (optional; GitHub writes some if missing)
+#   2. Push a tag:  git tag v0.5.0 && git push origin v0.5.0
+# The launcher and agent read the newest Release to offer updates, and verify every
+# download against the SHA256SUMS.txt this workflow publishes alongside it.
+#
+# "Run workflow" (manual) builds and tests without publishing; the files are attached to
+# the run as an artifact instead.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to create the Release
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Work out the version
+        id: ver
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          if ($tag -match '^v(\d+\.\d+\.\d+)$') { $v = $Matches[1] } else { $v = "0.0.0" }
+          "version=$v" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $v"
+
+      - name: Self-check (fake DayZ servers + engine tests)
+        shell: pwsh
+        run: |
+          $fake = Start-Process python -ArgumentList "tools/fake_dayz_servers.py" -PassThru -WindowStyle Hidden
+          Start-Sleep -Seconds 3
+          dotnet run -c Release --project src/MMLauncher.Tests
+          $code = $LASTEXITCODE
+          Stop-Process -Id $fake.Id -ErrorAction SilentlyContinue
+          exit $code
+
+      - name: Build launcher and agent
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $p = @("-c","Release","-r","win-x64","--self-contained","true",
+                 "-p:PublishSingleFile=true","-p:IncludeNativeLibrariesForSelfExtract=true",
+                 "-p:EnableCompressionInSingleFile=true","-p:DebugType=None","-p:Version=$v")
+          dotnet publish src/MMLauncher.App @p -o out/launcher
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          dotnet publish src/MMServerAgent @p -o out/MMServerAgent
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item agent-package/* out/MMServerAgent/
+
+          New-Item -ItemType Directory release | Out-Null
+          Copy-Item out/launcher/MMLauncher.exe release/
+          Compress-Archive -Path out/MMServerAgent -DestinationPath release/MMServerAgent.zip
+
+          $lines = Get-ChildItem release -File | ForEach-Object {
+            "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
+          }
+          $lines | Set-Content -Encoding ascii release/SHA256SUMS.txt
+          Get-Content release/SHA256SUMS.txt
+
+      - name: Publish the Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $notes = "release-notes/$tag.md"
+          if (Test-Path $notes) {
+            gh release create $tag release/MMLauncher.exe release/MMServerAgent.zip release/SHA256SUMS.txt --title "MM Launcher $tag" --notes-file $notes
+          } else {
+            gh release create $tag release/MMLauncher.exe release/MMServerAgent.zip release/SHA256SUMS.txt --title "MM Launcher $tag" --generate-notes
+          }
+
+      - name: Keep the files (manual runs)
+        if: ${{ !startsWith(github.ref, 'refs/tags/v') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mm-launcher-build
+          path: release/

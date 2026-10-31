@@ -65,6 +65,7 @@ public partial class MainViewModel : ObservableObject
 
     public async Task InitializeAsync()
     {
+        StartUpdateChecks();
         DetectSteam();
         // Old copies left behind by an interrupted repair (e.g. a file was still locked).
         if (_steam != null)
@@ -232,7 +233,7 @@ public partial class MainViewModel : ObservableObject
     private async Task OpenSettingsAsync()
     {
         if (OpenSettingsWindow == null) return;
-        var vm = new SettingsViewModel(_service.Settings);
+        var vm = new SettingsViewModel(_service.Settings) { CheckUpdatesNow = () => CheckForUpdatesAsync(quiet: false) };
         await OpenSettingsWindow(vm);
         if (!vm.Saved) return;
 

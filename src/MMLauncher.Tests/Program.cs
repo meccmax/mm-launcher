@@ -6,6 +6,7 @@ using MMLauncher.Core.Discovery;
 using MMLauncher.Core.Query;
 using MMLauncher.Core.Services;
 using MMLauncher.Core.Steam;
+using MMLauncher.Core.Updates;
 
 int failures = 0;
 void Check(bool ok, string what)
@@ -263,6 +264,63 @@ Console.WriteLine("== Problem report builder ==");
     var small = MMLauncher.Core.Diagnostics.ReportBuilder.Build(bigPlan, new() { Created = DateTimeOffset.Now }, false, new Dictionary<string, string>(), 2 * 1024 * 1024);
     Check(small.Length <= 2 * 1024 * 1024, $"oversized logs trimmed to fit the limit ({small.Length / 1024} KB)");
     File.WriteAllBytes(Path.Combine(root, "report-test.zip"), zipBytes);
+}
+
+Console.WriteLine("== Update checker (fake GitHub release) ==");
+{
+    var good = System.Text.Encoding.UTF8.GetBytes("pretend this is MMLauncher.exe v9.9.9");
+    var goodHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(good)).ToLowerInvariant();
+    const string Base = "http://127.0.0.1:8097/";
+    string releaseJson = $$"""
+    { "tag_name": "v9.9.9", "draft": false, "prerelease": false, "body": "- Faster joins", "html_url": "{{Base}}page",
+      "assets": [
+        { "name": "MMLauncher.exe", "browser_download_url": "{{Base}}MMLauncher.exe", "size": {{good.Length}} },
+        { "name": "Tampered.exe", "browser_download_url": "{{Base}}Tampered.exe", "size": 5 },
+        { "name": "SHA256SUMS.txt", "browser_download_url": "{{Base}}SHA256SUMS.txt", "size": 200 } ] }
+    """;
+    var files = new Dictionary<string, byte[]>
+    {
+        ["/latest"] = System.Text.Encoding.UTF8.GetBytes(releaseJson),
+        ["/MMLauncher.exe"] = good,
+        ["/Tampered.exe"] = System.Text.Encoding.UTF8.GetBytes("evil!"),
+        ["/SHA256SUMS.txt"] = System.Text.Encoding.UTF8.GetBytes($"{goodHash}  MMLauncher.exe\n{goodHash} *Tampered.exe\n"),
+    };
+    var listener = new HttpListener();
+    listener.Prefixes.Add(Base);
+    listener.Start();
+    var serve = Task.Run(async () =>
+    {
+        while (listener.IsListening)
+        {
+            HttpListenerContext ctx;
+            try { ctx = await listener.GetContextAsync(); } catch { break; }
+            if (files.TryGetValue(ctx.Request.Url!.AbsolutePath, out var body)) { ctx.Response.StatusCode = 200; await ctx.Response.OutputStream.WriteAsync(body); }
+            else ctx.Response.StatusCode = 404;
+            ctx.Response.Close();
+        }
+    });
+
+    Environment.SetEnvironmentVariable("MMLAUNCHER_UPDATE_URL", Base + "latest");
+    var checker = new UpdateChecker(new HttpClient());
+    var rel = await checker.GetLatestAsync();
+    Check(rel != null && rel.Version == new Version(9, 9, 9) && rel.Assets.ContainsKey("MMLauncher.exe"), "latest release read (v9.9.9, assets listed)");
+    Check(UpdateChecker.IsNewer(new Version(0, 5, 0), new Version(0, 4, 0)) && !UpdateChecker.IsNewer(new Version(0, 4, 0), new Version(0, 4, 0))
+          && UpdateChecker.IsNewer(new Version(0, 10, 0), new Version(0, 9, 3)), "version comparison (0.10 > 0.9)");
+    Check(UpdateChecker.TryParseVersion("v1.2.3-beta", out var pv) && pv == new Version(1, 2, 3), "tag parsing");
+
+    var dest = Path.Combine(root, "upd", "MMLauncher.exe");
+    await checker.DownloadVerifiedAsync(rel!, "MMLauncher.exe", dest);
+    Check(File.ReadAllBytes(dest).SequenceEqual(good), "download verified against SHA256SUMS");
+
+    var bad = Path.Combine(root, "upd", "Tampered.exe");
+    bool refused = false;
+    try { await checker.DownloadVerifiedAsync(rel!, "Tampered.exe", bad); } catch (InvalidDataException) { refused = true; }
+    Check(refused && !File.Exists(bad) && !File.Exists(bad + ".part"), "tampered download refused and deleted");
+
+    files["/latest"] = System.Text.Encoding.UTF8.GetBytes("""{ "tag_name": "v10.0.0", "prerelease": true, "assets": [] }""");
+    Check(await checker.GetLatestAsync() == null, "pre-releases ignored");
+    listener.Stop();
+    Environment.SetEnvironmentVariable("MMLAUNCHER_UPDATE_URL", null);
 }
 
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");

@@ -3,7 +3,21 @@
 Server browser and launcher for **Misfit Mercenaries** DayZ servers.
 Built with C# / .NET 10 and Avalonia.
 
-## Milestone 1 (this version)
+## Download
+
+Get the latest **MMLauncher.exe** from [Releases](https://github.com/meccmax/mm-launcher/releases/latest). There's nothing to install. After that, the launcher offers new versions itself.
+
+Server admins: download **MMServerAgent.zip** from the same page and follow `AGENT-SETUP.txt`.
+
+## Releasing (maintainers)
+
+1. Bump nothing by hand. The version comes from the tag.
+2. Optionally write player-facing notes in `release-notes/vX.Y.Z.md`.
+3. Push a tag: `git tag v0.5.0 && git push origin v0.5.0`.
+
+[`.github/workflows/release.yml`](.github/workflows/release.yml) runs the self-check on Windows, builds both programs, writes `SHA256SUMS.txt`, and publishes the Release. The launcher's updater and `update-agent.bat` only accept downloads that match those checksums.
+
+## Milestone 1
 
 - **Finds MM servers automatically.** Scans ports 2000–3000 on `game.misfitmercenaries.com` and `servers.misfitmercenaries.com`. New servers appear after a Rescan; nobody edits a list.
 - **Live status, queried straight from each server** (no middleman service): name, map, players, queue, in-game time, ping, 1PP/3PP, required DLC, version and password flag.
@@ -61,7 +75,12 @@ For testing without Steam, set the environment variable `MMLAUNCHER_FAKE_STEAM=1
 - **Save zip to Desktop** works offline. **Send to staff** uploads the zip to the MM Server Agent.
 - **Agent side:** checks the zip, enforces size and rate limits, saves it under `reports\`, and posts it to a Discord webhook. The post contains player, server, crash reason, error codes, PC info, a reference number and the zip, with all mentions disabled. The webhook lives only in `agent.jsonc` on the server.
 
-Coming next: auto-updates, installer and code signing, and the full DayZ server browser.
+### Updates
+
+- **Launcher:** checks GitHub on startup and every 6 hours (can be turned off in Settings). When a newer release exists, an **Update to vX** button appears. Clicking it shows the release notes, downloads the new exe, checks it against `SHA256SUMS.txt`, swaps it in and restarts.
+- **Agent:** never updates on its own. `check-agent.bat` says when a newer version exists. `update-agent.bat` (run as admin) downloads and verifies the new version, stops the service, swaps the exe, and starts it again. `agent.jsonc` and saved reports are left alone.
+
+Coming next: installer and code signing, and the full DayZ server browser.
 
 ## Running it
 

@@ -120,6 +120,21 @@
           </StackPanel>
         </Border>
 
+        <!-- ================= Updates ================= -->
+        <TextBlock Classes="section" Text="UPDATES" />
+        <Border Classes="card">
+          <StackPanel Spacing="10">
+            <TextBlock Text="{Binding VersionText}" FontSize="13" />
+            <CheckBox IsChecked="{Binding CheckForUpdates}">
+              <TextBlock Text="Check for new versions automatically (you always choose when to install)" TextWrapping="Wrap" FontSize="13" />
+            </CheckBox>
+            <StackPanel Orientation="Horizontal" Spacing="12">
+              <Button Classes="ghost" Content="Check now" Command="{Binding CheckNowCommand}" />
+              <TextBlock Text="{Binding UpdateStatus}" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" />
+            </StackPanel>
+          </StackPanel>
+        </Border>
+
         <!-- ================= Maintenance ================= -->
         <TextBlock Classes="section" Text="MAINTENANCE" />
         <Border Classes="card">

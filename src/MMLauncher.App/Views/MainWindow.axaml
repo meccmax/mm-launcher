@@ -23,6 +23,9 @@
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+          <Button Classes="primary" Content="{Binding UpdateButtonText}" Command="{Binding UpdateNowCommand}"
+                  IsVisible="{Binding UpdateAvailable}" IsEnabled="{Binding !Updating}"
+                  ToolTip.Tip="A newer MM Launcher is available. Click to see what's new and update." />
           <Button Classes="ghost" Content="Report a problem" Command="{Binding ReportProblemCommand}"
                   ToolTip.Tip="Crashed or kicked? Bundle the logs and send them to staff" />
           <Button Classes="ghost" Content="Settings" Command="{Binding OpenSettingsCommand}"
@@ -232,6 +235,8 @@
     <!-- ============ Status bar ============ -->
     <Border Grid.Row="2" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,6">
       <DockPanel>
+        <Button DockPanel.Dock="Right" Classes="link" Content="{Binding VersionText}" Command="{Binding OpenReleasesCommand}"
+                ToolTip.Tip="MM Launcher version. Click to see all releases." />
         <Button DockPanel.Dock="Right" Classes="link" Content="Settings folder" Command="{Binding OpenSettingsFolderCommand}"
                 ToolTip.Tip="Open the folder with settings.jsonc and the server cache" />
         <TextBlock DockPanel.Dock="Right" Text="{Binding AgentText}" FontSize="11" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,14,0" />

@@ -24,6 +24,7 @@ public sealed class LauncherSettings
     public string PlayerName { get; set; } = "";
     public string ExtraLaunchParameters { get; set; } = "-nolauncher -world=empty";
     public string ReportName { get; set; } = "";
+    public bool CheckForUpdates { get; set; } = true;
     public int SettingsVersion { get; set; } = CurrentVersion;
 
     /// <summary>Bump when a default changes in a way existing files should pick up.</summary>
@@ -182,6 +183,10 @@ public sealed class LauncherSettings
         sb.AppendLine("  // Name put on problem reports so staff know who sent them (Discord or in-game name).");
         sb.AppendLine("  // Remembered from the last report you sent.");
         sb.AppendLine($"  \"ReportName\": {J(ReportName)},");
+        sb.AppendLine();
+        sb.AppendLine("  // Check GitHub for a newer launcher on startup and every few hours, and offer a");
+        sb.AppendLine("  // one-click update. Nothing is installed without you clicking Update. false = never check.");
+        sb.AppendLine($"  \"CheckForUpdates\": {J(CheckForUpdates)},");
         sb.AppendLine();
         sb.AppendLine("  // Format version of this file. Managed by the launcher; don't change it.");
         sb.AppendLine($"  \"SettingsVersion\": {SettingsVersion}");

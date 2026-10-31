@@ -76,6 +76,15 @@ In agent.jsonc, under "Servers", add an entry per GAME port (-port=):
 Save, then restart the service (services.msc > MM Server Agent > Restart).
 
 
+UPDATING THE AGENT
+------------------
+The agent never updates itself. check-agent.bat tells you when a newer version
+is out. To install it: right-click update-agent.bat > Run as administrator.
+It downloads the new version from github.com/meccmax/mm-launcher, checks it
+against the published checksum, stops the service, swaps the exe and starts it
+again. agent.jsonc, agent.log and the reports folder are left alone.
+
+
 FILES
 -----
   MMServerAgent.exe    the agent
@@ -85,3 +94,4 @@ FILES
   check-agent.bat      show what it sees right now
   install-agent.bat    install/reinstall the service (run as admin)
   uninstall-agent.bat  remove the service + firewall rule (run as admin)
+  update-agent.bat     install the newest agent from GitHub (run as admin)
