@@ -103,8 +103,12 @@
     <!-- Result sits right above the buttons so it's always visible after Save / Send. -->
     <Border Grid.Row="1" Classes="result" Classes.ok="{Binding ResultOk}" IsVisible="{Binding HasResult}" Margin="22,0,22,10">
       <Grid ColumnDefinitions="*,Auto">
-        <TextBlock Text="{Binding ResultText}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
-        <Button Grid.Column="1" Classes="link" Content="Show in folder" Command="{Binding OpenSavedFolderCommand}" IsVisible="{Binding HasSavedPath}" VerticalAlignment="Center" />
+        <SelectableTextBlock Text="{Binding ResultText}" TextWrapping="Wrap" FontSize="13" VerticalAlignment="Center" />
+        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="10,0,0,0">
+          <Button Classes="ghost" Content="{Binding CopyReferenceText}" Command="{Binding CopyReferenceCommand}" IsVisible="{Binding HasReference}"
+                  Padding="12,5" FontSize="12" ToolTip.Tip="{Binding Reference}" />
+          <Button Classes="link" Content="Show in folder" Command="{Binding OpenSavedFolderCommand}" IsVisible="{Binding HasSavedPath}" />
+        </StackPanel>
       </Grid>
     </Border>
 

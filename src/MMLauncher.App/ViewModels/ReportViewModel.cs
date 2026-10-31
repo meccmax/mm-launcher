@@ -60,6 +60,21 @@ public partial class ReportViewModel : ObservableObject
     [ObservableProperty] private string _resultText = "";
     [ObservableProperty] private bool _resultOk;
     [ObservableProperty] private string? _savedPath;
+    [ObservableProperty] private string _reference = "";
+    [ObservableProperty] private string _copyReferenceText = "Copy reference";
+
+    /// <summary>Set by the window so the view model can copy text without knowing about UI.</summary>
+    public Func<string, Task>? CopyToClipboard { get; set; }
+    public bool HasReference => Reference.Length > 0;
+    partial void OnReferenceChanged(string value) { OnPropertyChanged(nameof(HasReference)); CopyReferenceText = "Copy reference"; }
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private async Task CopyReferenceAsync()
+    {
+        if (Reference.Length == 0 || CopyToClipboard == null) return;
+        await CopyToClipboard(Reference);
+        CopyReferenceText = "Copied ✓";
+    }
 
     public bool HasResult => ResultText.Length > 0;
     public bool HasSavedPath => SavedPath != null;
@@ -123,6 +138,7 @@ public partial class ReportViewModel : ObservableObject
     {
         Busy = true;
         ResultText = "";
+        Reference = "";
         try
         {
             var zip = await Task.Run(BuildZip);
@@ -151,11 +167,13 @@ public partial class ReportViewModel : ObservableObject
         Busy = true;
         ResultText = "Packing and sending…";
         ResultOk = true;
+        Reference = "";
         try
         {
             var zip = await Task.Run(BuildZip);
             var result = await _service.ReportUploads.UploadReportAsync(target.Host, target.Port, zip);
             ResultOk = result.Ok;
+            Reference = result.Ok ? result.Reference : "";
             ResultText = result.Ok
                 ? $"{result.Message} Mention that reference if staff ask about it."
                 : result.Message;

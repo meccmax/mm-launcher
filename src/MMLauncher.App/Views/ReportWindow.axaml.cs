@@ -10,7 +10,9 @@ public partial class ReportWindow : Window
         InitializeComponent();
         DataContextChanged += (_, _) =>
         {
-            if (DataContext is ReportViewModel vm) vm.Close = Close;
+            if (DataContext is not ReportViewModel vm) return;
+            vm.Close = Close;
+            vm.CopyToClipboard = async text => { if (Clipboard != null) await Clipboard.SetTextAsync(text); };
         };
     }
 }
