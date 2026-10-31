@@ -17,6 +17,7 @@ public sealed class AgentWorker : BackgroundService
     private DateTime _lastScan;
     private ReportReceiver? _reports;
     private ServerListFeed? _feed;
+    private EditorPresetFolder? _presets;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -26,6 +27,8 @@ public sealed class AgentWorker : BackgroundService
             : _reports.DiscordConfigured ? "Problem reports: on, posting to Discord and saving to the reports folder"
             : "Problem reports: on, saving to the reports folder (no Discord webhook set)");
         _feed = new ServerListFeed(_config, Log);
+        EditorPresetFolder.EnsureFolder();
+        _presets = new EditorPresetFolder(Log);
         var feedTask = _feed.RunAsync(stoppingToken);
         Rescan();
         System.Security.Cryptography.X509Certificates.X509Certificate2? certificate = null;
@@ -68,6 +71,7 @@ public sealed class AgentWorker : BackgroundService
                 Servers = detection.Servers,
                 ReportsEnabled = _config.AcceptReports,
                 BrowserFeed = _feed?.Enabled == true,
+                EditorPresets = _presets?.Count ?? 0,
             }, AgentResponse.Json);
 
             var after = detection.Servers.Select(s => $"{s.GamePort}:{s.Mods.Count}").ToList();
@@ -109,6 +113,9 @@ public sealed class AgentWorker : BackgroundService
         if (path.Equals(AgentClient.Path, StringComparison.OrdinalIgnoreCase))
             return new HttpReply(200, "application/json", _json);
 
+        if (path.Equals(EditorPresetFolder.Path, StringComparison.OrdinalIgnoreCase))
+            return new HttpReply(200, "application/json", _presets?.Json ?? "[]");
+
         if (path.Equals(MMLauncher.Core.Browser.BrowserFeed.Path, StringComparison.OrdinalIgnoreCase))
             return _feed?.Gzip is { } gz
                 ? new HttpReply(200, "application/json", "", gz, "gzip")
@@ -123,6 +130,7 @@ public sealed class AgentWorker : BackgroundService
                 sb.AppendLine($"  port {s.GamePort} / query {s.QueryPort}: {s.Name} ({s.Mods.Count} client mods)");
             if (_last.Servers.Count == 0) sb.AppendLine("  No DayZ servers running.");
             sb.AppendLine($"Launcher data: {AgentClient.Path}");
+            sb.AppendLine($"DayZ Editor presets: {_presets?.Count ?? 0}");
             sb.AppendLine($"Server browser feed: {(_feed?.Enabled != true ? "off" : $"{_feed.Count} servers")}");
             sb.AppendLine($"Problem reports: {(!_config.AcceptReports ? "off" : _reports?.DiscordConfigured == true ? "on (Discord)" : "on (saved on server only)")}");
             return new HttpReply(200, "text/plain", sb.ToString());

@@ -85,6 +85,21 @@ against the published checksum, stops the service, swaps the exe and starts it
 again. agent.jsonc, agent.log and the reports folder are left alone.
 
 
+DAYZ EDITOR PRESETS (v0.8 and newer)
+------------------------------------
+The launcher has a DAYZ EDITOR page that starts DayZ offline with CF, Dabs
+Framework, DayZ-Editor and a preset of mods. To share MM presets with your admins:
+  1. In the DayZ launcher, set up the mods (map and building mods, in load order)
+     and use Mods > Presets > Export to save it as an .html file. A .txt file with
+     one Steam Workshop ID or link per line works too.
+  2. Put the file in the "editor-presets" folder next to MMServerAgent.exe (the
+     agent makes the folder, with a README, the first time it starts).
+Every launcher then lists it under EDITOR PRESETS as "shared by MM" (read-only;
+players click Copy to make their own version). The file name is the preset name,
+unless the .html has its own. Changes show up without restarting the agent.
+CF, Dabs Framework and DayZ-Editor are always loaded first; no need to list them.
+
+
 RESTART SCHEDULE (v0.7 and newer)
 ---------------------------------
 Tell the agent when your servers restart and the launcher shows players "Next
@@ -158,6 +173,7 @@ FILES
   agent.jsonc          settings (every option explained inside)
   agent-tls.pfx        the agent's encryption key (made on first start; keep it)
   server-list-cache.json.gz  last list of all DayZ servers (only with a Steam key)
+  editor-presets\       DayZ Editor presets shared with every launcher (.html / .txt)
   agent.log            what it's doing; send this to Claude if anything's off
   reports\             problem reports players sent (zips)
   check-agent.bat      show what it sees right now

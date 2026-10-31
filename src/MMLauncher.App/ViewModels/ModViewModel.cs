@@ -28,6 +28,11 @@ public partial class ModViewModel : ObservableObject
     [ObservableProperty] private ModState _state = ModState.Unknown;
     [ObservableProperty] private long _sizeBytes;
 
+    /// <summary>Always loaded and can't be moved or removed (the DayZ Editor's own requirements).</summary>
+    [ObservableProperty] private bool _locked;
+    public bool Editable => !Locked;
+    partial void OnLockedChanged(bool value) => OnPropertyChanged(nameof(Editable));
+
     /// <summary>Problems found by the last file check ("" = none found / not checked).</summary>
     [ObservableProperty] private string _healthProblems = "";
 

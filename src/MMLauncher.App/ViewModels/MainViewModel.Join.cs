@@ -54,6 +54,7 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(ShowSyncPanel));
         OnPropertyChanged(nameof(CanJoin));
         OnPropertyChanged(nameof(CanUpdateMods));
+        OnPropertyChanged(nameof(CanStartEditor));
         OnPropertyChanged(nameof(HasPanelAction));
         OnPropertyChanged(nameof(HasPanelAction2));
     }
@@ -380,7 +381,14 @@ public partial class MainViewModel
     /// Makes sure every mod the server needs is downloaded and current. Returns the mod list
     /// in load order when ready, or null (after showing why) when not.
     /// </summary>
-    private async Task<List<RequiredMod>?> PrepareModsAsync(ServerViewModel server, bool askSteamAnyway, RepairSpec? repair = null)
+    private Task<List<RequiredMod>?> PrepareModsAsync(ServerViewModel server, bool askSteamAnyway, RepairSpec? repair = null) =>
+        PrepareModListAsync(server.Name, server.Mods.Select(m => new RequiredMod(m.WorkshopId, m.Name)).ToList(), askSteamAnyway, repair);
+
+    /// <summary>
+    /// Makes sure every mod in a list (a server's, or a DayZ Editor preset's) is downloaded and
+    /// current. Returns the list in load order when ready, or null (after showing why) when not.
+    /// </summary>
+    private async Task<List<RequiredMod>?> PrepareModListAsync(string label, List<RequiredMod> mods, bool askSteamAnyway, RepairSpec? repair = null)
     {
         ClearPanel();
         _service.ReloadSettings(); // pick up any edits to the launch options
@@ -390,18 +398,18 @@ public partial class MainViewModel
         if (_steam.DayZPath == null) { ShowResult(false, "DayZ not found", "Install DayZ in Steam, or choose its folder in Settings."); return null; }
 
         // DistinctBy: a mod listed twice must only be downloaded and loaded once.
-        var required = server.Mods.Select(m => new RequiredMod(m.WorkshopId, m.Name)).DistinctBy(m => m.Id).ToList();
+        var required = mods.DistinctBy(m => m.Id).ToList();
         IReadOnlyDictionary<ulong, WorkshopItem> workshop = new Dictionary<ulong, WorkshopItem>();
         try { workshop = await _service.Workshop.GetDetailsAsync(required.Where(m => m.Id != 0).Select(m => m.Id)); }
         catch (Exception ex) { Log.Warn("Workshop lookup failed before sync: " + ex.Message); }
 
         var plan = ModPlan.Build(required, _steam, workshop);
-        Log.Info($"Plan for {server.Name}: {required.Count} mods, {plan.ToDownload.Count} to download ({ModDownloader.Size(plan.DownloadBytes)}), {plan.Blocked.Count} blocked.");
+        Log.Info($"Plan for {label}: {required.Count} mods, {plan.ToDownload.Count} to download ({ModDownloader.Size(plan.DownloadBytes)}), {plan.Blocked.Count} blocked.");
 
         if (plan.Blocked.Count > 0)
         {
             var names = string.Join(", ", plan.Blocked.Select(b => b.Id == 0 ? $"{b.Name} (no workshop ID)" : $"{b.Name} (removed from the Workshop)"));
-            ShowResult(false, "This server needs mods that can't be downloaded", names + ". Let staff know.");
+            ShowResult(false, "Some mods can't be downloaded", names + ". Let staff know.");
             return null;
         }
 
@@ -454,9 +462,10 @@ public partial class MainViewModel
             IsSyncing = false;
         }
 
-        // Re-read what's on disk and refresh every server's mod badges.
+        // Re-read what's on disk and refresh every mod badge (servers and the editor preset).
         DetectSteam();
         foreach (var s in Servers) s.ApplyModDetails(workshop, _steam);
+        RefreshEditorModStates(workshop);
         Log.Info("Sync result: " + result.Message);
 
         if (!result.Success)

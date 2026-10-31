@@ -615,6 +615,66 @@ Console.WriteLine("== Restart schedule ==");
     Check(RestartSchedule.Next(now, started, 0, [], tz) == null, "no schedule, no restart time");
 }
 
+Console.WriteLine("== DayZ Editor presets ==");
+{
+    var html = """
+    <?xml version="1.0" encoding="utf-8"?>
+    <html><head><meta name="arma:Type" content="list" /></head><body>
+    <h1>DayZ Mods - <strong>MM Deer Isle &amp; Co</strong></h1>
+    <div class="mod-list"><table>
+      <tr data-type="ModContainer"><td data-type="DisplayName">CF</td><td><span class="from-steam">Steam</span></td>
+        <td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036" data-type="Link">x</a></td></tr>
+      <tr data-type="ModContainer"><td data-type="DisplayName">DeerIsle</td><td><span class="from-steam">Steam</span></td>
+        <td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=1602372402" data-type="Link">x</a></td></tr>
+      <tr data-type="ModContainer"><td data-type="DisplayName">Local thing</td><td><span class="from-local">Local</span></td><td>@Local</td></tr>
+      <tr data-type="ModContainer"><td data-type="DisplayName">Roads &amp; <b>Parts</b></td><td><span class="from-steam">Steam</span></td>
+        <td><a href="https://steamcommunity.com/workshop/filedetails/?id=2353800408" data-type="Link">x</a></td></tr>
+      <tr data-type="ModContainer"><td data-type="DisplayName">DeerIsle again</td><td></td>
+        <td><a href="https://steamcommunity.com/sharedfiles/filedetails/?id=1602372402" data-type="Link">x</a></td></tr>
+    </table></div></body></html>
+    """;
+    var preset1 = MMLauncher.Core.Editor.PresetFormat.Parse(html, "file name");
+    Check(preset1.Name == "MM Deer Isle & Co" && preset1.Mods.Select(m => m.Id).SequenceEqual([1602372402UL, 2353800408UL])
+          && preset1.Mods[1].Name == "Roads & Parts" && preset1.SkippedLocal == 1,
+          "DayZ launcher HTML preset: name, order, local mod skipped, duplicates and always-loaded mods dropped");
+    var ids = MMLauncher.Core.Editor.PresetFormat.Parse("1602372402\r\n@2353800408; 2276010135\nnot an id\n1559212036", "Typed");
+    Check(ids.Name == "Typed" && ids.Mods.Select(m => m.Id).SequenceEqual([1602372402UL, 2353800408UL, 2276010135UL]), "plain list of Workshop IDs");
+    var links = MMLauncher.Core.Editor.PresetFormat.Parse("see https://steamcommunity.com/sharedfiles/filedetails/?id=2276010135 and https://steamcommunity.com/sharedfiles/filedetails/?l=german&id=1602372402", "L");
+    Check(links.Mods.Select(m => m.Id).SequenceEqual([2276010135UL, 1602372402UL]), "Workshop links in any text, including extra URL parameters");
+    Check(MMLauncher.Core.Editor.PresetFormat.Parse("<html>nothing here</html>", "x").Mods.Count == 0, "file without mods gives an empty preset");
+
+    var full = new MMLauncher.Core.Editor.EditorPreset { Name = "Round <trip> & \"back\"", Mods = MMLauncher.Core.Editor.DayZEditor.LoadOrder(preset1) };
+    var again = MMLauncher.Core.Editor.PresetFormat.Parse(MMLauncher.Core.Editor.PresetFormat.ToHtml(full), "x");
+    Check(again.Name == "Round <trip> & \"back\"" && again.Mods.Select(m => m.Id).SequenceEqual(preset1.Mods.Select(m => m.Id)),
+          "exported HTML imports back the same (special characters too)");
+    Check(MMLauncher.Core.Editor.DayZEditor.LoadOrder(preset1).Select(m => m.Id).Take(3).SequenceEqual([1559212036UL, 2545327648UL, 2250764298UL]),
+          "load order: CF, Dabs Framework, DayZ-Editor first");
+
+    var store = new MMLauncher.Core.Editor.EditorPresetStore { Presets = [preset1] };
+    store.Save();
+    var loaded = MMLauncher.Core.Editor.EditorPresetStore.Load();
+    Check(File.ReadAllText(MMLauncher.Core.Editor.EditorPresetStore.FilePath).StartsWith("// MM Launcher") && loaded.Presets.Single().Mods.Count == 2,
+          "editor-presets.jsonc saved with comments and read back");
+
+    // Agent shares the files in its editor-presets folder.
+    var folder = MMServerAgent.EditorPresetFolder.FolderPath;
+    if (Directory.Exists(folder)) Directory.Delete(folder, true);
+    MMServerAgent.EditorPresetFolder.EnsureFolder();
+    File.WriteAllText(Path.Combine(folder, "Deer Isle.html"), html);
+    File.WriteAllText(Path.Combine(folder, "Roads.txt"), "2353800408\n2276010135");
+    File.WriteAllText(Path.Combine(folder, "Empty.txt"), "nothing");
+    var agentLog = new List<string>();
+    var shared = new MMServerAgent.EditorPresetFolder(m => agentLog.Add(m));
+    var served = System.Text.Json.JsonSerializer.Deserialize<List<MMLauncher.Core.Editor.EditorPreset>>(shared.Json, AgentResponse.Json)!;
+    Check(shared.Count == 2 && served.Select(p => p.Name).OrderBy(n => n).SequenceEqual(["MM Deer Isle & Co", "Roads"])
+          && File.Exists(Path.Combine(folder, "README.txt")) && agentLog.Any(l => l.Contains("Empty.txt")),
+          "agent shares the presets in its folder (README added, empty file skipped)");
+    File.WriteAllText(Path.Combine(folder, "Roads.txt"), "2353800408");
+    var after = System.Text.Json.JsonSerializer.Deserialize<List<MMLauncher.Core.Editor.EditorPreset>>(shared.Json, AgentResponse.Json)!;
+    Check(after.Single(p => p.Name == "Roads").Mods.Count == 1, "agent picks up changed preset files without a restart");
+    Directory.Delete(folder, true);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

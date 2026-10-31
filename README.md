@@ -55,6 +55,14 @@ When the agent knows a server's restart schedule (`RestartEveryHours`, counted f
 
 Auto-rejoin uses it too: if DayZ closes right around a scheduled restart, the launcher waits for the restart to happen before rejoining.
 
+### DayZ Editor (v0.8)
+
+The **DAYZ EDITOR** page starts DayZ offline (main menu, no server) with Community Framework, Dabs Framework and [DayZ-Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2250764298) loaded first, then a preset's mods in order. Missing or outdated mods are downloaded through Steam first, the same way as for servers.
+
+- **Presets:** players' own presets are saved in `editor-presets.jsonc`. Mods can be added from what's already downloaded, or by pasting Workshop IDs or links. The load order can be changed with ▲/▼.
+- **Import / Export:** uses the DayZ launcher's preset file (Mods > Presets > Export, `.html`). A text file of Workshop IDs or links also imports.
+- **Shared MM presets:** `.html` or `.txt` files placed in the agent's `editor-presets` folder appear in every launcher as read-only "shared by MM" presets. Players click Copy to make their own version.
+
 ### Join + mod sync (milestones 2 and 3)
 
 **JOIN SERVER** does four things in order:

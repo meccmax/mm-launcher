@@ -1,3 +1,4 @@
+using Avalonia.Platform.Storage;
 using Avalonia.Controls;
 using MMLauncher.App.ViewModels;
 
@@ -19,6 +20,31 @@ public partial class MainWindow : Window
             {
                 if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
                 Activate();
+            };
+            vm.PickPresetFile = async () =>
+            {
+                var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = "Import a DayZ Editor preset",
+                    AllowMultiple = false,
+                    FileTypeFilter =
+                    [
+                        new("Mod presets (*.html, *.txt)") { Patterns = ["*.html", "*.htm", "*.txt"] },
+                        new("All files") { Patterns = ["*"] },
+                    ],
+                });
+                return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            };
+            vm.PickExportFile = async suggested =>
+            {
+                var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
+                {
+                    Title = "Export preset",
+                    SuggestedFileName = suggested,
+                    DefaultExtension = "html",
+                    FileTypeChoices = [new("DayZ launcher preset (*.html)") { Patterns = ["*.html"] }],
+                });
+                return file?.TryGetLocalPath();
             };
             vm.AskPassword = async serverName =>
                 await new PasswordDialog(serverName).ShowDialog<string?>(this);

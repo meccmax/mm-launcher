@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MMLauncher.App.ViewModels"
+        xmlns:ed="using:MMLauncher.Core.Editor"
         x:Class="MMLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="MM Launcher — Misfit Mercenaries"
@@ -20,6 +21,12 @@
             <TextBlock Text="MISFIT MERCENARIES" FontSize="19" FontWeight="Black" LetterSpacing="1.5" Foreground="{StaticResource Orange}" />
             <TextBlock Text="SERVER LAUNCHER" FontSize="11" FontWeight="SemiBold" LetterSpacing="4" Foreground="{StaticResource Silver}" />
           </StackPanel>
+        </StackPanel>
+
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" VerticalAlignment="Bottom" Margin="34,0,0,-12">
+          <Button Classes="tab page" Classes.active="{Binding IsServersPage}" Content="SERVERS" Command="{Binding ShowServersPageCommand}" />
+          <Button Classes="tab page" Classes.active="{Binding IsEditorPage}" Content="DAYZ EDITOR" Command="{Binding ShowEditorPageCommand}"
+                  ToolTip.Tip="Start DayZ offline with the DayZ Editor and a preset of mods" />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -43,8 +50,8 @@
       </DockPanel>
     </Border>
 
-    <!-- ============ Body ============ -->
-    <Grid Grid.Row="1" ColumnDefinitions="390,*">
+    <!-- ============ Body: servers ============ -->
+    <Grid Grid.Row="1" ColumnDefinitions="390,*" IsVisible="{Binding IsServersPage}">
 
       <!-- Server lists: MM / All servers / Favorites / Recent -->
       <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
@@ -357,6 +364,150 @@
             <TextBlock Text="This server runs no mods (vanilla DayZ)." Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                        DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" IsVisible="{Binding IsVanilla}" />
           </Grid>
+        </Border>
+      </Grid>
+    </Grid>
+
+
+    <!-- ============ Body: DayZ Editor ============ -->
+    <Grid Grid.Row="1" ColumnDefinitions="390,*" IsVisible="{Binding IsEditorPage}">
+      <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+        <Grid RowDefinitions="Auto,*,Auto">
+          <TextBlock Grid.Row="0" Classes="label" Text="EDITOR PRESETS" Margin="16,16,16,10" />
+          <ListBox Grid.Row="1" Classes="servers" Margin="10,0,10,10" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="ed:EditorPreset">
+                <Grid ColumnDefinitions="4,*">
+                  <Border Classes="accent" Grid.Column="0" Background="Transparent" CornerRadius="4,0,0,4" />
+                  <StackPanel Grid.Column="1" Margin="12,10" Spacing="3">
+                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding Subtitle}" FontSize="12" Classes="muted" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <WrapPanel Grid.Row="2" Margin="12,0,12,14">
+            <Button Classes="ghost" Content="New" Command="{Binding NewPresetCommand}" Margin="0,0,6,6" ToolTip.Tip="Start an empty preset" />
+            <Button Classes="ghost" Content="Import…" Command="{Binding ImportPresetCommand}" Margin="0,0,6,6"
+                    ToolTip.Tip="A preset exported from the DayZ launcher (.html), or a text file of Workshop IDs or links" />
+            <Button Classes="ghost" Content="Copy" Command="{Binding CopyPresetCommand}" Margin="0,0,6,6" IsEnabled="{Binding HasPreset}"
+                    ToolTip.Tip="Make your own editable copy of this preset" />
+            <Button Classes="ghost" Content="Delete" Command="{Binding DeletePresetCommand}" Margin="0,0,6,6" IsVisible="{Binding PresetEditable}" />
+          </WrapPanel>
+        </Grid>
+      </Border>
+
+      <Grid Grid.Column="1" Margin="26,20,26,12" RowDefinitions="Auto,Auto,Auto,Auto,Auto,*" IsVisible="{Binding HasPreset}">
+        <StackPanel Grid.Row="0" Spacing="6">
+          <TextBlock Classes="label" Text="DAYZ EDITOR PRESET" />
+          <TextBox Text="{Binding PresetName}" FontSize="20" FontWeight="Bold" IsVisible="{Binding PresetEditable}" MaxLength="80"
+                   ToolTip.Tip="Preset name (click to rename)" />
+          <TextBlock Text="{Binding PresetName}" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" IsVisible="{Binding PresetShared}" />
+          <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+                     Text="Starts DayZ offline (no server) with CF, Dabs Framework and DayZ-Editor loaded first, then this preset's mods in the order below. Open the Editor from the main menu; save your work there as .dze files." />
+          <Border Background="#2A1D12" BorderBrush="{StaticResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,4,0,0"
+                  IsVisible="{Binding PresetShared}" HorizontalAlignment="Left">
+            <TextBlock TextWrapping="Wrap" FontSize="13" Text="Shared by MM staff from the server, so it can't be changed here. Click Copy to make your own version." />
+          </Border>
+        </StackPanel>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,14,0,0">
+          <Button Classes="primary" Content="START DAYZ EDITOR" Command="{Binding StartEditorCommand}" IsEnabled="{Binding CanStartEditor}"
+                  ToolTip.Tip="Download any missing or outdated mods through Steam, then start DayZ offline with the Editor" />
+          <Button Classes="ghost" Content="Update mods" Command="{Binding UpdateEditorModsCommand}" IsEnabled="{Binding CanStartEditor}"
+                  ToolTip.Tip="Download and update this preset's mods without starting DayZ" />
+          <Button Classes="ghost" Content="Export…" Command="{Binding ExportPresetCommand}"
+                  ToolTip.Tip="Save as .html: works in the DayZ launcher, and can be dropped in the agent's editor-presets folder to share it" />
+        </StackPanel>
+
+        <!-- Download / launch progress (same panel as on the Servers page) -->
+        <Border Grid.Row="2" Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}" Classes.warn="{Binding SyncWarning}"
+                IsVisible="{Binding ShowSyncPanel}" Margin="0,14,0,0">
+          <StackPanel Spacing="8">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Classes="link" Content="Cancel" Command="{Binding CancelSyncCommand}" IsVisible="{Binding IsSyncing}" />
+              <Button DockPanel.Dock="Right" Classes="link" Content="Dismiss" Command="{Binding DismissSyncCommand}" IsVisible="{Binding !IsSyncing}" />
+              <Button DockPanel.Dock="Right" Classes="link" Content="Open log" Command="{Binding OpenLogCommand}" IsVisible="{Binding SyncFailed}" />
+              <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
+            </DockPanel>
+            <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
+                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
+            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                       IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          </StackPanel>
+        </Border>
+
+        <!-- Adding mods -->
+        <StackPanel Grid.Row="3" Spacing="6" Margin="0,16,0,0" IsVisible="{Binding PresetEditable}">
+          <TextBlock Classes="label" Text="ADD MODS" />
+          <Grid ColumnDefinitions="200,8,*,8,Auto">
+            <TextBox Grid.Column="0" Watermark="Filter downloaded mods" Text="{Binding InstalledFilter}" />
+            <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding InstalledChoices}" SelectedItem="{Binding SelectedInstalled}"
+                      PlaceholderText="Pick a downloaded mod">
+              <ComboBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:InstalledChoice"><TextBlock Text="{Binding Label}" /></DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <Button Grid.Column="4" Classes="ghost" Content="Add" Command="{Binding AddInstalledModCommand}" />
+          </Grid>
+          <Grid ColumnDefinitions="*,8,Auto">
+            <TextBox Grid.Column="0" Watermark="…or paste Workshop IDs or links (several at once is fine)" Text="{Binding AddModText}" />
+            <Button Grid.Column="2" Classes="ghost" Content="Add" Command="{Binding AddModsFromTextCommand}" />
+          </Grid>
+          <TextBlock Text="{Binding EditorNote}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"
+                     IsVisible="{Binding EditorNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Margin="0,18,0,8" Spacing="4">
+          <DockPanel>
+            <TextBlock DockPanel.Dock="Left" Classes="label" Text="LOAD ORDER" VerticalAlignment="Bottom" />
+            <TextBlock Text="{Binding EditorSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
+          </DockPanel>
+          <Grid ColumnDefinitions="96,*,90,120,190" Margin="10,10,10,0">
+            <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
+            <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
+            <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" />
+          </Grid>
+        </StackPanel>
+
+        <Border Grid.Row="5" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1">
+          <ListBox Classes="mods" ItemsSource="{Binding EditorMods}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ModViewModel">
+                <Grid ColumnDefinitions="96,*,90,120,190">
+                  <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
+                          Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StateText}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                      <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                      <TextBlock Text="always loaded" FontSize="11" Classes="muted" IsVisible="{Binding Locked}" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" IsVisible="{Binding Editable}">
+                      <Button Classes="link" Content="▲" ToolTip.Tip="Load earlier"
+                              IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).PresetEditable}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveModUpCommand}" CommandParameter="{Binding}" />
+                      <Button Classes="link" Content="▼" ToolTip.Tip="Load later"
+                              IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).PresetEditable}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).MoveModDownCommand}" CommandParameter="{Binding}" />
+                      <Button Classes="link" Content="Remove"
+                              IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).PresetEditable}"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveModCommand}" CommandParameter="{Binding}" />
+                    </StackPanel>
+                    <Button Classes="link" Content="Workshop" Command="{Binding OpenWorkshopCommand}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
         </Border>
       </Grid>
     </Grid>

@@ -6,7 +6,8 @@ using MMLauncher.Core.Steam;
 namespace MMLauncher.Core.Launch;
 
 /// <summary>Everything needed to start DayZ and connect to one server.</summary>
-public sealed record LaunchRequest(string ServerIp, int GamePort, IReadOnlyList<RequiredMod> Mods, string? Password);
+/// <summary>What to start. ServerIp null = offline (main menu, e.g. for the DayZ Editor).</summary>
+public sealed record LaunchRequest(string? ServerIp, int GamePort, IReadOnlyList<RequiredMod> Mods, string? Password);
 
 /// <summary>The command that was (or would be) run.</summary>
 public sealed record LaunchCommand(string FileName, IReadOnlyList<string> Arguments, string WorkingDirectory)
@@ -63,11 +64,12 @@ public static class GameLauncher
             ? TryJunctions(steam.DayZPath, folders) ?? folders.Select(f => f.Folder).ToList()
             : folders.Select(f => f.Folder).ToList();
 
-        var gameArgs = new List<string>
+        var gameArgs = new List<string>();
+        if (request.ServerIp != null)
         {
-            $"-connect={request.ServerIp}",
-            $"-port={request.GamePort}",
-        };
+            gameArgs.Add($"-connect={request.ServerIp}");
+            gameArgs.Add($"-port={request.GamePort}");
+        }
         if (modEntries.Count > 0) gameArgs.Add("-mod=" + string.Join(";", modEntries));
         if (!string.IsNullOrWhiteSpace(settings.PlayerName)) gameArgs.Add($"-name={settings.PlayerName}");
         if (!string.IsNullOrEmpty(request.Password)) gameArgs.Add($"-password={request.Password}");

@@ -83,6 +83,15 @@
     <Setter Property="Foreground" Value="{StaticResource Text}" />
     <Setter Property="BorderBrush" Value="{StaticResource Orange}" />
   </Style>
+  <Style Selector="Button.tab.page">
+    <Setter Property="Padding" Value="16,8" />
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="BorderBrush" Value="Transparent" />
+    <Setter Property="HorizontalAlignment" Value="Left" />
+  </Style>
+  <Style Selector="Button.tab.page.active">
+    <Setter Property="BorderBrush" Value="{StaticResource Orange}" />
+  </Style>
   <Style Selector="Button.tab.active:pointerover /template/ ContentPresenter">
     <Setter Property="BorderBrush" Value="{StaticResource Orange}" />
   </Style>

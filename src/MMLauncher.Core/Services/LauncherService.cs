@@ -39,6 +39,9 @@ public sealed class AgentSnapshot
     /// <summary>Agents that pass on the list of all DayZ servers.</summary>
     public List<(string Host, int Port)> BrowserAgents { get; } = [];
 
+    /// <summary>Agents that share DayZ Editor presets.</summary>
+    public List<(string Host, int Port)> PresetAgents { get; } = [];
+
     /// <summary>The report-accepting agent for a server, or any report-accepting agent if none matches.</summary>
     public (string Host, int Port)? ReportAgentFor(IPAddress? address, int queryPort)
     {
@@ -165,6 +168,8 @@ public sealed class LauncherService
             if (!seenAgents.Add($"{address}:{reply.Port}")) continue;
             foreach (var server in reply.Response.Servers)
                 snapshot.Servers.Add((reply.Host, address, server));
+            if (reply.Response.EditorPresets > 0)
+                snapshot.PresetAgents.Add((reply.Host, reply.Port));
             if (reply.Response.BrowserFeed)
                 snapshot.BrowserAgents.Add((reply.Host, reply.Port));
             if (reply.Response.ReportsEnabled)

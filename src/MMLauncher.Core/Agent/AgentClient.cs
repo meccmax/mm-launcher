@@ -162,6 +162,35 @@ public sealed class AgentClient
         }
     }
 
+    /// <summary>Shared DayZ Editor presets from an agent. Empty on any problem.</summary>
+    public async Task<List<Editor.EditorPreset>> GetEditorPresetsAsync(string host, int port, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            bool secure = _trust.RequiresTls(host, port);
+            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}/mm-agent/v1/editor-presets", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!res.IsSuccessStatusCode || res.Content.Headers.ContentLength > 4 * 1024 * 1024) return [];
+            var text = await res.Content.ReadAsStringAsync(cts.Token);
+            if (text.Length > 4 * 1024 * 1024) return [];
+            var list = System.Text.Json.JsonSerializer.Deserialize<List<Editor.EditorPreset>>(text, AgentResponse.Json) ?? [];
+            // Untrusted input: clip names and counts like everything else from an agent.
+            return list.Take(50).Select(p => Editor.DayZEditor.Normalize(new Editor.EditorPreset
+            {
+                Name = Editor.PresetFormat.Clean(p.Name, 80) is { Length: > 0 } n ? n : "MM preset",
+                Mods = p.Mods.Where(m => m.Id != 0).Take(Editor.PresetFormat.MaxMods)
+                             .Select(m => new Editor.PresetMod { Id = m.Id, Name = Editor.PresetFormat.Clean(m.Name, 120) }).ToList(),
+                Shared = true,
+            })).Where(p => p.Mods.Count > 0).ToList();
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Editor presets from the agent at {host}:{port} failed: {ex.Message}");
+            return [];
+        }
+    }
+
     /// <summary>Sends a report zip to an agent. Never throws; failures come back as Ok = false.</summary>
     public async Task<ReportUploadResult> UploadReportAsync(string host, int port, byte[] zip, CancellationToken ct = default)
     {
