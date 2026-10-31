@@ -17,6 +17,9 @@ public sealed class AgentResponse
     /// <summary>True when this agent accepts problem reports (POST /mm-agent/v1/report).</summary>
     public bool ReportsEnabled { get; set; }
 
+    /// <summary>True when this agent serves the list of all DayZ servers (GET /mm-agent/v1/browser).</summary>
+    public bool BrowserFeed { get; set; }
+
     public static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

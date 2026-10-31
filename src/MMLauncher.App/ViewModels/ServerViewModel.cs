@@ -44,6 +44,8 @@ public partial class ServerViewModel : ObservableObject
     [ObservableProperty] private string _message = "";
     [ObservableProperty] private long _uptimeSeconds;
     [ObservableProperty] private string _modNote = "";
+    /// <summary>True once the mod list has been read (from the status reply or an agent), even if it's empty.</summary>
+    [ObservableProperty] private bool _modsKnown;
 
     public ObservableCollection<ModViewModel> Mods { get; } = [];
 
@@ -72,6 +74,8 @@ public partial class ServerViewModel : ObservableObject
         ? $"{UptimeSeconds / 60} min"
         : UptimeSeconds < 86400 ? $"{UptimeSeconds / 3600}h {UptimeSeconds % 3600 / 60}m" : $"{UptimeSeconds / 86400}d {UptimeSeconds % 86400 / 3600}h";
     public bool HasMods => Mods.Count > 0;
+    public bool WaitingForMods => !HasMods && !ModsKnown;
+    public bool IsVanilla => !HasMods && ModsKnown;
 
     public void Apply(ServerStatus s)
     {
@@ -104,6 +108,7 @@ public partial class ServerViewModel : ObservableObject
                 ModsMayBeTruncated = s.Rules.MayBeTruncated;
                 DlcText = s.Rules.RequiredDlcNames.Count > 0 ? string.Join(", ", s.Rules.RequiredDlcNames) : "None";
                 if (s.Agent == null) SyncMods(s.Rules.Mods);
+                ModsKnown = true;
             }
         }
 
@@ -117,6 +122,7 @@ public partial class ServerViewModel : ObservableObject
             if (string.IsNullOrEmpty(Map)) Map = agent.Map;
             if (MaxPlayers == 0) MaxPlayers = agent.MaxPlayers;
             ModsFromAgent = true;
+            ModsKnown = true;
             SyncMods(agent.Mods.Select(m => new Core.DayZ.DayZServerMod(m.Id, m.Name, 0)).ToList());
 
             if (!s.Online)
@@ -187,6 +193,7 @@ public partial class ServerViewModel : ObservableObject
             nameof(PingText), nameof(PingGood), nameof(PingOk), nameof(PingBad), nameof(TimeText), nameof(MapText),
             nameof(AddressText), nameof(ConnectText), nameof(PortsText), nameof(StatusText), nameof(HasError), nameof(HasMods),
             nameof(HasMessage), nameof(HasModNote), nameof(ModsFromServer), nameof(ShowTruncatedWarning), nameof(UptimeText),
+            nameof(WaitingForMods), nameof(IsVanilla),
         })
             OnPropertyChanged(name);
     }

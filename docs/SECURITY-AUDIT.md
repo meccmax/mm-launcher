@@ -83,6 +83,13 @@ No critical problems were found. The main risks were in the **server agent's pro
 
 **Dependencies:** Avalonia 11.3.22, CommunityToolkit.Mvvm 8.4.2, Facepunch.Steamworks 2.3.3, System.Management. No known vulnerabilities, including transitive packages, as of the audit date.
 
+## Changes since the audit
+
+| Version | Change | Security notes |
+|---|---|---|
+| v0.5.0 | Encrypted launcher ↔ agent connection | Closes A8 and L3 (see above). Agent keys are pinned through `trust/agents.jsonc` or on first use. The launcher never downgrades to plain HTTP. |
+| v0.6.0 | Server browser feed through the agent | The Steam Web API key lives only in `agent.jsonc` (in the locked agent folder). It's never sent to launchers or written to `agent.log`, and Steam's error messages are logged without the request URL. The feed (`/mm-agent/v1/browser`) is public information (Valve's server list), served compressed. Per-address connection limits still apply. The launcher caps the download at 16 MB compressed and 32 MB unpacked, and treats every entry as untrusted: names are clipped, control characters stripped, and addresses validated. |
+
 ## Recommendations for the maintainers
 
 | ID | Recommendation |

@@ -435,6 +435,102 @@ Console.WriteLine("== Encrypted agent connection ==");
     stop.Cancel();
 }
 
+Console.WriteLine("== Server browser ==");
+{
+    // Valve's GetServerList reply shape, with junk mixed in.
+    var steamJson = """
+    {"response":{"servers":[
+      {"addr":"1.2.3.4:27016","gameport":2302,"name":"Alpha PvE | 1PP","appid":221100,"map":"chernarusplus","players":40,"max_players":60,"gametype":"battleye,no3rd,mod,lqs0,12:00","version":"1.29.162510"},
+      {"addr":"5.6.7.8:2303","gameport":2302,"name":"Bravo Deer Isle","appid":221100,"map":"deerisle","players":0,"max_players":50,"gametype":"battleye,08:00","version":"1.29.162510"},
+      {"addr":"9.9.9.9:27016","gameport":2302,"name":"Charlie Full","appid":221100,"map":"chernarusplus","players":60,"max_players":60,"gametype":"battleye,mod","version":"1.29.162510"},
+      {"addr":"not-an-address","gameport":1,"name":"bad","appid":221100},
+      {"addr":"4.4.4.4:27016","gameport":2302,"name":"Other game","appid":107410,"map":"x","players":1,"max_players":2},
+      {"addr":"3.3.3.3:27016","gameport":2302,"name":"Evil\u0007Name","appid":221100,"map":"enoch","players":5,"max_players":10,"gametype":"","version":"1"}
+    ]}}
+    """;
+    var feed = MMLauncher.Core.Browser.BrowserFeed.FromSteamReply(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(steamJson)));
+    Check(feed.Servers.Count == 4 && feed.Servers.All(e => !e.Name.Any(char.IsControl)), "Steam server list parsed (bad and other-game entries dropped, names cleaned)");
+    var round = MMLauncher.Core.Browser.BrowserFeed.FromGzip(feed.ToGzip());
+    Check(round?.Servers.Count == 4 && round.Servers[0].Keywords.Contains("no3rd"), "server list survives compression");
+    Check(MMLauncher.Core.Browser.BrowserFeed.FromGzip([1, 2, 3]) == null, "damaged server list is refused");
+
+    var B = MMLauncher.Core.Browser.BrowserService.Apply;
+    var all = feed.Servers;
+    Check(B(all, new(), null).Select(e => e.Name).First() == "Charlie Full", "default sort: most players first");
+    Check(B(all, new(HideEmpty: true, HideFull: true), null).Select(e => e.Name).SequenceEqual(["Alpha PvE | 1PP", "EvilName"]), "hide empty / hide full");
+    Check(B(all, new(Map: "chernarusplus"), null).Count == 2 && B(all, new(Search: "deer"), null).Single().Name == "Bravo Deer Isle", "map filter and search");
+    Check(B(all, new(Search: "5.6.7"), null).Single().Name == "Bravo Deer Isle", "search by IP address");
+    Check(B(all, new(Perspective: MMLauncher.Core.Browser.PerspectiveFilter.FirstPersonOnly), null).Single().Name == "Alpha PvE | 1PP"
+          && B(all, new(Perspective: MMLauncher.Core.Browser.PerspectiveFilter.ThirdPersonAllowed), null).Count == 3, "1PP / 3PP filter");
+    Check(B(all, new(Mods: MMLauncher.Core.Browser.ModFilter.Vanilla), null).Count == 2, "modded / vanilla filter");
+    var pings = new Dictionary<string, int?> { ["5.6.7.8:2303"] = 20, ["1.2.3.4:27016"] = 90 };
+    Check(B(all, new(Sort: MMLauncher.Core.Browser.BrowserSort.Ping), e => pings.GetValueOrDefault(e.Address)).Select(e => e.Address).Take(2)
+          .SequenceEqual(["5.6.7.8:2303", "1.2.3.4:27016"]), "sort by ping (unmeasured last)");
+    Check(MMLauncher.Core.Browser.BrowserService.Maps(all).First() is ("chernarusplus", 2), "map list with counts");
+
+    // Favorites and recent
+    var lists = new ServerLists();
+    Check(lists.ToggleFavorite("1.2.3.4", 27016, 2302, "Alpha") && lists.IsFavorite("1.2.3.4", 27016) && !lists.ToggleFavorite("1.2.3.4", 27016, 2302, "Alpha"),
+          "favorite on and off");
+    for (int i = 0; i < 30; i++) lists.AddRecent($"10.0.0.{i}", 2303, 2302, $"S{i}");
+    lists.AddRecent("10.0.0.5", 2303, 2302, "S5");
+    Check(lists.Recent.Count == ServerLists.MaxRecent && lists.Recent[0].Name == "S5" && lists.Recent.Count(r => r.Name == "S5") == 1,
+          "recent list: newest first, no duplicates, capped");
+    Check(File.ReadAllText(ServerLists.FilePath).StartsWith("// MM Launcher") && ServerLists.Load().Recent.Count == ServerLists.MaxRecent, "favorites.jsonc saved with comments");
+
+    // Agent fetches from (fake) Steam and serves it; launcher downloads it.
+    using var fakeSteam = new HttpListener();
+    fakeSteam.Prefixes.Add("http://127.0.0.1:8098/");
+    fakeSteam.Start();
+    string? askedKey = null;
+    _ = Task.Run(async () =>
+    {
+        while (fakeSteam.IsListening)
+        {
+            HttpListenerContext ctx;
+            try { ctx = await fakeSteam.GetContextAsync(); } catch { break; }
+            askedKey = ctx.Request.QueryString["key"];
+            var bytes = System.Text.Encoding.UTF8.GetBytes(ctx.Request.QueryString["key"] == "good" ? steamJson : "denied");
+            ctx.Response.StatusCode = ctx.Request.QueryString["key"] == "good" ? 200 : 403;
+            await ctx.Response.OutputStream.WriteAsync(bytes);
+            ctx.Response.Close();
+        }
+    });
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8098");
+    var agentLog = new List<string>();
+    var feedSvc = new MMServerAgent.ServerListFeed(new MMServerAgent.AgentConfig { SteamWebApiKey = "good" }, m => { lock (agentLog) agentLog.Add(m); });
+    using var feedStop = new CancellationTokenSource();
+    var feedRun = feedSvc.RunAsync(feedStop.Token);
+    for (int i = 0; i < 50 && feedSvc.Gzip == null; i++) await Task.Delay(100);
+    Check(feedSvc.Count == 4 && askedKey == "good", "agent gets the list from Steam with its key");
+    lock (agentLog) Check(agentLog.All(l => !l.Contains("good")), "agent never logs the Steam key");
+
+    using var cert = MMServerAgent.TlsIdentity.Load(MMServerAgent.TlsIdentity.Create());
+    using var stopFeedServer = new CancellationTokenSource();
+    _ = new MMServerAgent.MiniHttpServer(2984, 1 << 20, r => Task.FromResult(r.Path == MMLauncher.Core.Browser.BrowserFeed.Path
+        ? new MMServerAgent.HttpReply(200, "application/json", "", feedSvc.Gzip, "gzip")
+        : new MMServerAgent.HttpReply(404, "text/plain", "no")), null, cert).RunAsync(stopFeedServer.Token);
+    await Task.Delay(200);
+    var trustDir = Path.Combine(root, "trust-feed");
+    Directory.CreateDirectory(trustDir);
+    var feedTrust = new AgentTrust(trustDir);
+    feedTrust.Remember("127.0.0.1", 2984, AgentTrust.Fingerprint(cert));
+    var got = await new AgentClient(feedTrust).GetBrowserFeedAsync("127.0.0.1", 2984);
+    Check(got?.Servers.Count == 4, "launcher downloads the server list from the agent (encrypted, compressed)");
+    feedStop.Cancel();
+    stopFeedServer.Cancel();
+
+    var badLog = new List<string>();
+    var badSvc = new MMServerAgent.ServerListFeed(new MMServerAgent.AgentConfig { SteamWebApiKey = "wrongkey" }, m => { lock (badLog) badLog.Add(m); });
+    using var badStop = new CancellationTokenSource();
+    var badRun = badSvc.RunAsync(badStop.Token);
+    for (int i = 0; i < 50 && badLog.Count < 1; i++) await Task.Delay(100);
+    badStop.Cancel();
+    lock (badLog) Check(badLog.Any(l => l.Contains("rejected the SteamWebApiKey")) && badLog.All(l => !l.Contains("wrongkey")), "a wrong Steam key is reported clearly, without showing it");
+    fakeSteam.Stop();
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

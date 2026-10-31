@@ -56,7 +56,7 @@ public partial class MainViewModel
         _rejoinServerKey = server.Key;
         _rejoinPassword = password;
         var ct = _rejoinCts.Token;
-        _ = WatchAsync(server.Key, server.Name, DateTime.UtcNow, ct);
+        _ = WatchAsync(server, DateTime.UtcNow, ct);
     }
 
     /// <summary>A manual join (or turning the option off) ends any pending rejoin.</summary>
@@ -75,8 +75,11 @@ public partial class MainViewModel
         StopRejoin("Auto-rejoin cancelled.");
     }
 
-    private async Task WatchAsync(string key, string name, DateTime launchedAt, CancellationToken ct)
+    private async Task WatchAsync(ServerViewModel watched, DateTime launchedAt, CancellationToken ct)
     {
+        string key = watched.Key, name = watched.Name;
+        // MM servers are rebuilt on every list reload, so look them up by key; others are kept as is.
+        ServerViewModel Current() => Servers.FirstOrDefault(s => s.Key == key) ?? watched;
         try
         {
             // 1) Wait for DayZ to close. Two misses in a row, so the hand-over from
@@ -115,8 +118,12 @@ public partial class MainViewModel
             {
                 ct.ThrowIfCancellationRequested();
                 if (GameLauncher.DayZIsRunning()) { Log.Info("DayZ was started again by hand; auto-rejoin stood down."); StopRejoin(); return; }
-                if (!IsBusy && !IsSyncing) await RefreshAsync();
-                server = Servers.FirstOrDefault(s => s.Key == key);
+                if (!IsBusy && !IsSyncing)
+                {
+                    if (Servers.Any(s => s.Key == key)) await RefreshAsync();
+                    else await RefreshOneAsync(watched);
+                }
+                server = Current();
                 // The agent's uptime shows a restart even if we never caught the server offline.
                 bool restarted = server is { ModsFromAgent: true, UptimeSeconds: > 0 } &&
                                  server.UptimeSeconds < (DateTime.UtcNow - launchedAt).TotalSeconds;
@@ -146,7 +153,7 @@ public partial class MainViewModel
 
             // 4) Join like the button would, with the remembered password.
             while (IsBusy || IsSyncing) await Task.Delay(1000, ct);
-            server = Servers.FirstOrDefault(s => s.Key == key);
+            server = Current();
             if (server == null) { RejoinActive = false; ShowResult(false, "Auto-rejoin stopped", $"{name} isn't in the server list anymore."); return; }
             RejoinActive = false;
             SelectedServer = server;

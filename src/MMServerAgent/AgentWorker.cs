@@ -16,6 +16,7 @@ public sealed class AgentWorker : BackgroundService
     private volatile ServerDetector.Detection _last = new([], []);
     private DateTime _lastScan;
     private ReportReceiver? _reports;
+    private ServerListFeed? _feed;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -24,6 +25,8 @@ public sealed class AgentWorker : BackgroundService
         Log(!_config.AcceptReports ? "Problem reports: off"
             : _reports.DiscordConfigured ? "Problem reports: on, posting to Discord and saving to the reports folder"
             : "Problem reports: on, saving to the reports folder (no Discord webhook set)");
+        _feed = new ServerListFeed(_config, Log);
+        var feedTask = _feed.RunAsync(stoppingToken);
         Rescan();
         System.Security.Cryptography.X509Certificates.X509Certificate2? certificate = null;
         try
@@ -47,6 +50,7 @@ public sealed class AgentWorker : BackgroundService
             Rescan();
         }
         await server;
+        await feedTask;
     }
 
     private void Rescan()
@@ -63,6 +67,7 @@ public sealed class AgentWorker : BackgroundService
                 Generated = DateTimeOffset.Now,
                 Servers = detection.Servers,
                 ReportsEnabled = _config.AcceptReports,
+                BrowserFeed = _feed?.Enabled == true,
             }, AgentResponse.Json);
 
             var after = detection.Servers.Select(s => $"{s.GamePort}:{s.Mods.Count}").ToList();
@@ -104,6 +109,11 @@ public sealed class AgentWorker : BackgroundService
         if (path.Equals(AgentClient.Path, StringComparison.OrdinalIgnoreCase))
             return new HttpReply(200, "application/json", _json);
 
+        if (path.Equals(MMLauncher.Core.Browser.BrowserFeed.Path, StringComparison.OrdinalIgnoreCase))
+            return _feed?.Gzip is { } gz
+                ? new HttpReply(200, "application/json", "", gz, "gzip")
+                : new HttpReply(503, "text/plain", _feed?.Enabled == true ? "The server list isn't ready yet." : "This agent has no server browser feed.");
+
         if (path == "/")
         {
             var sb = new StringBuilder();
@@ -113,6 +123,7 @@ public sealed class AgentWorker : BackgroundService
                 sb.AppendLine($"  port {s.GamePort} / query {s.QueryPort}: {s.Name} ({s.Mods.Count} client mods)");
             if (_last.Servers.Count == 0) sb.AppendLine("  No DayZ servers running.");
             sb.AppendLine($"Launcher data: {AgentClient.Path}");
+            sb.AppendLine($"Server browser feed: {(_feed?.Enabled != true ? "off" : $"{_feed.Count} servers")}");
             sb.AppendLine($"Problem reports: {(!_config.AcceptReports ? "off" : _reports?.DiscordConfigured == true ? "on (Discord)" : "on (saved on server only)")}");
             return new HttpReply(200, "text/plain", sb.ToString());
         }

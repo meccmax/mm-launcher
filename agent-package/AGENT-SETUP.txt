@@ -85,6 +85,22 @@ against the published checksum, stops the service, swaps the exe and starts it
 again. agent.jsonc, agent.log and the reports folder are left alone.
 
 
+SERVER BROWSER FEED (v0.6 and newer)
+------------------------------------
+The launcher's "All servers" tab lists every DayZ server. That list comes from
+Valve, through this agent, using a Steam Web API key that stays on this server.
+One agent with a key is enough; give it to more than one for backup.
+  1. Sign in at https://steamcommunity.com/dev/apikey (the Steam account needs
+     at least $5 spent on Steam). Domain name: anything, e.g. misfitmercenaries.com.
+  2. Copy the key into agent.jsonc: "SteamWebApiKey": "YOUR-KEY-HERE"
+  3. Restart the service (services.msc > MM Server Agent > Restart).
+agent.log then shows "Server browser feed: N DayZ servers from Steam". The list is
+refreshed every 5 minutes ("ServerListRefreshMinutes") and saved as
+server-list-cache.json.gz so a restart serves it straight away.
+Keep the key secret: anyone with it can use your Steam Web API quota. If it ever
+leaks, revoke it on the same page and make a new one.
+
+
 ENCRYPTION (v0.5 and newer)
 ---------------------------
 The agent encrypts what it sends to launchers (mod lists and problem reports). It
@@ -125,6 +141,7 @@ FILES
   MMServerAgent.exe    the agent
   agent.jsonc          settings (every option explained inside)
   agent-tls.pfx        the agent's encryption key (made on first start; keep it)
+  server-list-cache.json.gz  last list of all DayZ servers (only with a Steam key)
   agent.log            what it's doing; send this to Claude if anything's off
   reports\             problem reports players sent (zips)
   check-agent.bat      show what it sees right now

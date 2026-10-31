@@ -56,6 +56,8 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedServerChanged(ServerViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(SelectedIsFavorite));
+        OnPropertyChanged(nameof(FavoriteText));
         if (!IsSyncing) ClearPanel();
         RaiseJoinState();
     }
@@ -109,11 +111,18 @@ public partial class MainViewModel : ObservableObject
 
     private void LoadFromCache()
     {
-        var previous = SelectedServer?.Key;
+        var previous = SelectedMmServer?.Key;
+        // Is the details panel showing an MM entry (which is about to be rebuilt), or a
+        // server picked in another tab (which must stay)?
+        var showing = SelectedServer;
+        bool showingMm = showing == null || Servers.Contains(showing);
         Servers.Clear();
         foreach (var s in _service.Cache.Servers)
             Servers.Add(new ServerViewModel(s));
-        SelectedServer = Servers.FirstOrDefault(s => s.Key == previous) ?? Servers.FirstOrDefault();
+        var mm = Servers.FirstOrDefault(s => s.Key == previous) ?? Servers.FirstOrDefault();
+        _quietMmSelect = true; // only move the MM list's highlight, not the details panel
+        try { SelectedMmServer = mm; } finally { _quietMmSelect = false; }
+        if (showingMm) SelectedServer = mm;
         RaiseListChanged();
     }
 
@@ -188,6 +197,9 @@ public partial class MainViewModel : ObservableObject
             }
             foreach (var s in snapshot)
                 s.ApplyModDetails(workshop, _steam);
+
+            // A server picked in All servers / Favorites / Recent isn't in the MM list: refresh it too.
+            if (SelectedServer is { } picked && !Servers.Contains(picked)) await RefreshOneAsync(picked);
 
             _lastRefresh = DateTimeOffset.Now;
             UpdateLastRefreshText();

@@ -132,6 +132,36 @@ public sealed class AgentClient
         }
     }
 
+    /// <summary>Downloads the list of all DayZ servers an agent passes on from Steam. Null on any problem.</summary>
+    public async Task<Browser.BrowserFeed?> GetBrowserFeedAsync(string host, int port, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(30));
+        try
+        {
+            bool secure = _trust.RequiresTls(host, port);
+            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}{Browser.BrowserFeed.Path}", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!res.IsSuccessStatusCode) return null;
+            const int maxCompressed = 16 * 1024 * 1024;
+            if (res.Content.Headers.ContentLength > maxCompressed) return null;
+            await using var stream = await res.Content.ReadAsStreamAsync(cts.Token);
+            using var ms = new MemoryStream();
+            var buffer = new byte[81920];
+            int n;
+            while ((n = await stream.ReadAsync(buffer, cts.Token)) > 0)
+            {
+                ms.Write(buffer, 0, n);
+                if (ms.Length > maxCompressed) return null;
+            }
+            return Browser.BrowserFeed.FromGzip(ms.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Server list from the agent at {host}:{port} failed: {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>Sends a report zip to an agent. Never throws; failures come back as Ok = false.</summary>
     public async Task<ReportUploadResult> UploadReportAsync(string host, int port, byte[] zip, CancellationToken ct = default)
     {

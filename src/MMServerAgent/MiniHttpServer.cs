@@ -11,7 +11,7 @@ namespace MMServerAgent;
 public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false);
 
 /// <summary>A response from a handler.</summary>
-public sealed record HttpReply(int Status, string ContentType, string Body);
+public sealed record HttpReply(int Status, string ContentType, string Body, byte[]? Bytes = null, string? ContentEncoding = null);
 
 /// <summary>
 /// A deliberately tiny web server: GET for the server list, plus POST bodies only up to a
@@ -218,7 +218,7 @@ public sealed class MiniHttpServer(
 
     private static async Task WriteAsync(Stream stream, HttpReply reply, CancellationToken ct)
     {
-        var bodyBytes = Encoding.UTF8.GetBytes(reply.Body);
+        var bodyBytes = reply.Bytes ?? Encoding.UTF8.GetBytes(reply.Body);
         var reason = reply.Status switch
         {
             200 => "OK", 400 => "Bad Request", 403 => "Forbidden", 404 => "Not Found", 405 => "Method Not Allowed",
@@ -226,9 +226,10 @@ public sealed class MiniHttpServer(
             503 => "Service Unavailable", _ => "Error",
         };
         var header = $"HTTP/1.1 {reply.Status} {reason}\r\nContent-Type: {reply.ContentType}; charset=utf-8\r\nContent-Length: {bodyBytes.Length}\r\n" +
+                     (reply.ContentEncoding != null ? $"Content-Encoding: {reply.ContentEncoding}\r\n" : "") +
                      "Cache-Control: no-store\r\nConnection: close\r\nServer: MMServerAgent\r\n\r\n";
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        cts.CancelAfter(TimeSpan.FromSeconds(15));
+        cts.CancelAfter(TimeSpan.FromSeconds(bodyBytes.Length > 1024 * 1024 ? 90 : 15));
         await stream.WriteAsync(Encoding.ASCII.GetBytes(header), cts.Token);
         await stream.WriteAsync(bodyBytes, cts.Token);
     }

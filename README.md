@@ -33,6 +33,18 @@ Server admins: download **MMServerAgent.zip** from the same page and follow `AGE
 - **Encryption:** the agent makes its own key on first start (`agent-tls.pfx`). The launcher accepts an agent only if its key matches the fingerprint listed in [`trust/agents.jsonc`](trust/agents.jsonc), or, for unlisted agents, the key it saw the first time. `check-agent.bat` prints the fingerprint to add to that list.
 - **How the launcher uses it:** it checks ports 2994–2999 on each MM host and uses the agent's list when it gets one (shown as "VERIFIED BY MM AGENT"). If no agent answers, it falls back to the server's status reply. Servers an agent reports but the scan missed are added automatically.
 
+### Server browser (v0.6)
+
+The left panel has four tabs:
+- **MM servers:** the Misfit Mercenaries servers, as before.
+- **All servers:** every public DayZ server. Search by name, map or IP address, and filter by map (with server counts), 1PP or 3PP, modded or vanilla, hide empty, hide full. Sort by players, name, map or ping. Ping and live player counts are measured for the servers near the top of the list; sorting by ping measures a few hundred.
+- **Favorites:** servers starred with the ☆ Favorite button.
+- **Recent:** the last 25 servers joined.
+
+Any server picked in any tab opens in the same details panel, with the full mod list, JOIN SERVER (with mod sync), Verify files, Repair and auto-rejoin. Vanilla servers with no mods can be joined too.
+
+The full list comes from Valve's Steam Web API (`IGameServersService/GetServerList`) through the MM Server Agent, which holds the API key (`SteamWebApiKey` in `agent.jsonc`) so it never ships in the launcher. The agent refreshes it every few minutes and serves it gzip-compressed over the encrypted connection at `/mm-agent/v1/browser`. The launcher keeps a copy (`browser-cache.json.gz`), so the tab opens instantly. Favorites and recent servers are saved in `favorites.jsonc`.
+
 ### Join + mod sync (milestones 2 and 3)
 
 **JOIN SERVER** does four things in order:

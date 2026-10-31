@@ -36,7 +36,7 @@ public partial class MainViewModel
     [ObservableProperty] private IAsyncRelayCommand? _panelAction2;
 
     public bool ShowSyncPanel => IsSyncing || SyncFailed || SyncSucceeded;
-    public bool CanJoin => !IsSyncing && SteamFound && SelectedServer is { Online: true, HasMods: true, GamePort: not null };
+    public bool CanJoin => !IsSyncing && SteamFound && SelectedServer is { Online: true, GamePort: not null } s && (s.HasMods || s.ModsKnown);
     public bool CanUpdateMods => !IsSyncing && SteamFound && SelectedServer is { HasMods: true };
     public bool HasPanelAction => PanelAction != null && !IsSyncing;
     public bool HasPanelAction2 => PanelAction2 != null && !IsSyncing;
@@ -119,6 +119,7 @@ public partial class MainViewModel
                 ShowResult(true, "DayZ is starting", $"Joining {server.Name} with {mods.Count} mods. Good hunting.");
                 StatusMessage = "DayZ launched";
                 StartRejoinWatch(server, password);
+                RememberRecent(server);
             }
             else
             {

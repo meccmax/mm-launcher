@@ -19,6 +19,8 @@ public sealed class AgentConfig
     public int Port { get; set; } = 2999;
     public int RescanSeconds { get; set; } = 30;
     public bool AllowPlainHttp { get; set; } = true;
+    public string SteamWebApiKey { get; set; } = "";
+    public int ServerListRefreshMinutes { get; set; } = 5;
     public List<string> ProcessNames { get; set; } = ["DayZServer_x64", "DayZServer"];
     // Problem reports from the launcher
     public bool AcceptReports { get; set; } = true;
@@ -65,7 +67,8 @@ public sealed class AgentConfig
                     // File from an older agent: rewrite it so the new options (with their
                     // comments) appear, keeping every value that was already set.
                     // (Checks for the newest option; older files lack it too.)
-                    if (!text.Contains("\"AllowPlainHttp\"", StringComparison.OrdinalIgnoreCase))
+                    cfg.SteamWebApiKey = (cfg.SteamWebApiKey ?? "").Trim();
+                    if (!text.Contains("\"ServerListRefreshMinutes\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -110,6 +113,16 @@ public sealed class AgentConfig
         sb.AppendLine("  // agent-tls.pfx). true = also answer older launchers unencrypted while players update.");
         sb.AppendLine("  // false = encrypted only (recommended once everyone is on v0.5 or newer).");
         sb.AppendLine($"  \"AllowPlainHttp\": {J(AllowPlainHttp)},");
+        sb.AppendLine();
+        sb.AppendLine("  // ---------------- \"All servers\" browser in the launcher ----------------");
+        sb.AppendLine("  // Steam Web API key (free: steamcommunity.com/dev/apikey; the Steam account needs");
+        sb.AppendLine("  // $5 spent). With it, this agent fetches Valve's list of every DayZ server and passes");
+        sb.AppendLine("  // it to launchers for their server browser. The key stays here; launchers never see it.");
+        sb.AppendLine("  // Keep it secret. \"\" = browser feed off (the MM server list still works).");
+        sb.AppendLine($"  \"SteamWebApiKey\": {J(SteamWebApiKey)},");
+        sb.AppendLine();
+        sb.AppendLine("  // How often (minutes, 2 or more) to fetch a fresh list from Steam.");
+        sb.AppendLine($"  \"ServerListRefreshMinutes\": {ServerListRefreshMinutes},");
         sb.AppendLine();
         sb.AppendLine("  // Process names that count as a DayZ server (without .exe).");
         sb.AppendLine($"  \"ProcessNames\": {J(ProcessNames)},");
