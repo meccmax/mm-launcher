@@ -85,6 +85,8 @@ public sealed class UpdateChecker(HttpClient http)
     {
         if (!release.Assets.TryGetValue(assetName, out var asset))
             throw new InvalidOperationException($"Release {release.Tag} has no {assetName}.");
+        if (!IsTrustedDownload(asset.Url) || !IsTrustedDownload(release.Assets.GetValueOrDefault(ChecksumsAsset).Url))
+            throw new InvalidOperationException("The release points somewhere other than GitHub, so it wasn't downloaded.");
         if (!release.Assets.TryGetValue(ChecksumsAsset, out var sums))
             throw new InvalidOperationException($"Release {release.Tag} has no {ChecksumsAsset}, so the download can't be checked.");
 
@@ -127,6 +129,24 @@ public sealed class UpdateChecker(HttpClient http)
             try { if (File.Exists(temp)) File.Delete(temp); } catch { }
         }
     }
+
+    /// <summary>
+    /// Update files must come from GitHub over HTTPS (release downloads redirect to
+    /// *.githubusercontent.com, which HttpClient follows only over HTTPS).
+    /// </summary>
+    public static bool IsTrustedDownload(string? url)
+    {
+        if (Environment.GetEnvironmentVariable("MMLAUNCHER_UPDATE_URL") is { Length: > 0 }) return url != null; // test mode
+        return Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps &&
+               (u.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ||
+                u.Host.EndsWith(".githubusercontent.com", StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>Links the launcher opens in the browser: HTTPS on GitHub or Steam only.</summary>
+    public static bool IsSafeLink(string? url) =>
+        Uri.TryCreate(url, UriKind.Absolute, out var u) && u.Scheme == Uri.UriSchemeHttps &&
+        (u.Host.Equals("github.com", StringComparison.OrdinalIgnoreCase) ||
+         u.Host.Equals("steamcommunity.com", StringComparison.OrdinalIgnoreCase));
 
     /// <summary>Parses "hash  filename" lines (sha256sum format, optional '*' before the name).</summary>
     public static Dictionary<string, string> ParseChecksums(string text)

@@ -9,6 +9,8 @@ using MMServerAgent;
 // MMServerAgent.exe            run the agent (in this window, or as the service)
 // MMServerAgent.exe check      show what the agent sees right now, then exit
 // MMServerAgent.exe install    install + start as a Windows service, open the firewall port (admin)
+//                              Locks the agent folder down and runs the service with reduced
+//                              privileges (add --full-privileges if your setup needs them)
 // MMServerAgent.exe uninstall  stop + remove the service and firewall rule (admin)
 // MMServerAgent.exe update     download the newest agent from GitHub, verify it, swap it in (admin)
 //                              The agent never updates itself; this only runs when you run it.
@@ -163,6 +165,9 @@ async Task<int> UpdateAsync()
     }
     try { Directory.Delete(work, true); } catch { }
 
+    // Agents installed before 0.4.1 didn't lock their folder down; do it now.
+    LockDownFolder(dir);
+
     if (serviceExists)
     {
         Console.Write("Starting the service... ");
@@ -196,16 +201,99 @@ int Install()
         Console.WriteLine("Couldn't create the service. Right-click install-agent.bat and choose \"Run as administrator\".");
         return 1;
     }
+
+    // Hardening 1: the service runs as SYSTEM, so its folder must not be writable (or, because
+    // of the Discord webhook and players' reports, even readable) by ordinary Windows users.
+    LockDownFolder(Path.GetDirectoryName(exe)!);
+
+    // Hardening 2: drop the SYSTEM privileges the agent never needs (debug, take ownership,
+    // backup/restore, load drivers, ...). Checked below; undone automatically if it breaks.
+    bool fullPrivileges = args.Any(a => a.Equals("--full-privileges", StringComparison.OrdinalIgnoreCase));
+    if (!fullPrivileges)
+    {
+        Run("sc.exe", $"sidtype {ServiceName} unrestricted", quiet: true);
+        Run("sc.exe", $"privs {ServiceName} SeChangeNotifyPrivilege/SeCreateGlobalPrivilege/SeImpersonatePrivilege", quiet: true);
+    }
     Run("sc.exe", $"description {ServiceName} \"Tells the MM Launcher which mods the DayZ servers on this machine run. Read-only.\"");
     Run("sc.exe", $"failure {ServiceName} reset= 86400 actions= restart/5000/restart/5000/restart/30000");
     Run("netsh", $"advfirewall firewall delete rule name=\"{DisplayName}\"", quiet: true);
     Run("netsh", $"advfirewall firewall add rule name=\"{DisplayName}\" dir=in action=allow protocol=TCP localport={config.Port}");
     Run("sc.exe", $"start {ServiceName}");
+
+    if (!fullPrivileges && !VerifyRestrictedService(config))
+    {
+        Console.WriteLine("The agent couldn't see the DayZ servers with reduced privileges; switching to full privileges.");
+        RemoveRequiredPrivileges();
+        Run("sc.exe", $"stop {ServiceName}", quiet: true);
+        for (int i = 0; i < 20 && !ServiceStopped(); i++) Thread.Sleep(500);
+        Run("sc.exe", $"start {ServiceName}", quiet: true);
+    }
+
     Console.WriteLine();
     Console.WriteLine($"Installed. The agent now runs in the background on TCP port {config.Port} and starts with Windows.");
     Console.WriteLine($"If this machine is behind a router, forward TCP {config.Port} to it.");
     Console.WriteLine($"Test from any browser: http://<this machine's public address>:{config.Port}/");
     return 0;
+}
+
+// Lets only Administrators, SYSTEM and the person installing (so they can still edit agent.jsonc
+// without "Run as administrator") into the agent folder. Skipped for a folder that holds other
+// things too, so we never lock down e.g. the Desktop by accident.
+void LockDownFolder(string dir)
+{
+    var allowed = new[] { "MMServerAgent.exe", "MMServerAgent.exe.old", "agent.jsonc", "agent.log", "agent.log.old", "AGENT-SETUP.txt", "reports" };
+    var strangers = Directory.EnumerateFileSystemEntries(dir)
+        .Select(Path.GetFileName)
+        .Where(n => n != null && !allowed.Contains(n, StringComparer.OrdinalIgnoreCase) && !n.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+        .ToList();
+    if (strangers.Count > 0)
+    {
+        Console.WriteLine($"NOTE: {dir} also holds other files ({string.Join(", ", strangers.Take(3))}...), so its permissions were left alone.");
+        Console.WriteLine("      Put the agent in a folder of its own (e.g. C:\\Apps\\MMServerAgent) and run install again to lock it down.");
+        return;
+    }
+    var me = System.Security.Principal.WindowsIdentity.GetCurrent().User?.Value;
+    var grants = "*S-1-5-32-544:(OI)(CI)F *S-1-5-18:(OI)(CI)F" + (me != null ? $" *{me}:(OI)(CI)F" : "");
+    // Folder: drop inherited permissions (e.g. "Authenticated Users: Modify" from C:\), grant only these.
+    var ok = Run("icacls", $"\"{dir}\" /inheritance:r /grant:r {grants} /C /Q", quiet: true) == 0;
+    // Everything inside: just inherit from the folder.
+    Run("icacls", $"\"{Path.Combine(dir, "*")}\" /reset /T /C /Q", quiet: true);
+    Console.WriteLine(ok
+        ? "Locked the agent folder to Administrators, SYSTEM and you."
+        : "WARNING: couldn't change the agent folder's permissions (run as administrator).");
+}
+
+// After installing with reduced privileges, make sure the service still sees what this
+// (administrator) process sees. If it doesn't, the restriction is removed.
+bool VerifyRestrictedService(AgentConfig config)
+{
+    int expected;
+    try { expected = ServerDetector.Detect(config).Servers.Count; } catch { return true; }
+    if (expected == 0) return true; // no DayZ servers running right now; nothing to compare
+    using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(3) };
+    for (int i = 0; i < 15; i++)
+    {
+        Thread.Sleep(1000);
+        try
+        {
+            var json = http.GetStringAsync($"http://127.0.0.1:{config.Port}/mm-agent/v1/servers").GetAwaiter().GetResult();
+            var seen = System.Text.Json.JsonSerializer.Deserialize<MMLauncher.Core.Agent.AgentResponse>(json, MMLauncher.Core.Agent.AgentResponse.Json)?.Servers.Count ?? 0;
+            if (seen >= expected) { Console.WriteLine($"Checked: the service sees all {seen} DayZ server(s) with reduced privileges."); return true; }
+        }
+        catch { }
+    }
+    return false;
+}
+
+void RemoveRequiredPrivileges()
+{
+    if (!OperatingSystem.IsWindows()) return;
+    try
+    {
+        using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey($@"SYSTEM\CurrentControlSet\Services\{ServiceName}", writable: true);
+        key?.DeleteValue("RequiredPrivileges", throwOnMissingValue: false);
+    }
+    catch { }
 }
 
 int Uninstall()

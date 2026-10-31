@@ -92,10 +92,24 @@ public static class GameLauncher
         return new LaunchCommand(steamExe, args, steam.DayZPath);
     }
 
+    /// <summary>The command line with the server password hidden, even when it contains spaces or quotes.</summary>
+    public static string RedactPassword(LaunchCommand command)
+    {
+        var text = command.ToString();
+        foreach (var a in command.Arguments)
+            if (a.StartsWith("-password=", StringComparison.OrdinalIgnoreCase) && a.Length > "-password=".Length)
+            {
+                text = text.Replace(Quote(a), "-password=***").Replace(a, "-password=***");
+                var secret = a["-password=".Length..];
+                if (secret.Length >= 3) text = text.Replace(secret, "***");
+            }
+        return text;
+    }
+
     public static void Start(LaunchCommand command)
     {
         // Never log the password.
-        Log.Info("Launch: " + System.Text.RegularExpressions.Regex.Replace(command.ToString(), "-password=[^ \"]*", "-password=***"));
+        Log.Info("Launch: " + RedactPassword(command));
         if (DryRun)
         {
             Log.Info("Dry run: DayZ not started.");
@@ -165,6 +179,11 @@ public static class GameLauncher
 
     private static bool EnsureJunction(string link, string target)
     {
+        // The link is made with "cmd /c mklink"; cmd expands %VAR% and treats quotes specially
+        // even inside quoted arguments, so refuse paths with those characters (full paths are
+        // used instead; nothing is lost).
+        if (link.IndexOfAny(['%', '"', '\r', '\n']) >= 0 || target.IndexOfAny(['%', '"', '\r', '\n']) >= 0)
+            return false;
         var info = new DirectoryInfo(link);
         if (info.Exists)
         {

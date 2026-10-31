@@ -85,6 +85,26 @@ against the published checksum, stops the service, swaps the exe and starts it
 again. agent.jsonc, agent.log and the reports folder are left alone.
 
 
+SECURITY
+--------
+install and update lock the agent folder so only Administrators, SYSTEM and
+you can read or change it (agent.jsonc holds the Discord webhook). Keep the
+agent in a folder of its own, e.g. C:\Apps\MMServerAgent; if the folder holds
+other files, the permissions are left alone and install tells you.
+
+The service runs with only the few Windows privileges it needs. If check-agent.bat
+shows it can't see your DayZ servers after installing, reinstall it with full
+privileges: open an admin command prompt in this folder and run
+  MMServerAgent.exe install --full-privileges
+
+Upgrading from v0.4.0? Run update-agent.bat (or install-agent.bat) once so the
+folder lock and reduced privileges are applied.
+
+Report uploads are limited (3 per hour per address, 50 per day, 9 MB each) and
+only the files the launcher itself makes are accepted. All limits are in
+agent.jsonc. Full audit: github.com/meccmax/mm-launcher/blob/main/docs/SECURITY-AUDIT.md
+
+
 FILES
 -----
   MMServerAgent.exe    the agent

@@ -15,9 +15,15 @@ public sealed record HttpReply(int Status, string ContentType, string Body);
 /// fixed size (problem reports). Small header limits and short timeouts so a slow or hostile
 /// client can't tie it up. No admin URL reservation needed on Windows.
 /// </summary>
-public sealed class MiniHttpServer(int port, long maxBodyBytes, Func<HttpRequestInfo, Task<HttpReply>> handler)
+public sealed class MiniHttpServer(
+    int port,
+    long maxBodyBytes,
+    Func<HttpRequestInfo, Task<HttpReply>> handler,
+    Func<string, string, IPAddress, long, HttpReply?>? beforeBody = null)
 {
     private const int MaxHeaderBytes = 8 * 1024;
+    private const int MaxConnectionsPerAddress = 4;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<IPAddress, int> _perAddress = new();
     private static readonly TimeSpan HeaderTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan BodyTimeout = TimeSpan.FromSeconds(120);
     private readonly SemaphoreSlim _slots = new(32);
@@ -35,11 +41,22 @@ public sealed class MiniHttpServer(int port, long maxBodyBytes, Func<HttpRequest
                 catch (OperationCanceledException) { break; }
 
                 if (!_slots.Wait(0)) { client.Dispose(); continue; } // too busy; drop
+
+                // One address can't hold every slot (slow-upload / slowloris style tie-up).
+                var address = Normalize((client.Client.RemoteEndPoint as IPEndPoint)?.Address ?? IPAddress.None);
+                if (_perAddress.AddOrUpdate(address, 1, (_, n) => n + 1) > MaxConnectionsPerAddress)
+                {
+                    Release(address);
+                    client.Dispose();
+                    _slots.Release();
+                    continue;
+                }
+
                 _ = Task.Run(async () =>
                 {
                     try { await HandleAsync(client, ct); }
                     catch { /* bad client; ignore */ }
-                    finally { client.Dispose(); _slots.Release(); }
+                    finally { client.Dispose(); Release(address); _slots.Release(); }
                 }, CancellationToken.None);
             }
         }
@@ -49,11 +66,18 @@ public sealed class MiniHttpServer(int port, long maxBodyBytes, Func<HttpRequest
         }
     }
 
+    private void Release(IPAddress address)
+    {
+        if (_perAddress.AddOrUpdate(address, 0, (_, n) => n - 1) <= 0)
+            _perAddress.TryRemove(new KeyValuePair<IPAddress, int>(address, 0));
+    }
+
+    private static IPAddress Normalize(IPAddress a) => a.IsIPv4MappedToIPv6 ? a.MapToIPv4() : a;
+
     private async Task HandleAsync(TcpClient client, CancellationToken ct)
     {
         var stream = client.GetStream();
-        var remote = (client.Client.RemoteEndPoint as IPEndPoint)?.Address ?? IPAddress.None;
-        if (remote.IsIPv4MappedToIPv6) remote = remote.MapToIPv4();
+        var remote = Normalize((client.Client.RemoteEndPoint as IPEndPoint)?.Address ?? IPAddress.None);
 
         // ---- headers
         using var headerCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -97,6 +121,12 @@ public sealed class MiniHttpServer(int port, long maxBodyBytes, Func<HttpRequest
             {
                 await WriteAsync(stream, new HttpReply(413, "application/json",
                     $"{{\"ok\":false,\"message\":\"Report too large ({length / 1024 / 1024} MB). The limit is {maxBodyBytes / 1024 / 1024} MB.\"}}"), ct);
+                return;
+            }
+            // Let the handler refuse (wrong path, rate limit) before receiving the body.
+            if (beforeBody?.Invoke(method, path, remote, length) is { } early)
+            {
+                await WriteAsync(stream, early, ct);
                 return;
             }
             body = new byte[length];

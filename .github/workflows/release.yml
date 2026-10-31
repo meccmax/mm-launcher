@@ -22,29 +22,47 @@ on:
         required: false
         default: ""
 
+# Security: the build/test job can only read the repo. Only the small publish job, which runs
+# no project code, gets permission to create the Release. Third-party actions are pinned to
+# exact commits (Dependabot proposes updates), so a moved tag can't change what runs here.
 permissions:
-  contents: write   # needed to create the Release
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+      tag: ${{ steps.ver.outputs.tag }}
+      publish: ${{ steps.ver.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: "10.0.x"
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
 
       - name: Work out the version
         id: ver
         shell: pwsh
+        env:
+          REF_NAME: ${{ github.ref_name }}
+          REQUESTED: ${{ github.event.inputs.release_version }}
         run: |
-          $tag = "${{ github.ref_name }}"
-          $requested = "${{ github.event.inputs.release_version }}".Trim().TrimStart('v')
+          $tag = "$env:REF_NAME"
+          $requested = "$env:REQUESTED".Trim().TrimStart('v')
           $publish = "false"
           if ($tag -match '^v(\d+\.\d+\.\d+)$') { $v = $Matches[1]; $publish = "true" }
           elseif ($requested -match '^\d+\.\d+\.\d+$') { $v = $requested; $publish = "true" }
@@ -88,23 +106,43 @@ jobs:
           $lines | Set-Content -Encoding ascii release/SHA256SUMS.txt
           Get-Content release/SHA256SUMS.txt
 
-      - name: Publish the Release
-        if: steps.ver.outputs.publish == 'true'
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $tag = "${{ steps.ver.outputs.tag }}"
-          $notes = "release-notes/$tag.md"
-          # --target: when run by hand, gh creates the tag on this exact commit.
-          $common = @($tag, "release/MMLauncher.exe", "release/MMServerAgent.zip", "release/SHA256SUMS.txt",
-                      "--title", "MM Launcher $tag", "--target", "${{ github.sha }}")
-          if (Test-Path $notes) { gh release create @common --notes-file $notes }
-          else { gh release create @common --generate-notes }
-
-      - name: Keep the files (build-only runs)
-        if: steps.ver.outputs.publish != 'true'
-        uses: actions/upload-artifact@v4
+      - name: Keep the files
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: mm-launcher-build
           path: release/
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: needs.build.outputs.publish == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to create the Release
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+          sparse-checkout: release-notes
+
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: mm-launcher-build
+          path: release/
+
+      - name: Check the files against their checksums
+        run: cd release && sha256sum -c SHA256SUMS.txt
+
+      - name: Publish the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.build.outputs.tag }}
+          SHA: ${{ github.sha }}
+        run: |
+          notes="release-notes/$TAG.md"
+          # --target: when run by hand, gh creates the tag on this exact commit.
+          args=("$TAG" release/MMLauncher.exe release/MMServerAgent.zip release/SHA256SUMS.txt
+                --title "MM Launcher $TAG" --target "$SHA")
+          if [ -f "$notes" ]; then gh release create "${args[@]}" --notes-file "$notes"
+          else gh release create "${args[@]}" --generate-notes; fi

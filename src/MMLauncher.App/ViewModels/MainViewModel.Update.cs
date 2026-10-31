@@ -112,6 +112,8 @@ public partial class MainViewModel
 
     private static void OpenUrl(string url)
     {
+        // Release links come from GitHub's API; only ever hand HTTPS GitHub/Steam links to the shell.
+        if (!UpdateChecker.IsSafeLink(url)) url = UpdateChecker.ReleasesPage;
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     }
 

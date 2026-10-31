@@ -25,7 +25,7 @@ public sealed class AgentWorker : BackgroundService
             : _reports.DiscordConfigured ? "Problem reports: on, posting to Discord and saving to the reports folder"
             : "Problem reports: on, saving to the reports folder (no Discord webhook set)");
         Rescan();
-        var http = new MiniHttpServer(_config.Port, (long)_config.MaxReportMB * 1024 * 1024, HandleAsync);
+        var http = new MiniHttpServer(_config.Port, (long)_config.MaxReportMB * 1024 * 1024, HandleAsync, BeforeBody);
         var server = http.RunAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
@@ -62,6 +62,14 @@ public sealed class AgentWorker : BackgroundService
         {
             Log("Scan failed: " + ex.Message);
         }
+    }
+
+    /// <summary>Checks a POST before its body is received: only report uploads, and only if allowed.</summary>
+    private HttpReply? BeforeBody(string method, string path, System.Net.IPAddress remote, long length)
+    {
+        if (!path.Equals(AgentClient.ReportPath, StringComparison.OrdinalIgnoreCase) || _reports == null)
+            return new HttpReply(404, "text/plain", "Not found.");
+        return _reports.Admit(remote, length);
     }
 
     private async Task<HttpReply> HandleAsync(HttpRequestInfo request)

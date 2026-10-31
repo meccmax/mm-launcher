@@ -1,0 +1,97 @@
+# Security audit: MM Launcher and MM Server Agent
+
+| | |
+|---|---|
+| **Date** | 30 October 2026 |
+| **Versions reviewed** | v0.4.0. Fixes ship in v0.4.1. |
+| **Scope** | MM Launcher (player app), MM Server Agent (runs on the game servers), GitHub release workflow, third-party packages |
+| **Method** | Manual code review of every network, file-system and process boundary. Hostile-input tests run against a live agent: path traversal, executables, zip bombs, oversized JSON, fake zip headers, connection floods, rate limits. Automated checks were added to the self-check, which runs on every release build. Package scan with `dotnet list package --vulnerable --include-transitive`. |
+
+## Summary
+
+No critical problems were found. The main risks were in the **server agent's problem-report upload**, because that endpoint has to accept files from anyone on the internet, and in the **launcher's self-update**. Both are now fixed or mitigated. Third-party packages have no known vulnerabilities.
+
+| Severity | Found | Fixed | Mitigated | Accepted | Recommended action |
+|---|---|---|---|---|---|
+| High | 3 | 3 | 0 | 0 | 0 |
+| Medium | 14 | 11 | 2 | 1 | 0 |
+| Low | 9 | 8 | 0 | 1 | 0 |
+| Process | 4 | 0 | 0 | 0 | 4 |
+
+**Status:** *Fixed* means the problem is gone. *Mitigated* means the risk is reduced but some remains, as described. *Accepted* means a known limitation, judged acceptable for now. *Recommended* means an action for the maintainers outside the code.
+
+## How it fits together (threat model)
+
+```
+ Player PC                                      Game server (Windows, CFTools)
+ ┌──────────────────────┐   A2S (UDP, public)   ┌──────────────────────────┐
+ │ MMLauncher.exe       │ ────────────────────▶ │ DayZ server              │
+ │  · server list       │   HTTP :2994-2999     │                          │
+ │  · join / mod sync   │ ────────────────────▶ │ MMServerAgent (service)  │
+ │  · report a problem  │   GET mod list,       │  · reads DayZ processes  │
+ │  · self-update       │   POST report zip     │  · forwards reports ─────┼──▶ Discord webhook
+ └─────────┬────────────┘                       └──────────────────────────┘
+           │ HTTPS: Steam Web API, GitHub Releases
+           ▼
+   Steam client (Workshop downloads)       GitHub Actions builds and publishes releases
+```
+
+**What's worth protecting:** players' PCs (the launcher starts programs and makes folder links), the game servers (the agent runs as a Windows service), the staff Discord channel and its webhook URL, staff PCs (they open report zips), and the release pipeline (anything published reaches every player through self-update).
+
+**Who might attack:** anyone on the internet who can reach the agent's port. Someone on the same network as a player who can tamper with plain HTTP or DNS. A malicious mod name or server name. Someone who takes over the GitHub account or a GitHub Action.
+
+## Findings: MM Server Agent
+
+| ID | Severity | Finding | Status | What was done |
+|---|---|---|---|---|
+| A1 | High | **Report upload flooding.** Anyone could send unlimited reports, filling the server's disk and spamming the staff Discord channel. | Fixed | Limits of 3 reports per hour per address and 50 per day are checked *before* the upload is received. Reports are capped at 9 MB. Stored reports are capped at 500 MB, oldest deleted first. The tracking table is capped at 10,000 addresses. All limits are configurable in `agent.jsonc`. |
+| A2 | High | **Harmful files sent to staff.** A forged report zip could carry `.exe`, `.lnk`, `.bat` or scripts that staff would download from Discord and might open. | Fixed | Strict allow-list: the zip may only contain the exact file names and types the launcher writes (`report.json`, `report.txt`, `launcher/launcher.log`, `server/*.txt`, `dayz/*.RPT\|log\|mdmp`). Any other file, folder, `..` or absolute path rejects the whole report. |
+| A3 | Medium | **Zip bomb or huge summary.** A small upload could unpack to gigabytes or contain a giant `report.json`, using up the agent's memory. | Fixed | At most 64 entries and 200 MB unpacked, checked before anything is read. `report.json` is read with a hard 256 KB cap. The agent never unpacks the zip to disk; it saves it exactly as received. |
+| A4 | Medium | **Discord message injection.** Player name, server name and description went into the Discord post as-is, so they could ping `@everyone`, add clickable phishing links, or fake formatting so a report looked official. | Fixed | Mentions are disabled (`allowed_mentions: none`). Short fields are markdown-escaped. Free text goes into code blocks, where links can't be clicked. The timestamp is set by the agent, not by the report. |
+| A5 | Medium | **Slow-upload tie-up.** One address could hold all 32 connection slots open by sending slowly. | Fixed | At most 4 connections per address. 10 s limit for headers and 120 s for the body. 8 KB header limit. |
+| A6 | Medium | **Webhook URL readable by other users.** `agent.jsonc` holds the Discord webhook. On a default Windows install, any local user can read and change files in a new folder under `C:\`. That would also let them replace the service exe. | Fixed | `install` and `update` now limit the agent folder to Administrators, SYSTEM and the installing admin. They skip this if the folder holds unrelated files, and say so. The webhook is never sent to players, and it must be `https://`. |
+| A7 | Medium | **Service runs as LocalSystem with every privilege.** If the agent were ever compromised, the attacker would get full control of the server. | Mitigated | The service now runs with a restricted service SID and only 3 privileges (SeChangeNotify, SeCreateGlobal, SeImpersonate). Install checks the result and undoes the restriction if Windows refuses it. It still runs as LocalSystem, because it needs to read the DayZ server processes' command lines. `--full-privileges` exists for setups that need the old behaviour. |
+| A8 | Medium | **No encryption on the agent's HTTP.** The mod list and reports travel as plain HTTP. Someone on the path can read a report: crash logs, PC specs, player name. Usernames and PC names are removed before sending. | Accepted | The mod list is public information anyway; anyone can get it with A2S. For reports, see recommendation R4. |
+| A9 | Low | **Non-report POSTs** were read in full before being refused. | Fixed | Unknown paths get 404 and wrong methods get 405, before the body is read. |
+| A10 | Low | **Log injection.** Player-controlled text with line breaks could forge fake lines in `agent.log`. | Fixed | Control characters are stripped. Addresses in the log are partly masked (`1.2.3.x`). |
+| A11 | Low | **Info exposure on `/mm-agent/v1/servers`.** | Fixed (verified) | Only the server name, map, ports, player slots, uptime, mod IDs, names and folder names, and the admin's optional message are returned. Passwords, admin passwords, RCON settings and file paths from `serverDZ.cfg` are never read into the reply. |
+| A12 | Low | **Agent update integrity.** | Fixed | Updates only run when the admin starts `update-agent.bat`. The download comes only from GitHub over HTTPS and is checked against the release's SHA-256 checksum before the exe is swapped. The locked-down folder (A6) stops non-admins from replacing it. |
+
+## Findings: MM Launcher
+
+| ID | Severity | Finding | Status | What was done |
+|---|---|---|---|---|
+| L1 | High | **Self-update could install a tampered exe.** | Fixed | Downloads are accepted only from `github.com` or `*.githubusercontent.com` over HTTPS, and only if the SHA-256 matches the release's `SHA256SUMS.txt`. A mismatch deletes the download and changes nothing. A test proves a tampered download is refused. Residual risk: the checksums live in the same release, so they don't protect against a hijacked GitHub account (R1, R3). |
+| L2 | Medium | **Hostile agent reply.** A fake agent, through DNS spoofing or a hijacked network, could send a huge reply to freeze or crash the launcher. | Fixed | Replies are capped at 1 MB, 32 servers and 300 mods per server. Text is clipped and control characters stripped. Agent-supplied folder names are only displayed; real mod folders always come from Steam's own files. |
+| L3 | Medium | **Fake agent suggests unwanted mods.** A spoofed agent could list Workshop items for the launcher to subscribe to. | Mitigated | Items can only come from the Steam Workshop and are downloaded by Steam itself. The launcher never runs mod files. Agents are only asked on the MM hosts set in Settings. Encrypting the agent connection (R4) would close this fully. |
+| L4 | Medium | **Opening links from release data.** "Open releases page" passed a URL from GitHub's API to Windows, which would run `file://` or other schemes. | Fixed | Only `https://github.com` and `https://steamcommunity.com` links are opened. Anything else falls back to the releases page. |
+| L5 | Medium | **Command injection when launching DayZ.** Server names, passwords and mod paths end up on a command line. | Fixed | Each argument is quoted on its own, and DayZ is started directly, never through `cmd`. Folder links are made with `cmd /c mklink`, and it refuses any path containing `%`, `"` or line breaks; full paths are used instead. |
+| L6 | Medium | **Folder links could replace real folders.** | Fixed | An existing link is only replaced if it really is a link. A real folder in its place is never touched. Removal is non-recursive, so mods are never deleted through a link. |
+| L7 | Medium | **Server password in the log.** The password was masked in `launcher.log`, which goes into problem reports. Passwords with spaces or quotes were only partly masked. | Fixed | The whole password is now removed from the logged command, whatever it contains. Passwords are never saved to disk. |
+| L8 | Low | **Repair moving the wrong folders.** | Fixed | Repair only touches the numbered Workshop folders of the selected mods. Folders are moved aside, not deleted, and restored if the new download fails. |
+| L9 | Low | **Private info in reports.** | Fixed | The Windows username and PC name are removed from every file before zipping. Nothing is sent until the player clicks Send. |
+| L10 | Low | **Password visible to other programs.** While DayZ runs, its command line (including `-password=`) can be read by other programs on the same PC. | Accepted | This is how DayZ takes passwords. DZSA and Steam do the same. |
+| L11 | Low | **Steam helper process.** | Fixed (verified) | The helper talks to the launcher only through its own stdin/stdout, opens no network port, and exits when done. |
+
+## Findings: release pipeline
+
+| ID | Severity | Finding | Status | What was done |
+|---|---|---|---|---|
+| C1 | Medium | **Build job had write access to the repository.** Tests and build steps ran project code while holding a token that could create releases. | Fixed | The build and test job is now read-only. A separate, small publish job gets write access. It runs no project code, only downloads the built files, re-checks their checksums and creates the Release. |
+| C2 | Medium | **Actions referenced by movable tags** (`@v4`). If one of those actions were hijacked, it could inject code into every release. | Fixed | All actions are pinned to exact commit hashes. Dependabot proposes updates weekly, for NuGet packages too. |
+| C3 | Low | **Script injection from the workflow input.** The "Publish as version" text was pasted straight into a PowerShell script. | Fixed | The input is now passed as an environment variable and must match `0.0.0` exactly. Checkout no longer leaves the Git token on disk. |
+
+**Dependencies:** Avalonia 11.3.22, CommunityToolkit.Mvvm 8.4.2, Facepunch.Steamworks 2.3.3, System.Management. No known vulnerabilities, including transitive packages, as of the audit date.
+
+## Recommendations for the maintainers
+
+| ID | Recommendation |
+|---|---|
+| R1 | Turn on **two-factor authentication** on the GitHub account. Anyone who controls the account can publish an update that reaches every player. |
+| R2 | Add **branch and tag protection**: Settings → Rules → protect `main` and tags `v*` so they can't be force-pushed or deleted. Turn on **Private vulnerability reporting**, **Dependabot alerts** and **secret scanning** under Settings → Code security. |
+| R3 | **Sign the exe files** with a code-signing certificate once the project is ready for it. That removes the Windows SmartScreen warning, and a hijacked account alone couldn't produce a trusted update. |
+| R4 | Put the agent behind **HTTPS**, for example a Cloudflare Tunnel or a reverse proxy with a certificate. The launcher would then talk to `https://…`. This closes A8 and L3. |
+
+## Re-running this audit
+
+The hostile-input checks are part of `src/MMLauncher.Tests` and run on every release build. Server admins should run `update-agent.bat` (or `install-agent.bat`) once after updating to v0.4.1, so the agent folder gets locked down (A6) and the service privileges are reduced (A7).

@@ -323,6 +323,29 @@ Console.WriteLine("== Update checker (fake GitHub release) ==");
     Environment.SetEnvironmentVariable("MMLAUNCHER_UPDATE_URL", null);
 }
 
+Console.WriteLine("== Hardening checks ==");
+{
+    string bigName = new string('N', 5000) + "\r\nFAKE LOG LINE", bigMsg = new string('M', 9000), bigMod = new string('x', 9000);
+    var hostileMods = Enumerable.Range(0, 2000).Select(j => new AgentMod { Id = (ulong)j, Name = bigMod }).ToList();
+    var hostile = new AgentResponse
+    {
+        Servers = Enumerable.Range(0, 100).Select(i => new AgentServerInfo { Name = bigName, Message = bigMsg, Mods = hostileMods }).ToList(),
+    };
+    var clean = AgentClient.Sanitize(hostile);
+    Check(clean.Servers.Count <= 32 && clean.Servers.All(s => s.Name.Length <= 200 && !s.Name.Contains('\n') && (s.Message?.Length ?? 0) <= 500
+          && s.Mods.Count <= 300 && s.Mods.All(m => m.Name.Length <= 200)), "hostile agent reply clipped (servers, mods, text, control chars)");
+    Check(UpdateChecker.IsTrustedDownload("https://github.com/meccmax/mm-launcher/releases/download/v1/MMLauncher.exe")
+          && UpdateChecker.IsTrustedDownload("https://objects.githubusercontent.com/x")
+          && !UpdateChecker.IsTrustedDownload("http://github.com/x") && !UpdateChecker.IsTrustedDownload("https://evil.example/MMLauncher.exe")
+          && !UpdateChecker.IsTrustedDownload("https://github.com.evil.example/x"), "update downloads only from GitHub over HTTPS");
+    Check(UpdateChecker.IsSafeLink("https://github.com/meccmax/mm-launcher/releases") && !UpdateChecker.IsSafeLink("file:///C:/Windows/System32/calc.exe")
+          && !UpdateChecker.IsSafeLink("https://evil.example"), "only GitHub/Steam links are opened");
+    var pwCmd = new MMLauncher.Core.Launch.LaunchCommand(@"C:\DayZ\DayZ_BE.exe", ["-connect=1.2.3.4", "-password=my secret \"pass\"", "-mod=@1"], @"C:\DayZ");
+    var logged = MMLauncher.Core.Launch.GameLauncher.RedactPassword(pwCmd);
+    Check(!logged.Contains("secret") && !logged.Contains("pass\\") && logged.Contains("-password=***") && logged.Contains("-connect=1.2.3.4"),
+          "server password hidden in the launcher log (spaces and quotes)");
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new HttpClient()).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

@@ -32,16 +32,25 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
         // plain http only for a local test receiver
         config.DiscordWebhookUrl.StartsWith("http://127.0.0.1", StringComparison.OrdinalIgnoreCase);
 
-    public async Task<HttpReply> HandleAsync(HttpRequestInfo request)
+    private const int MaxTrackedAddresses = 10_000;
+
+    /// <summary>
+    /// Called by the web server BEFORE the upload body is read, so a rate-limited or
+    /// unwanted sender can't make the agent receive megabytes first. Returns a reply to
+    /// refuse, or null to accept (the attempt is counted either way).
+    /// </summary>
+    public HttpReply? Admit(System.Net.IPAddress remote, long contentLength)
     {
         if (!config.AcceptReports)
             return Reply(403, false, "This server doesn't accept reports.");
-
-        // 1) Rate limits (checked before doing any work on the body).
-        string who = request.RemoteAddress.ToString();
+        string who = remote.ToString();
         lock (_gate)
         {
             var now = DateTime.UtcNow;
+            // Keep the table bounded: drop addresses with no recent reports.
+            if (_perAddress.Count > MaxTrackedAddresses)
+                foreach (var key in _perAddress.Where(kv => kv.Value.All(t => now - t > TimeSpan.FromHours(1))).Select(kv => kv.Key).ToList())
+                    _perAddress.TryRemove(key, out _);
             var mine = _perAddress.GetOrAdd(who, _ => []);
             mine.RemoveAll(t => now - t > TimeSpan.FromHours(1));
             _all.RemoveAll(t => now - t > TimeSpan.FromDays(1));
@@ -52,6 +61,20 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
             mine.Add(now);
             _all.Add(now);
         }
+        return null;
+    }
+
+    /// <summary>Only these paths may appear in a report zip (what the launcher writes).</summary>
+    private static readonly System.Text.RegularExpressions.Regex AllowedEntry = new(
+        @"^(report\.json|report\.txt|launcher/launcher\.log|server/(server|mods)\.txt|" +
+        @"dayz/[A-Za-z0-9_.\-]{1,80}\.(RPT|log|mdmp))(\.unreadable\.txt)?$",
+        System.Text.RegularExpressions.RegexOptions.IgnoreCase | System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    public async Task<HttpReply> HandleAsync(HttpRequestInfo request)
+    {
+        if (!config.AcceptReports)
+            return Reply(403, false, "This server doesn't accept reports.");
+        string who = request.RemoteAddress.ToString();
 
         // 2) Is it really one of our report zips?
         if (request.Body.Length < 4 || request.Body[0] != 'P' || request.Body[1] != 'K')
@@ -63,14 +86,18 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
             using var zip = new ZipArchive(new MemoryStream(request.Body), ZipArchiveMode.Read);
             if (zip.Entries.Count > MaxZipEntries) return Reply(400, false, "Report has too many files.");
             if (zip.Entries.Sum(e => e.Length) > MaxUncompressedBytes) return Reply(400, false, "Report unpacks too large.");
+            // Staff open these zips on their own PCs, so only the files the launcher itself
+            // writes are allowed: no executables, shortcuts, scripts or odd paths.
+            var stray = zip.Entries.FirstOrDefault(e => !AllowedEntry.IsMatch(e.FullName));
+            if (stray != null) return Reply(400, false, "Report contains a file that isn't allowed.");
             var json = zip.GetEntry("report.json");
             if (json == null || json.Length > 256 * 1024) return Reply(400, false, "Report is missing its summary.");
-            using var reader = new StreamReader(json.Open());
-            meta = JsonSerializer.Deserialize<ReportMeta>(reader.ReadToEnd(), ReportMeta.Json);
+            meta = JsonSerializer.Deserialize<ReportMeta>(ReadBounded(json, 256 * 1024), ReportMeta.Json);
         }
         catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException)
         {
-            return Reply(400, false, "The report file is damaged: " + ex.Message);
+            log($"Report from {MaskAddress(who)} rejected: {OneLine(ex.Message)}");
+            return Reply(400, false, "The report file is damaged.");
         }
         if (meta == null) return Reply(400, false, "Report is missing its summary.");
 
@@ -87,7 +114,7 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
         {
             log($"Report {reference}: couldn't save ({ex.Message})");
         }
-        log($"Report {reference} from {MaskAddress(who)}: player '{Clip(meta.Player, 60)}', server '{Clip(meta.ServerName, 80)}', {request.Body.Length / 1024} KB");
+        log($"Report {reference} from {MaskAddress(who)}: player '{OneLine(Clip(meta.Player, 60))}', server '{OneLine(Clip(meta.ServerName, 80))}', {request.Body.Length / 1024} KB");
 
         // 4) Discord.
         if (!DiscordConfigured)
@@ -101,25 +128,28 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
 
     private async Task<(bool Ok, string Error)> PostToDiscordAsync(ReportMeta m, byte[] zip, string fileName, string reference, string who)
     {
+        // Everything in report.json comes from the sender, so it is shown as plain text:
+        // markdown escaped (no masked links, no formatting tricks) and long text in a code block.
         var fields = new JsonArray
         {
-            Field("Player", m.Player.Length > 0 ? m.Player : "(not given)", true),
-            Field("Server", m.ServerName.Length > 0 ? m.ServerName : "(none selected)", true),
-            Field("Crash", m.CrashSummary.Length > 0 ? m.CrashSummary : "No script crash recorded", false),
+            Field("Player", m.Player.Length > 0 ? Md(m.Player) : "(not given)", true),
+            Field("Server", m.ServerName.Length > 0 ? Md(m.ServerName) : "(none selected)", true),
+            Field("Crash", m.CrashSummary.Length > 0 ? Code(m.CrashSummary, 900) : "No script crash recorded", false),
         };
-        if (m.ErrorCodes.Count > 0) fields.Add(Field("Errors shown in game", string.Join("\n", m.ErrorCodes), false));
-        fields.Add(Field("PC", $"{m.Windows}\n{m.Cpu}\n{m.Gpu}\n{m.Ram}", false));
+        if (m.ErrorCodes.Count > 0) fields.Add(Field("Errors shown in game", Code(string.Join("\n", m.ErrorCodes.Take(10)), 900), false));
+        fields.Add(Field("PC", Code($"{m.Windows}\n{m.Cpu}\n{m.Gpu}\n{m.Ram}", 900), false));
         fields.Add(Field("DayZ session", m.SessionStarted is { } s ? s.ToString("yyyy-MM-dd HH:mm") : "no logs found", true));
         fields.Add(Field("Reference", $"{reference} · from {MaskAddress(who)}", true));
 
         var embed = new JsonObject
         {
-            ["title"] = Clip($"Problem report: {(m.Player.Length > 0 ? m.Player : "unnamed player")}", 250),
-            ["description"] = Clip(m.Description.Length > 0 ? m.Description : "_No description given._", 3500),
+            ["title"] = Clip($"Problem report: {(m.Player.Length > 0 ? OneLine(m.Player) : "unnamed player")}", 250),
+            ["description"] = m.Description.Length > 0 ? Code(m.Description, 3500) : "_No description given._",
             ["color"] = 0xFF7A00,
             ["fields"] = fields,
-            ["footer"] = new JsonObject { ["text"] = $"MM Launcher {Clip(m.LauncherVersion, 20)} · {m.Files.Count} files" },
-            ["timestamp"] = m.Created.ToUniversalTime().ToString("o"),
+            ["footer"] = new JsonObject { ["text"] = $"MM Launcher {Clip(OneLine(m.LauncherVersion), 20)} · {m.Files.Count} files" },
+            // The sender's clock can't be trusted; stamp it with when the agent received it.
+            ["timestamp"] = DateTimeOffset.UtcNow.ToString("o"),
         };
         var payload = new JsonObject
         {
@@ -160,6 +190,17 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
         }
     }
 
+    /// <summary>Reads at most <paramref name="max"/> bytes, whatever the entry claims its size is.</summary>
+    private static string ReadBounded(ZipArchiveEntry entry, int max)
+    {
+        using var s = entry.Open();
+        var buf = new byte[max + 1];
+        int total = 0, n;
+        while (total < buf.Length && (n = s.Read(buf, total, buf.Length - total)) > 0) total += n;
+        if (total > max) throw new InvalidDataException("summary too large");
+        return Encoding.UTF8.GetString(buf, 0, total);
+    }
+
     /// <summary>Deletes the oldest saved reports once the folder is over its size budget.</summary>
     private void TrimStorage()
     {
@@ -179,6 +220,16 @@ public sealed class ReportReceiver(AgentConfig config, Action<string> log)
         ["value"] = Clip(string.IsNullOrWhiteSpace(value) ? "-" : value, 1000),
         ["inline"] = inline,
     };
+
+    /// <summary>Escapes Discord markdown so sender text shows literally (no links, mentions or formatting).</summary>
+    private static string Md(string s) =>
+        System.Text.RegularExpressions.Regex.Replace(OneLine(s), @"([\\*_~`|>\[\]()#@:<-])", @"\$1");
+
+    /// <summary>Sender text inside a code block: shown verbatim, nothing clickable.</summary>
+    private static string Code(string s, int max) => "```\n" + Clip(s.Replace("`", "'"), max - 8) + "\n```";
+
+    /// <summary>Removes line breaks and control characters (log lines, titles).</summary>
+    private static string OneLine(string s) => new(s.Select(c => char.IsControl(c) ? ' ' : c).ToArray());
 
     private static HttpReply Reply(int status, bool ok, string message, string reference = "") =>
         new(status, "application/json", JsonSerializer.Serialize(new ReportUploadResult { Ok = ok, Message = message, Reference = reference }, AgentResponse.Json));

@@ -14,6 +14,36 @@ public sealed class AgentClient(HttpClient http)
 {
     public const string Path = "/mm-agent/v1/servers";
     public const string ReportPath = "/mm-agent/v1/report";
+    private const int MaxReplyBytes = 1024 * 1024;
+    private const int MaxServers = 32;
+    private const int MaxModsPerServer = 300;
+
+    /// <summary>Clips everything an agent sends to sane sizes.</summary>
+    public static AgentResponse Sanitize(AgentResponse r)
+    {
+        static string Clip(string? s, int max)
+        {
+            if (string.IsNullOrEmpty(s)) return s ?? "";
+            var clean = new string(s.Where(c => !char.IsControl(c)).ToArray());
+            return clean.Length <= max ? clean : clean[..max];
+        }
+        r.Version = Clip(r.Version, 20);
+        r.Servers = r.Servers.Take(MaxServers).ToList();
+        foreach (var s in r.Servers)
+        {
+            s.Name = Clip(s.Name, 200);
+            s.DisplayName = s.DisplayName == null ? null : Clip(s.DisplayName, 120);
+            s.Message = s.Message == null ? null : Clip(s.Message, 500);
+            s.Map = Clip(s.Map, 40);
+            s.Mods = s.Mods.Take(MaxModsPerServer).ToList();
+            foreach (var m in s.Mods)
+            {
+                m.Name = Clip(m.Name, 200);
+                m.Folder = Clip(m.Folder, 120);
+            }
+        }
+        return r;
+    }
     public static readonly TimeSpan Timeout = TimeSpan.FromSeconds(3);
 
     public async Task<List<AgentReply>> QueryAllAsync(IEnumerable<string> hosts, IEnumerable<int> ports, CancellationToken ct = default)
@@ -60,8 +90,18 @@ public sealed class AgentClient(HttpClient http)
         cts.CancelAfter(Timeout);
         try
         {
-            var response = await http.GetFromJsonAsync<AgentResponse>($"http://{host}:{port}{Path}", AgentResponse.Json, cts.Token);
-            return response?.Agent == "MM Server Agent" ? new AgentReply(host, port, response) : null;
+            // The agent is reached over plain HTTP, so treat its reply as untrusted:
+            // bounded size, and every field clipped before the launcher uses it.
+            using var res = await http.GetAsync($"http://{host}:{port}{Path}", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!res.IsSuccessStatusCode) return null;
+            if (res.Content.Headers.ContentLength > MaxReplyBytes) return null;
+            await using var stream = await res.Content.ReadAsStreamAsync(cts.Token);
+            var buffer = new byte[MaxReplyBytes + 1];
+            int total = 0, n;
+            while (total < buffer.Length && (n = await stream.ReadAsync(buffer.AsMemory(total), cts.Token)) > 0) total += n;
+            if (total > MaxReplyBytes) return null;
+            var response = System.Text.Json.JsonSerializer.Deserialize<AgentResponse>(buffer.AsSpan(0, total), AgentResponse.Json);
+            return response?.Agent == "MM Server Agent" ? new AgentReply(host, port, Sanitize(response)) : null;
         }
         catch
         {

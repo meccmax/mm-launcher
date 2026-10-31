@@ -119,6 +119,15 @@ tools/fake_dayz_servers.py   fake DayZ servers on localhost, for testing without
 - **Workshop info:** Steam's public `GetPublishedFileDetails` endpoint. No API key or login needed.
 - **Installed mods:** read from Steam's `libraryfolders.vdf` and `appworkshop_221100.acf`. These are read only; nothing is modified.
 
+## Security
+
+A security audit of the launcher, the server agent and the release process is in [docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md), with every finding and what was done about it. To report a vulnerability privately, see [SECURITY.md](SECURITY.md).
+
+In short:
+- Updates are only taken from this repository's GitHub Releases and must match the published SHA-256 checksums.
+- The server agent rate-limits problem reports, accepts only the files the launcher makes, and locks its folder so the Discord webhook stays private.
+- Release builds run with read-only access; only a separate publish step can create a Release, and every GitHub Action is pinned to an exact version.
+
 ## License
 
 MIT, see [LICENSE](LICENSE). Not affiliated with Bohemia Interactive or Valve. DayZ is a trademark of Bohemia Interactive; Steam and Steamworks are trademarks of Valve.
