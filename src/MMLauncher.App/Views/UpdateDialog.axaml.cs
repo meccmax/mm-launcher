@@ -29,6 +29,7 @@ public partial class UpdateDialog : Window
         NoteKind.Version => Text(line.Text, 13, FontWeight.Bold, "Orange", new(0, 4, 0, 2)),
         NoteKind.Heading => Text(line.Text, 14, FontWeight.SemiBold, "Text", new(0, 6, 0, 2)),
         NoteKind.Gap => new Border { Height = 6 },
+        NoteKind.Divider => Divider(line.Text),
         NoteKind.Bullet => Bullet(line.Text),
         _ => Text(line.Text, 13, FontWeight.Normal, "Silver", new(0, 1)),
     };
@@ -38,6 +39,16 @@ public partial class UpdateDialog : Window
         var t = new TextBlock { Text = text, FontSize = size, FontWeight = weight, TextWrapping = TextWrapping.Wrap, Margin = margin };
         t.Bind(TextBlock.ForegroundProperty, t.GetResourceObservable(brush));
         return t;
+    }
+
+    private Control Divider(string text)
+    {
+        var panel = new StackPanel { Spacing = 6, Margin = new(0, 10, 0, 4) };
+        var rule = new Border { Height = 1 };
+        rule.Bind(Border.BackgroundProperty, rule.GetResourceObservable("Line"));
+        panel.Children.Add(rule);
+        panel.Children.Add(Text(text.ToUpperInvariant(), 11, FontWeight.SemiBold, "Muted", new(0)));
+        return panel;
     }
 
     private Control Bullet(string text)

@@ -85,14 +85,17 @@ public partial class MainViewModel
 
         if (AskUpdate != null)
         {
-            // Everything new since this version (several releases if some were skipped).
-            var since = await _updates.GetNotesSinceAsync(SelfUpdater.CurrentVersion) ?? [(release.Version, release.Notes)];
-            if (since.Count == 0) since = [(release.Version, release.Notes)];
-            var notes = since.Count == 1 ? ReleaseNotes.Parse(since[0].Notes) : ReleaseNotes.Combine(since);
-            var skipped = since.Count > 1 ? $" This includes {since.Count} updates." : "";
+            // Newest release at the top, then earlier ones further down (scroll); the ones newer
+            // than this copy are marked "new".
+            var current = SelfUpdater.CurrentVersion;
+            var recent = await _updates.GetRecentNotesAsync() ?? [(release.Version, release.Notes)];
+            if (!recent.Any(r => r.Version == release.Version)) recent.Insert(0, (release.Version, release.Notes));
+            int newCount = recent.Count(r => UpdateChecker.IsNewer(r.Version, current));
+            var notes = ReleaseNotes.Combine(recent, installed: current);
+            var skipped = newCount > 1 ? $" This includes {newCount} updates." : "";
             if (!await AskUpdate($"Update to v{release.Version}?",
                     $"The launcher downloads the new version from GitHub, checks it, and restarts. You're on {VersionText}.{skipped}",
-                    notes, since.Count > 1 ? UpdateChecker.ReleasesPage : release.PageUrl))
+                    notes, UpdateChecker.ReleasesPage))
                 return;
         }
 

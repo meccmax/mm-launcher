@@ -5,7 +5,7 @@ namespace MMLauncher.Core.Updates;
 /// <summary>One line of release notes, ready to show: a heading, a bullet point or plain text.</summary>
 public sealed record NoteLine(NoteKind Kind, string Text);
 
-public enum NoteKind { Version, Heading, Bullet, Text, Gap }
+public enum NoteKind { Version, Heading, Bullet, Text, Gap, Divider }
 
 /// <summary>
 /// Turns a release's notes (GitHub markdown) into plain lines for the update window: headings,
@@ -46,16 +46,27 @@ public static partial class ReleaseNotes
         return lines;
     }
 
-    /// <summary>Notes of several releases, newest first, each under its version.</summary>
-    public static List<NoteLine> Combine(IEnumerable<(Version Version, string Notes)> releases, int maxReleases = 5)
+    /// <summary>
+    /// Notes of several releases, newest first, each under its version. With <paramref name="installed"/>,
+    /// releases newer than it are marked "new" and a divider separates the ones you already have.
+    /// </summary>
+    public static List<NoteLine> Combine(IEnumerable<(Version Version, string Notes)> releases, int maxReleases = 15, Version? installed = null)
     {
         var all = new List<NoteLine>();
+        bool dividerDone = false;
         foreach (var (version, notes) in releases.OrderByDescending(r => r.Version).Take(maxReleases))
         {
             var parsed = Parse(notes);
             if (parsed.Count == 0) continue;
-            if (all.Count > 0) all.Add(new NoteLine(NoteKind.Gap, ""));
-            all.Add(new NoteLine(NoteKind.Version, $"v{version.ToString(3)}"));
+            bool isNew = installed != null && UpdateChecker.IsNewer(version, installed);
+            if (installed != null && !isNew && !dividerDone)
+            {
+                if (all.Count > 0) all.Add(new NoteLine(NoteKind.Gap, ""));
+                all.Add(new NoteLine(NoteKind.Divider, $"Earlier versions (you have v{installed.ToString(3)})"));
+                dividerDone = true;
+            }
+            else if (all.Count > 0) all.Add(new NoteLine(NoteKind.Gap, ""));
+            all.Add(new NoteLine(NoteKind.Version, $"v{version.ToString(3)}" + (isNew ? "  ·  new" : "")));
             all.AddRange(parsed);
         }
         return all;

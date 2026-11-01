@@ -885,6 +885,10 @@ Console.WriteLine("== Release notes in the update window ==");
     var combined = MMLauncher.Core.Updates.ReleaseNotes.Combine([(new Version(0, 11, 0), "## A\n- one"), (new Version(0, 12, 0), "## B\n- two")]);
     Check(combined[0].Text == "v0.12.0" && combined.Any(l => l.Text == "v0.11.0") && combined.FindIndex(l => l.Text == "v0.12.0") < combined.FindIndex(l => l.Text == "v0.11.0"),
           "skipped versions all shown, newest first");
+    var withHistory = MMLauncher.Core.Updates.ReleaseNotes.Combine(
+        [(new Version(0, 11, 0), "- old"), (new Version(0, 12, 1), "- newest"), (new Version(0, 12, 0), "- mine")], installed: new Version(0, 12, 0));
+    Check(withHistory[0].Text == "v0.12.1  ·  new" && withHistory.FindIndex(l => l.Kind == MMLauncher.Core.Updates.NoteKind.Divider) < withHistory.FindIndex(l => l.Text == "v0.12.0")
+          && withHistory.Any(l => l.Text == "v0.11.0"), "latest at the top marked new; earlier versions below a divider");
 }
 
 Console.WriteLine("== Usage stats ==");

@@ -61,7 +61,11 @@ public sealed class UpdateChecker(HttpClient http)
     /// Release notes of every stable release newer than <paramref name="current"/> (up to 10),
     /// so someone skipping versions sees everything they're getting. Null if GitHub can't be reached.
     /// </summary>
-    public async Task<List<(Version Version, string Notes)>?> GetNotesSinceAsync(Version current, CancellationToken ct = default)
+    public async Task<List<(Version Version, string Notes)>?> GetNotesSinceAsync(Version current, CancellationToken ct = default) =>
+        (await GetRecentNotesAsync(ct))?.Where(r => IsNewer(r.Version, current)).ToList();
+
+    /// <summary>Release notes of the newest stable releases (up to 15), newest first. Null if GitHub can't be reached.</summary>
+    public async Task<List<(Version Version, string Notes)>?> GetRecentNotesAsync(CancellationToken ct = default)
     {
         if (Environment.GetEnvironmentVariable("MMLAUNCHER_UPDATE_URL") is { Length: > 0 }) return null; // test server: latest only
         try
@@ -77,11 +81,11 @@ public sealed class UpdateChecker(HttpClient http)
             {
                 if (r.TryGetProperty("draft", out var d) && d.GetBoolean()) continue;
                 if (r.TryGetProperty("prerelease", out var p) && p.GetBoolean()) continue;
-                if (!TryParseVersion(r.GetProperty("tag_name").GetString() ?? "", out var v) || !IsNewer(v, current)) continue;
+                if (!TryParseVersion(r.GetProperty("tag_name").GetString() ?? "", out var v)) continue;
                 var body = r.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
                 list.Add((v, body.Length > 20_000 ? body[..20_000] : body));
             }
-            return list.OrderByDescending(x => x.Item1).Take(10).ToList();
+            return list.OrderByDescending(x => x.Item1).Take(15).ToList();
         }
         catch (Exception) when (!ct.IsCancellationRequested)
         {
