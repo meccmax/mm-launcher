@@ -238,7 +238,11 @@
           </WrapPanel>
 
           <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,6,0,0">
-            <Button Classes="primary" Content="JOIN SERVER"
+            <Button Classes="primary" Content="JOIN WHEN READY"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).JoinWhenReadyCommand}"
+                    IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanJoinWhenReady}"
+                    ToolTip.Tip="The server is restarting or down. Click to queue up: the launcher waits for it, updates mods and starts DayZ for you. Cancel any time." />
+            <Button Classes="primary" Content="JOIN SERVER" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowJoinButton}"
                     Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).JoinCommand}"
                     IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanJoin}"
                     ToolTip.Tip="Download any missing or outdated mods through Steam, then start DayZ connected to this server" />
@@ -258,9 +262,9 @@
           </StackPanel>
 
           <CheckBox Margin="0,8,0,0" FontSize="12" Foreground="{StaticResource Silver}"
-                    Content="Rejoin automatically if DayZ closes"
+                    Content="Rejoin automatically if DayZ crashes"
                     IsChecked="{Binding $parent[Window].((vm:MainViewModel)DataContext).AutoRejoin}"
-                    ToolTip.Tip="If DayZ crashes, or you quit to update mods, the launcher updates mods and rejoins the server you were on. If the server is restarting, it waits until it's back plus a random minute or two so everyone doesn't connect at once. You can cancel the countdown." />
+                    ToolTip.Tip="If DayZ crashes, the launcher updates mods and rejoins the server you were on (waiting for it if it's restarting). Quitting DayZ normally never rejoins. You can cancel the countdown." />
 
           <Border Background="#3A2C0E" BorderBrush="{StaticResource Warn}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,10,0,0"
                   IsVisible="{Binding RestartSoon}">

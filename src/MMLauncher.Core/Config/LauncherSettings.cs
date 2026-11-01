@@ -193,8 +193,8 @@ public sealed class LauncherSettings
         sb.AppendLine("  // one-click update. Nothing is installed without you clicking Update. false = never check.");
         sb.AppendLine($"  \"CheckForUpdates\": {J(CheckForUpdates)},");
         sb.AppendLine();
-        sb.AppendLine("  // Rejoin automatically when DayZ closes (crash, or quitting to update mods) after the");
-        sb.AppendLine("  // launcher started it. Waits for the server if it's restarting, updates mods first, and");
+        sb.AppendLine("  // Rejoin automatically when DayZ CRASHES after the launcher started it (a normal quit");
+        sb.AppendLine("  // never rejoins). Waits for the server if it's restarting, updates mods first, and");
         sb.AppendLine("  // shows a countdown you can cancel. Same as the checkbox under JOIN SERVER.");
         sb.AppendLine($"  \"AutoRejoin\": {J(AutoRejoin)},");
         sb.AppendLine();

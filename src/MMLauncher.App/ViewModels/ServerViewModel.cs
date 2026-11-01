@@ -102,7 +102,10 @@ public partial class ServerViewModel : ObservableObject
         HasStatus = true;
         Online = s.Online;
         ConnectIp = s.Address?.ToString() ?? ConnectIp;
-        ErrorText = s.Error ?? "";
+        // Raw socket messages ("Connection refused", timeouts) mean the same thing to a player.
+        ErrorText = !s.Online && s.Error is { } e && !e.StartsWith("Couldn't look up", StringComparison.Ordinal)
+            ? "Not answering right now: the server is restarting or down."
+            : s.Error ?? "";
         LastUpdated = s.Updated;
         ModNote = "";
 

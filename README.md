@@ -71,12 +71,9 @@ The **DAYZ EDITOR** page starts DayZ offline (main menu, no server) with Communi
 3. Subscribes the player to every mod the server uses, so Steam keeps them updated.
 4. Starts DayZ through BattlEye's launcher (`DayZ_BE.exe -exe DayZ_x64.exe`, so BattlEye is always on) and connects with the server's mods in its load order. The mods are passed as short `DayZ\!MMWorkshop\@<id>` junctions, the same approach the official launcher's `!Workshop` folder uses.
 
-**Rejoin automatically if DayZ closes** (checkbox under JOIN SERVER, off by default). After the launcher starts DayZ, it watches the game. If DayZ closes, from a crash or because the player quit to update mods, the launcher comes to the front and shows a countdown with a Cancel button:
-- **Server still up:** rejoins after 15 seconds, updating mods first.
-- **Server restarting:** waits until the server answers again (or until the agent reports fresh uptime), then waits a random 60–120 seconds so players don't all connect at once.
-- **Passwords** are remembered in memory only, for that launcher session.
-- **Crash loops:** if DayZ closes within 90 seconds of starting three times in a row, auto-rejoin pauses and suggests Report a problem.
-- **Limit:** a server restart that drops players to DayZ's main menu, with the game still open, isn't detected, because the game never closes.
+**JOIN WHEN READY.** When a server is restarting or down, JOIN SERVER turns into JOIN WHEN READY. The player opts in each time, the launcher waits for the server to answer again, waits a short random time (30–90 s after a restart, so not everyone connects at once), updates mods and starts DayZ. If DayZ is still open (kicked to the menu or connection screen), it asks first, then closes DayZ and starts it again connected. It can be cancelled at any time.
+
+**Rejoin automatically if DayZ crashes** (checkbox, off by default). This only reacts to a real crash: a new crash dump (`*.mdmp`) in DayZ's log folder, or a Windows crash exit code. Quitting DayZ normally never rejoins; if the server is restarting at that moment, the launcher offers "Join when it's ready" instead. Passwords are kept in memory only. If DayZ crashes within 90 seconds of starting three times in a row, it stops and suggests Report a problem.
 
 **Update mods** does steps 1–3 without launching. Passworded servers ask for the password; it is never written to the log.
 

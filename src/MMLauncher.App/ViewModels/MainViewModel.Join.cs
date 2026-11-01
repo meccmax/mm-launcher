@@ -39,6 +39,7 @@ public partial class MainViewModel
 
     public bool ShowSyncPanel => IsSyncing || SyncFailed || SyncSucceeded;
     public bool CanJoin => !IsSyncing && SteamFound && SelectedServer is { Online: true, GamePort: not null } s && (s.HasMods || s.ModsKnown);
+    public bool ShowJoinButton => !CanJoinWhenReady;
     public bool CanUpdateMods => !IsSyncing && SteamFound && SelectedServer is { HasMods: true };
     public bool HasPanelAction => PanelAction != null && !IsSyncing;
     public bool HasPanelAction2 => PanelAction2 != null && !IsSyncing;
@@ -55,6 +56,8 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(CanJoin));
         OnPropertyChanged(nameof(CanUpdateMods));
         OnPropertyChanged(nameof(CanStartEditor));
+        OnPropertyChanged(nameof(CanJoinWhenReady));
+        OnPropertyChanged(nameof(ShowJoinButton));
         OnPropertyChanged(nameof(HasPanelAction));
         OnPropertyChanged(nameof(HasPanelAction2));
     }

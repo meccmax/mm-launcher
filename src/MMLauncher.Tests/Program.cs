@@ -675,6 +675,25 @@ Console.WriteLine("== DayZ Editor presets ==");
     Directory.Delete(folder, true);
 }
 
+Console.WriteLine("== Crash or normal quit ==");
+{
+    var logs = Path.Combine(root, "exitlogs");
+    if (Directory.Exists(logs)) Directory.Delete(logs, true);
+    Directory.CreateDirectory(logs);
+    var started = DateTime.UtcNow;
+    File.WriteAllText(Path.Combine(logs, "crash_2026-10-31_02-32-58.log"), "NULL pointer to instance"); // script error, not a crash
+    var old = Path.Combine(logs, "DayZ_x64_old.mdmp");
+    File.WriteAllText(old, "x");
+    File.SetLastWriteTimeUtc(old, started.AddHours(-2));
+    Check(!MMLauncher.Core.Launch.GameExit.LooksLikeCrash(0, started, logs), "normal quit (exit 0, only a script-error log and an old dump) is not a crash");
+    Check(!MMLauncher.Core.Launch.GameExit.LooksLikeCrash(1, started, logs) && !MMLauncher.Core.Launch.GameExit.LooksLikeCrash(null, started, logs),
+          "ordinary exit codes, or none, are not a crash");
+    Check(MMLauncher.Core.Launch.GameExit.LooksLikeCrash(unchecked((int)0xC0000005), started, logs), "access violation exit code is a crash");
+    File.WriteAllText(Path.Combine(logs, "DayZ_x64_2026-10-31_18-50-00.mdmp"), "dump");
+    Check(MMLauncher.Core.Launch.GameExit.LooksLikeCrash(0, started, logs), "a new crash dump is a crash");
+    Directory.Delete(logs, true);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

@@ -31,6 +31,24 @@ public static class GameLauncher
     public static bool DayZIsRunning() =>
         Process.GetProcessesByName("DayZ_x64").Length > 0 || Process.GetProcessesByName("DayZ_BE").Length > 0;
 
+    /// <summary>
+    /// Closes DayZ (asks the window to close, then ends it if it hasn't after a few seconds).
+    /// Used by "Join when ready" when the player queued while sitting at DayZ's menu.
+    /// Returns true once no DayZ process is left.
+    /// </summary>
+    public static async Task<bool> CloseDayZAsync(TimeSpan? grace = null)
+    {
+        if (DryRun && !DayZIsRunning()) return true;
+        var procs = Process.GetProcessesByName("DayZ_x64").Concat(Process.GetProcessesByName("DayZ_BE")).ToList();
+        foreach (var p in procs) { try { p.CloseMainWindow(); } catch { } }
+        var until = DateTime.UtcNow + (grace ?? TimeSpan.FromSeconds(10));
+        while (DateTime.UtcNow < until && DayZIsRunning()) await Task.Delay(500);
+        foreach (var p in procs) { try { if (!p.HasExited) p.Kill(entireProcessTree: true); } catch { } }
+        for (int i = 0; i < 20 && DayZIsRunning(); i++) await Task.Delay(500);
+        foreach (var p in procs) p.Dispose();
+        return !DayZIsRunning();
+    }
+
     public static bool SteamIsRunning() =>
         !OperatingSystem.IsWindows() || Process.GetProcessesByName("steam").Length > 0;
 
