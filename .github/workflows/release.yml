@@ -100,11 +100,38 @@ jobs:
           Copy-Item out/launcher/MMLauncher.exe release/
           Compress-Archive -Path out/MMServerAgent -DestinationPath release/MMServerAgent.zip
 
+          # Installer (Inno Setup; preinstalled on GitHub's Windows machines, else installed here).
+          $iscc = Join-Path ${env:ProgramFiles(x86)} "Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y | Out-Null
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
+          & $iscc /Qp "/DAppVersion=$v" "/DSourceExe=$PWD\out\launcher\MMLauncher.exe" installer\MMLauncher.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
           $lines = Get-ChildItem release -File | ForEach-Object {
             "{0}  {1}" -f (Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower(), $_.Name
           }
           $lines | Set-Content -Encoding ascii release/SHA256SUMS.txt
           Get-Content release/SHA256SUMS.txt
+
+      - name: Test the installer (silent install, check shortcuts, uninstall)
+        shell: pwsh
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "mm-install-test"
+          $p = Start-Process release\MMLauncher-Setup.exe -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART","/DIR=$dir","/TASKS=desktopicon" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installer exited with $($p.ExitCode)" }
+          if (-not (Test-Path "$dir\MMLauncher.exe")) { throw "MMLauncher.exe wasn't installed" }
+          $start = Join-Path ([Environment]::GetFolderPath("Programs")) "MM Launcher.lnk"
+          $desk = Join-Path ([Environment]::GetFolderPath("Desktop")) "MM Launcher.lnk"
+          if (-not (Test-Path $start)) { throw "No Start menu shortcut" }
+          if (-not (Test-Path $desk)) { throw "No desktop shortcut" }
+          $key = Get-ItemProperty "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{2DEB2730-F75A-4BE1-9EA7-9C5B68326BAE}_is1"
+          Write-Host "Installed apps entry: $($key.DisplayName) $($key.DisplayVersion) in $($key.InstallLocation)"
+          $u = Start-Process "$dir\unins000.exe" -ArgumentList "/VERYSILENT","/SUPPRESSMSGBOXES","/NORESTART" -Wait -PassThru
+          for ($i = 0; $i -lt 30 -and (Test-Path "$dir\MMLauncher.exe"); $i++) { Start-Sleep -Seconds 1 }
+          if ((Test-Path "$dir\MMLauncher.exe") -or (Test-Path $start) -or (Test-Path $desk)) { throw "Uninstall left files or shortcuts behind" }
+          Write-Host "Installer test passed."
 
       - name: Keep the files
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -142,7 +169,7 @@ jobs:
         run: |
           notes="release-notes/$TAG.md"
           # --target: when run by hand, gh creates the tag on this exact commit.
-          args=("$TAG" release/MMLauncher.exe release/MMServerAgent.zip release/SHA256SUMS.txt
+          args=("$TAG" release/MMLauncher-Setup.exe release/MMLauncher.exe release/MMServerAgent.zip release/SHA256SUMS.txt
                 --title "MM Launcher $TAG" --target "$SHA")
           if [ -f "$notes" ]; then gh release create "${args[@]}" --notes-file "$notes"
           else gh release create "${args[@]}" --generate-notes; fi

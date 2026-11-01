@@ -48,6 +48,45 @@ public static class SelfUpdater
         }
     }
 
+    /// <summary>Uninstall entry the installer (installer/MMLauncher.iss, AppId) writes for the current user.</summary>
+    private const string InstallKey = @"Software\Microsoft\Windows\CurrentVersion\Uninstall\{2DEB2730-F75A-4BE1-9EA7-9C5B68326BAE}_is1";
+
+    /// <summary>True when this copy was put here by MMLauncher-Setup.exe (not the portable exe).</summary>
+    public static bool IsInstalled => InstalledFolder() is { } dir && ExePath != null &&
+        string.Equals(Path.GetFullPath(dir).TrimEnd('\\'), Path.GetDirectoryName(Path.GetFullPath(ExePath))?.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+
+    private static string? InstalledFolder()
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(InstallKey);
+            return key?.GetValue("InstallLocation") as string;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// After a self-update, keep Windows' "Installed apps" list showing the right version
+    /// (the installer wrote the version it installed; the launcher has updated itself since).
+    /// </summary>
+    public static void SyncInstalledVersion()
+    {
+        if (!OperatingSystem.IsWindows() || !IsInstalled) return;
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(InstallKey, writable: true);
+            var now = CurrentVersion.ToString(3);
+            if (key != null && key.GetValue("DisplayVersion") as string != now)
+            {
+                key.SetValue("DisplayVersion", now);
+                key.SetValue("DisplayName", "MM Launcher");
+                Log.Info($"Updated the installed-apps entry to {now}.");
+            }
+        }
+        catch { }
+    }
+
     /// <summary>Removes leftovers from a previous update. Safe to call on every start.</summary>
     public static void CleanUp()
     {

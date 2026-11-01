@@ -25,6 +25,7 @@ public partial class MainViewModel
     private void StartUpdateChecks()
     {
         SelfUpdater.CleanUp();
+        SelfUpdater.SyncInstalledVersion();
         if (Environment.GetCommandLineArgs().Contains(SelfUpdater.UpdatedArgument))
             StatusMessage = $"Updated to {VersionText}";
         _updateTimer.Tick += async (_, _) => await CheckForUpdatesAsync(quiet: true);

@@ -5,7 +5,12 @@ Built with C# / .NET 10 and Avalonia.
 
 ## Download
 
-Get the latest **MMLauncher.exe** from [Releases](https://github.com/meccmax/mm-launcher/releases/latest). There's nothing to install. After that, the launcher offers new versions itself.
+From [Releases](https://github.com/meccmax/mm-launcher/releases/latest), get either:
+
+- **MMLauncher-Setup.exe** (recommended): installs for your Windows user only, so there's no admin prompt. It adds a Start menu shortcut, an optional desktop shortcut and an uninstaller in Settings > Apps.
+- **MMLauncher.exe** (portable): run it from anywhere, with nothing to install.
+
+Both keep their settings in `%APPDATA%\MMLauncher` and update themselves when a new version is out.
 
 Server admins: download **MMServerAgent.zip** from the same page and follow `AGENT-SETUP.txt`.
 
