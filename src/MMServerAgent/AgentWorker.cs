@@ -18,6 +18,7 @@ public sealed class AgentWorker : BackgroundService
     private ReportReceiver? _reports;
     private ServerListFeed? _feed;
     private EditorPresetFolder? _presets;
+    private NewsFolder? _news;
     private FriendsService? _friends;
     private WorkshopSearchService? _workshop;
 
@@ -31,6 +32,8 @@ public sealed class AgentWorker : BackgroundService
         _feed = new ServerListFeed(_config, Log);
         EditorPresetFolder.EnsureFolder();
         _presets = new EditorPresetFolder(Log);
+        NewsFolder.EnsureFolder();
+        _news = new NewsFolder(Log);
         _friends = new FriendsService(_config, Log);
         _workshop = new WorkshopSearchService(_config, Log);
         var feedTask = _feed.RunAsync(stoppingToken);
@@ -66,6 +69,8 @@ public sealed class AgentWorker : BackgroundService
         {
             var before = _last.Servers.Select(s => $"{s.GamePort}:{s.Mods.Count}").ToList();
             var detection = ServerDetector.Detect(_config);
+            if (_news != null)
+                foreach (var server in detection.Servers) server.News = _news.For(server.GamePort);
             _last = detection;
             _lastScan = DateTime.Now;
             _json = JsonSerializer.Serialize(new AgentResponse

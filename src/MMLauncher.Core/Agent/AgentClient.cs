@@ -69,6 +69,7 @@ public sealed class AgentClient
             s.Name = Clip(s.Name, 200);
             s.DisplayName = s.DisplayName == null ? null : Clip(s.DisplayName, 120);
             s.Message = s.Message == null ? null : Clip(s.Message, 500);
+            s.News = s.News == null ? null : News.NewsFormat.Sanitize(s.News) is { Count: > 0 } news ? news : null;
             s.Map = Clip(s.Map, 40);
             s.Mods = s.Mods.Take(MaxModsPerServer).ToList();
             foreach (var m in s.Mods)

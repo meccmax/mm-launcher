@@ -56,7 +56,7 @@ public partial class ModViewModel : ObservableObject
         ModState.Installed => "Installed",
         ModState.UpdateAvailable => "Update",
         ModState.Missing => "Missing",
-        ModState.Unavailable => "Removed",
+        ModState.Unavailable => "Not on Workshop",
         ModState.NoWorkshopId => "No ID",
         _ => "Unknown",
     };

@@ -92,6 +92,22 @@
   <Style Selector="Button.tab.page.active">
     <Setter Property="BorderBrush" Value="{StaticResource Orange}" />
   </Style>
+  <Style Selector="Button.tab.unseen">
+    <Setter Property="Foreground" Value="{StaticResource Orange}" />
+  </Style>
+  <!-- small "NEW" badge on server rows with unseen news -->
+  <Style Selector="Border.newbadge">
+    <Setter Property="Background" Value="{StaticResource Orange}" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="5,0" />
+    <Setter Property="Margin" Value="8,0,0,0" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.newbadge TextBlock">
+    <Setter Property="FontSize" Value="9" />
+    <Setter Property="FontWeight" Value="Black" />
+    <Setter Property="Foreground" Value="#09090B" />
+  </Style>
   <Style Selector="Button.tab.active:pointerover /template/ ContentPresenter">
     <Setter Property="BorderBrush" Value="{StaticResource Orange}" />
   </Style>

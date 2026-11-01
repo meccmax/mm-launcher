@@ -71,6 +71,9 @@ public sealed class AgentServerInfo
     /// <summary>True when NextRestart is an estimate (interval since start) rather than a fixed time.</summary>
     public bool RestartApproximate { get; set; }
 
+    /// <summary>News posts from the agent's news folder (null = none). Newest first.</summary>
+    public List<News.NewsItem>? News { get; set; }
+
     /// <summary>Client mods in -mod= order. This is the true list the server loads.</summary>
     public List<AgentMod> Mods { get; set; } = [];
 }

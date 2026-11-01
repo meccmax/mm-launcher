@@ -121,8 +121,12 @@
                   <Grid Grid.Column="1" Margin="12,10" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
                     <Ellipse Grid.Row="0" Grid.Column="0" Classes="dot" Classes.online="{Binding Online}"
                              Classes.offline="{Binding !Online}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    <DockPanel Grid.Row="0" Grid.Column="1">
+                      <Border DockPanel.Dock="Right" Classes="newbadge" IsVisible="{Binding HasUnseenNews}" ToolTip.Tip="This server has news you haven't read">
+                        <TextBlock Text="NEW" />
+                      </Border>
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    </DockPanel>
                     <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding PingText}" FontSize="12" Margin="10,0,0,0"
                                Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0" />
@@ -211,8 +215,12 @@
                   <Grid Grid.Column="1" Margin="12,10" ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto,Auto">
                     <Ellipse Grid.Row="0" Grid.Column="0" Classes="dot" Classes.online="{Binding Online}"
                              Classes.offline="{Binding !Online}" Margin="0,0,10,0" VerticalAlignment="Center" />
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
-                               TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    <DockPanel Grid.Row="0" Grid.Column="1">
+                      <Border DockPanel.Dock="Right" Classes="newbadge" IsVisible="{Binding HasUnseenNews}" ToolTip.Tip="This server has news you haven't read">
+                        <TextBlock Text="NEW" />
+                      </Border>
+                      <TextBlock Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                    </DockPanel>
                     <TextBlock Grid.Row="0" Grid.Column="2" Text="{Binding PingText}" FontSize="12" Margin="10,0,0,0"
                                Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0" />
@@ -353,7 +361,17 @@
         <!-- Mods header -->
         <StackPanel Grid.Row="2" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" Margin="0,22,0,8" Spacing="4">
           <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Classes="label" Text="REQUIRED MODS" VerticalAlignment="Bottom" />
+            <TextBlock DockPanel.Dock="Left" Classes="label" Text="REQUIRED MODS" VerticalAlignment="Bottom" IsVisible="{Binding !HasNews}" />
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasNews}" Margin="0,0,10,0">
+              <Button Classes="tab" Padding="12,6" Content="REQUIRED MODS"
+                      Classes.active="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowModsDetailsCommand}" />
+              <Button Classes="tab" Padding="12,6" Content="{Binding NewsTabText}" Classes.unseen="{Binding HasUnseenNews}"
+                      Classes.active="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsNewsDetails}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowNewsDetailsCommand}"
+                      ToolTip.Tip="News from MM staff for this server (wipes, events, changes)" />
+            </StackPanel>
+            <DockPanel IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}" VerticalAlignment="Center">
             <Border DockPanel.Dock="Right" Background="#16351F" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
                     ToolTip.Tip="This list comes from the MM Server Agent, which reads the server's own startup line. It is complete.">
               <TextBlock Text="VERIFIED BY MM AGENT" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Good}" />
@@ -363,25 +381,59 @@
               <TextBlock Text="FROM SERVER STATUS" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Silver}" />
             </Border>
             <TextBlock Text="{Binding ModSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
+            </DockPanel>
           </DockPanel>
+          <StackPanel Spacing="4" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}">
           <TextBlock IsVisible="{Binding ShowTruncatedWarning}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"
                      Text="This server reported more mods than fit in its status reply, so this list may be incomplete. (Raise steamProtocolMaxDataSize in serverDZ.cfg, or run the MM Server Agent.)" />
           <TextBlock IsVisible="{Binding HasModNote}" Text="{Binding ModNote}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
-          <Grid ColumnDefinitions="96,*,90,120,150" Margin="10,10,10,0">
+          <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,10,10,0">
             <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
             <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
             <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
             <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" />
           </Grid>
+          </StackPanel>
         </StackPanel>
 
+        <!-- News -->
+        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                IsVisible="{Binding IsNewsDetails}">
+          <ScrollViewer DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel">
+            <ItemsControl ItemsSource="{Binding News}" Margin="0,4">
+              <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:NewsItemViewModel">
+                  <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="16,12">
+                    <Grid ColumnDefinitions="3,14,*">
+                      <Border Grid.Column="0" CornerRadius="2" Background="{StaticResource Orange}" IsVisible="{Binding Important}" />
+                      <StackPanel Grid.Column="2" Spacing="5">
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                          <TextBlock Text="{Binding DateText}" Classes="label" VerticalAlignment="Center" IsVisible="{Binding HasDate}" />
+                          <Border Classes="newbadge" Margin="0" IsVisible="{Binding IsNew}"><TextBlock Text="NEW" /></Border>
+                        </StackPanel>
+                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"
+                                   Foreground="{StaticResource Text}" Classes.important="{Binding Important}" />
+                        <SelectableTextBlock Text="{Binding Body}" FontSize="13" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                                             IsVisible="{Binding HasBody}" />
+                        <Button Classes="link" Content="{Binding LinkText}" Command="{Binding OpenLinkCommand}" IsVisible="{Binding HasLink}"
+                                HorizontalAlignment="Left" Padding="0,2" ToolTip.Tip="{Binding Item.Link}" />
+                      </StackPanel>
+                    </Grid>
+                  </Border>
+                </DataTemplate>
+              </ItemsControl.ItemTemplate>
+            </ItemsControl>
+          </ScrollViewer>
+        </Border>
+
         <!-- Mods list -->
-        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1">
+        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                IsVisible="{Binding IsModsDetails}">
           <Grid>
             <ListBox Classes="mods" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" ItemsSource="{Binding Mods}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ModViewModel">
-                  <Grid ColumnDefinitions="96,*,90,120,150" ToolTip.Tip="{Binding Tooltip}">
+                  <Grid ColumnDefinitions="112,*,90,120,150" ToolTip.Tip="{Binding Tooltip}">
                     <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
                             Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
                       <TextBlock Text="{Binding StateText}" />
@@ -509,7 +561,7 @@
             <TextBlock DockPanel.Dock="Left" Classes="label" Text="LOAD ORDER" VerticalAlignment="Bottom" />
             <TextBlock Text="{Binding EditorSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
           </DockPanel>
-          <Grid ColumnDefinitions="96,*,90,120,190" Margin="10,10,10,0">
+          <Grid ColumnDefinitions="112,*,90,120,190" Margin="10,10,10,0">
             <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
             <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
             <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
@@ -521,7 +573,7 @@
           <ListBox Classes="mods" ItemsSource="{Binding EditorMods}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModViewModel">
-                <Grid ColumnDefinitions="96,*,90,120,190">
+                <Grid ColumnDefinitions="112,*,90,120,190">
                   <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
                           Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
                     <TextBlock Text="{Binding StateText}" />
@@ -599,7 +651,7 @@
           </StackPanel>
         </Grid>
         <TextBlock Text="{Binding InstalledSummary}" Foreground="{StaticResource Silver}" FontSize="12" />
-        <Grid ColumnDefinitions="96,*,90,120,150" Margin="10,4,10,0">
+        <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,4,10,0">
           <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
           <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
           <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
@@ -613,7 +665,7 @@
           <ListBox Classes="mods" ItemsSource="{Binding InstalledMods}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModViewModel">
-                <Grid ColumnDefinitions="96,*,90,120,150" ToolTip.Tip="{Binding UsedByText}">
+                <Grid ColumnDefinitions="112,*,90,120,150" ToolTip.Tip="{Binding UsedByText}">
                   <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
                           Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
                     <TextBlock Text="{Binding StateText}" />
@@ -668,7 +720,7 @@
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WorkshopRowViewModel">
                     <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,10">
-                      <Grid ColumnDefinitions="96,14,*,14,Auto">
+                      <Grid ColumnDefinitions="112,14,*,14,Auto">
                         <Border Grid.Column="0" Width="96" Height="96" CornerRadius="3" ClipToBounds="True" Background="#1B1B20" VerticalAlignment="Top">
                           <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                         </Border>

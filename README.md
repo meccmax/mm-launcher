@@ -27,7 +27,7 @@ Server admins: download **MMServerAgent.zip** from the same page and follow `AGE
 - **Finds MM servers automatically.** Scans ports 2000–3000 on `game.misfitmercenaries.com` and `servers.misfitmercenaries.com`. New servers appear after a Rescan; nobody edits a list.
 - **Live status, queried straight from each server** (no middleman service): name, map, players, queue, in-game time, ping, 1PP/3PP, required DLC, version and password flag.
 - **Required mods for each server**, read from the server's own status reply. Each mod shows its real Steam Workshop title, size and last update.
-- **Checks this PC's Steam install** and marks each mod as Installed, Update, Missing, or Removed (deleted from the Workshop).
+- **Checks this PC's Steam install** and marks each mod as Installed, Update, Missing, or Not on Workshop (deleted or hidden by its author).
 - Auto-refreshes every 30 seconds. Copy-address button.
 
 ### MM Server Agent (added in 1.5)
@@ -67,6 +67,13 @@ The **Friends** tab shows which Steam friends are playing DayZ and on which serv
 - **How it works:** the launcher reads which Steam account is signed in (it never starts Steam as DayZ). An MM agent with a Steam Web API key then asks Steam for that account's friends (`GetFriendList`) and what they're playing (`GetPlayerSummaries`).
 - **Requirements:** the player's friends list must be public, and a friend's server only shows if their game details are public. Both are Steam's defaults.
 - **Agent safeguards:** answers are cached for a minute and limited per address. Steam IDs aren't logged.
+
+### Server news (v0.10)
+
+Each MM server's details have a **NEWS** tab next to REQUIRED MODS, for wipes, events and changes. Admins write posts as plain text in the agent's `news` folder: `all.txt` for every server, `<game port>.txt` for one server (shown first). A post starts with `# ` (an optional `yyyy-mm-dd` date, then the title), followed by its text and an optional `link: https://…` line; `#!` highlights it. The agent creates a commented `all.txt` explaining this.
+
+- Servers with posts you haven't read show **NEW** in the server list and open on the NEWS tab. What you've read is remembered in `news-seen.jsonc`.
+- **Limits:** 8 posts per server, titles up to 100 characters, text up to 1500. Links must be `https://` and are opened in the browser only when clicked. Both the agent and the launcher strip control and right-to-left characters.
 
 ### Mods page (v0.9)
 

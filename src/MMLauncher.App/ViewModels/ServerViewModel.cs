@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using MMLauncher.Core.Config;
+using MMLauncher.Core.News;
 using MMLauncher.Core.Services;
 using MMLauncher.Core.Steam;
 
@@ -50,6 +51,45 @@ public partial class ServerViewModel : ObservableObject
     [ObservableProperty] private bool _restartApproximate;
 
     public ObservableCollection<ModViewModel> Mods { get; } = [];
+
+    // ---- news (from the MM agent's news folder)
+    public ObservableCollection<NewsItemViewModel> News { get; } = [];
+    [ObservableProperty] private int _unseenNews;
+    public bool HasNews => News.Count > 0;
+    public bool HasUnseenNews => UnseenNews > 0;
+    public string NewsTabText => UnseenNews > 0 ? $"NEWS  ·  {UnseenNews} NEW" : News.Count > 0 ? $"NEWS ({News.Count})" : "NEWS";
+    partial void OnUnseenNewsChanged(int value)
+    {
+        OnPropertyChanged(nameof(HasUnseenNews));
+        OnPropertyChanged(nameof(NewsTabText));
+    }
+
+    private void ApplyNews(IReadOnlyList<NewsItem>? items)
+    {
+        items ??= [];
+        if (News.Select(n => n.Item.Key + n.Item.Body + n.Item.Link + n.Item.Important).SequenceEqual(items.Select(i => i.Key + i.Body + i.Link + i.Important)))
+            return;
+        News.Clear();
+        foreach (var i in items) News.Add(new NewsItemViewModel(i, !NewsSeen.Current.IsSeen(Key, i)));
+        UnseenNews = News.Count(n => n.IsNew);
+        OnPropertyChanged(nameof(HasNews));
+        OnPropertyChanged(nameof(NewsTabText));
+    }
+
+    /// <summary>The NEWS tab was shown: remember these posts (they stay highlighted until you look away).</summary>
+    public void MarkNewsSeen()
+    {
+        if (News.Count == 0) return;
+        if (NewsSeen.Current.MarkSeen(Key, News.Select(n => n.Item))) NewsSeen.Current.Save();
+        UnseenNews = 0;
+    }
+
+    /// <summary>Clears the NEW highlights of posts already seen (after looking at another server).</summary>
+    public void RefreshNewsSeen()
+    {
+        foreach (var n in News) n.IsNew = !NewsSeen.Current.IsSeen(Key, n.Item);
+        UnseenNews = News.Count(n => n.IsNew);
+    }
 
     public string MapLine => string.Join("  ·  ", new[] { Format.MapName(Map), TimeOfDay, Online ? QueueShort : "",
             Online && MinutesToRestart is < 30 ? "restart " + RestartText.Replace("in ", "") : "" }
@@ -140,6 +180,7 @@ public partial class ServerViewModel : ObservableObject
         {
             Name = agent.DisplayName ?? agent.Name;
             Message = agent.Message ?? "";
+            ApplyNews(agent.News);
             UptimeSeconds = agent.UptimeSeconds;
             NextRestart = agent.NextRestart;
             RestartApproximate = agent.RestartApproximate;
@@ -164,6 +205,7 @@ public partial class ServerViewModel : ObservableObject
         {
             ModsFromAgent = false;
             Message = "";
+            // News stays while the agent is briefly unreachable; it's replaced when the agent answers again.
             UptimeSeconds = 0;
             NextRestart = null;
         }

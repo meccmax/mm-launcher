@@ -859,6 +859,50 @@ Console.WriteLine("== Workshop search (Mods page) ==");
 
 }
 
+Console.WriteLine("== Server news ==");
+{
+    var newsText = "// a comment\r\nstray text before any post\r\n" +
+                   "# 2026-11-07 Deer Isle wipe Friday\r\nFull wipe at 6 PM.\r\n\r\n\r\n\r\nBring snacks.\r\nlink: https://discord.gg/abc\r\n" +
+                   "#! Downtime tonight\r\nBack by 4 AM.\r\nlink: javascript:alert(1)\r\n" +
+                   "# 2026-02-30 Bad date stays in the title\r\n" +
+                   "#   \r\n" +
+                   "# Bidi \u202Etxt.exe\u202C and bell \u0007 cleaned\r\nlink: https://user:pw@evil.example/\r\n";
+    var posts = MMLauncher.Core.News.NewsFormat.Parse(newsText);
+    Check(posts.Count == 4, $"news posts read from # headings, comments and stray text ignored ({posts.Count})");
+    Check(posts[0].Date == new DateOnly(2026, 11, 7) && posts[0].Title == "Deer Isle wipe Friday" && posts[0].Body == "Full wipe at 6 PM.\n\nBring snacks."
+          && posts[0].Link == "https://discord.gg/abc" && !posts[0].Important, "dated post: title, text (blank lines squeezed) and link");
+    Check(posts[1].Important && posts[1].Date == null && posts[1].Link == "", "#! marks a post important; non-https links dropped");
+    Check(posts[2].Date == null && posts[2].Title.StartsWith("2026-02-30"), "an impossible date isn't treated as a date");
+    Check(!posts[3].Title.Contains('\u202E') && !posts[3].Title.Contains('\u0007') && posts[3].Link == "", "control and right-to-left characters removed; links with logins dropped");
+    var many = string.Join("\n", Enumerable.Range(1, 20).Select(i => $"# Post {i}\n" + new string('x', 5000)));
+    var capped = MMLauncher.Core.News.NewsFormat.Parse(many);
+    Check(capped.Count == MMLauncher.Core.News.NewsFormat.MaxItems && capped.All(p => p.Body.Length <= MMLauncher.Core.News.NewsFormat.MaxBody),
+          "at most 8 posts, each text capped");
+    var hostile = MMLauncher.Core.News.NewsFormat.Sanitize([new() { Title = new string('t', 900), Body = "a\u0000b", Link = "file:///C:/Windows" }, new() { Title = "", Body = "" }]);
+    Check(hostile.Count == 1 && hostile[0].Title.Length <= 100 && hostile[0].Body == "ab" && hostile[0].Link == "", "news from an agent is clipped and cleaned again by the launcher");
+
+    var seen = new MMLauncher.Core.News.NewsSeen();
+    Check(!seen.IsSeen("h:1", posts[0]) && seen.MarkSeen("h:1", posts) && seen.IsSeen("h:1", posts[0]) && !seen.MarkSeen("h:1", posts),
+          "seen posts remembered per server");
+    Check(!seen.IsSeen("h:2", posts[0]), "seen on one server doesn't hide it on another");
+
+    // Agent: <port>.txt first, then all.txt.
+    var newsDir = MMServerAgent.NewsFolder.FolderPath;
+    Directory.CreateDirectory(newsDir);
+    File.WriteAllText(Path.Combine(newsDir, "all.txt"), "# For everyone\nhello\n");
+    File.WriteAllText(Path.Combine(newsDir, "2312.txt"), "# Nasdara only\nhi\n");
+    File.WriteAllText(Path.Combine(newsDir, "notes.txt"), "# Not a server file\n");
+    var folder = new MMServerAgent.NewsFolder(_ => { });
+    var forNasdara = folder.For(2312);
+    var forOther = folder.For(2302);
+    Check(forNasdara is { Count: 2 } && forNasdara[0].Title == "Nasdara only" && forNasdara[1].Title == "For everyone"
+          && forOther is { Count: 1 } && forOther[0].Title == "For everyone", "agent news: the server's own file first, then all.txt; other files ignored");
+    File.Delete(Path.Combine(newsDir, "2312.txt"));
+    File.WriteAllText(Path.Combine(newsDir, "all.txt"), MMServerAgent.NewsFolder.StarterText);
+    Check(folder.For(2312) == null, "changes picked up; the commented starter file shows nothing");
+    Directory.Delete(newsDir, true);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

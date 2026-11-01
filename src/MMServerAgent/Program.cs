@@ -253,7 +253,7 @@ int Install()
 // things too, so we never lock down e.g. the Desktop by accident.
 void LockDownFolder(string dir)
 {
-    var allowed = new[] { "MMServerAgent.exe", "MMServerAgent.exe.old", "agent.jsonc", "agent.log", "agent.log.old", "AGENT-SETUP.txt", "reports", TlsIdentity.FileName, ServerListFeed.CacheFile, EditorPresetFolder.FolderName };
+    var allowed = new[] { "MMServerAgent.exe", "MMServerAgent.exe.old", "agent.jsonc", "agent.log", "agent.log.old", "AGENT-SETUP.txt", "reports", TlsIdentity.FileName, ServerListFeed.CacheFile, EditorPresetFolder.FolderName, NewsFolder.FolderName };
     var strangers = Directory.EnumerateFileSystemEntries(dir)
         .Select(Path.GetFileName)
         .Where(n => n != null && !allowed.Contains(n, StringComparer.OrdinalIgnoreCase) && !n.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))

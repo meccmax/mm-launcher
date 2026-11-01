@@ -100,6 +100,23 @@ unless the .html has its own. Changes show up without restarting the agent.
 CF, Dabs Framework and DayZ-Editor are always loaded first; no need to list them.
 
 
+SERVER NEWS (v0.10 and newer)
+-----------------------------
+Each MM server's page in the launcher has a NEWS tab for wipes, events and
+changes. Write the posts in text files in the "news" folder next to
+MMServerAgent.exe (the agent makes it the first time it starts):
+  news\all.txt     shown on every server
+  news\2302.txt    shown only on the server with game port 2302 (above all.txt)
+How a post looks (all.txt explains it too):
+  # 2026-11-07 Deer Isle wipe Friday       "# ", optional date, then the title
+  Full wipe Friday at 6 PM Central.        the text, any number of lines
+  link: https://discord.gg/yourinvite      optional: a button that opens it
+  #! Downtime tonight                      "#!" highlights a post
+Newest at the top; players see the first 8. Posts they haven't read are marked
+NEW in the server list, and the server opens on its NEWS tab. Saved changes show
+up within a minute; no restart. Delete a post to take it down.
+
+
 RESTART SCHEDULE (v0.7 and newer)
 ---------------------------------
 Tell the agent when your servers restart and the launcher shows players "Next
@@ -178,6 +195,7 @@ FILES
   agent-tls.pfx        the agent's encryption key (made on first start; keep it)
   server-list-cache.json.gz  last list of all DayZ servers (only with a Steam key)
   editor-presets\       DayZ Editor presets shared with every launcher (.html / .txt)
+  news\                server news for the launcher's NEWS tab (all.txt, <port>.txt)
   agent.log            what it's doing; send this to Claude if anything's off
   reports\             problem reports players sent (zips)
   check-agent.bat      show what it sees right now
