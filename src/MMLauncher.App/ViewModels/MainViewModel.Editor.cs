@@ -65,6 +65,7 @@ public partial class MainViewModel
     {
         OnPropertyChanged(nameof(IsServersPage));
         OnPropertyChanged(nameof(IsEditorPage));
+        OnPropertyChanged(nameof(IsModsPage));
         if (value == "editor") _ = LoadEditorAsync();
     }
 
@@ -74,13 +75,18 @@ public partial class MainViewModel
     private async Task LoadEditorAsync()
     {
         DetectSteam();
-        // Shared MM presets from whichever agents offer them.
+        await LoadSharedPresetsAsync();
+        RebuildPresetList(SelectedPreset);
+        RefreshInstalledChoices();
+    }
+
+    /// <summary>Shared MM presets from whichever agents offer them.</summary>
+    private async Task LoadSharedPresetsAsync()
+    {
         var shared = new List<EditorPreset>();
         foreach (var (host, port) in _service.LastAgents.PresetAgents)
             shared.AddRange(await _service.Agents.GetEditorPresetsAsync(host, port));
         _sharedPresets = shared.GroupBy(p => p.Name, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
-        RebuildPresetList(SelectedPreset);
-        RefreshInstalledChoices();
     }
 
     private void RebuildPresetList(EditorPreset? keep)

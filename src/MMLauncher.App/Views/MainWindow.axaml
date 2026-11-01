@@ -27,6 +27,8 @@
           <Button Classes="tab page" Classes.active="{Binding IsServersPage}" Content="SERVERS" Command="{Binding ShowServersPageCommand}" />
           <Button Classes="tab page" Classes.active="{Binding IsEditorPage}" Content="DAYZ EDITOR" Command="{Binding ShowEditorPageCommand}"
                   ToolTip.Tip="Start DayZ offline with the DayZ Editor and a preset of mods" />
+          <Button Classes="tab page" Classes.active="{Binding IsModsPage}" Content="MODS" Command="{Binding ShowModsPageCommand}"
+                  ToolTip.Tip="Your downloaded mods (update, remove), and the Steam Workshop" />
         </StackPanel>
 
         <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
@@ -553,6 +555,161 @@
           </ListBox>
         </Border>
       </Grid>
+    </Grid>
+
+    <!-- ============ Body: Mods ============ -->
+    <Grid Grid.Row="1" Margin="26,18,26,12" RowDefinitions="Auto,Auto,Auto,Auto,*" IsVisible="{Binding IsModsPage}">
+      <DockPanel Grid.Row="0">
+        <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4">
+          <Button Classes="tab" Classes.active="{Binding IsInstalledView}" Content="Downloaded" Command="{Binding ShowInstalledViewCommand}" Padding="14,8"
+                  ToolTip.Tip="DayZ mods downloaded on this PC" />
+          <Button Classes="tab" Classes.active="{Binding IsWorkshopView}" Content="Steam Workshop" Command="{Binding ShowWorkshopViewCommand}" Padding="14,8"
+                  ToolTip.Tip="Find and install DayZ mods from the Steam Workshop" />
+        </StackPanel>
+      </DockPanel>
+
+      <!-- Download / remove progress (same panel as on the other pages) -->
+      <Border Grid.Row="1" Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}" Classes.warn="{Binding SyncWarning}"
+              IsVisible="{Binding ShowSyncPanel}" Margin="0,14,0,0">
+        <StackPanel Spacing="8">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Classes="link" Content="Cancel" Command="{Binding CancelSyncCommand}" IsVisible="{Binding IsSyncing}" />
+            <Button DockPanel.Dock="Right" Classes="link" Content="Dismiss" Command="{Binding DismissSyncCommand}" IsVisible="{Binding !IsSyncing}" />
+            <Button DockPanel.Dock="Right" Classes="link" Content="Open log" Command="{Binding OpenLogCommand}" IsVisible="{Binding SyncFailed}" />
+            <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
+          </DockPanel>
+          <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
+                       IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
+          <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                     IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Downloaded: toolbar -->
+      <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,8" IsVisible="{Binding IsInstalledView}">
+        <Grid ColumnDefinitions="260,8,200,*,Auto">
+          <TextBox Grid.Column="0" Watermark="Search name or ID" Text="{Binding InstalledSearch}" />
+          <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding InstalledFilterChoices}" SelectedIndex="{Binding InstalledFilterIndex}" />
+          <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
+            <Button Classes="primary" Content="Update all" Command="{Binding UpdateAllModsCommand}" IsEnabled="{Binding CanChangeMods}"
+                    ToolTip.Tip="Download every mod that has a newer version on the Workshop" />
+            <Button Classes="ghost" Content="Remove unused…" Command="{Binding RemoveUnusedModsCommand}" IsEnabled="{Binding CanChangeMods}"
+                    ToolTip.Tip="Unsubscribe from and delete mods no MM server, favorite, recent server or editor preset uses" />
+            <Button Classes="ghost" Content="Reload" Command="{Binding ShowModsPageCommand}" ToolTip.Tip="Scan the downloaded mods again" />
+          </StackPanel>
+        </Grid>
+        <TextBlock Text="{Binding InstalledSummary}" Foreground="{StaticResource Silver}" FontSize="12" />
+        <Grid ColumnDefinitions="96,*,90,120,150" Margin="10,4,10,0">
+          <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
+          <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
+          <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
+          <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" />
+        </Grid>
+      </StackPanel>
+
+      <Border Grid.Row="4" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+              IsVisible="{Binding IsInstalledView}">
+        <Grid>
+          <ListBox Classes="mods" ItemsSource="{Binding InstalledMods}">
+            <ListBox.ItemTemplate>
+              <DataTemplate x:DataType="vm:ModViewModel">
+                <Grid ColumnDefinitions="96,*,90,120,150" ToolTip.Tip="{Binding UsedByText}">
+                  <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
+                          Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding StateText}" />
+                  </Border>
+                  <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                      <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
+                      <TextBlock Text="{Binding UsedByShort}" FontSize="11" Classes="muted" IsVisible="{Binding !IsUnused}" />
+                      <TextBlock Text="not used by anything" FontSize="11" Foreground="{StaticResource Warn}" IsVisible="{Binding IsUnused}" />
+                    </StackPanel>
+                  </StackPanel>
+                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Classes="link" Content="Remove"
+                            IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
+                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveInstalledModCommand}" CommandParameter="{Binding}"
+                            ToolTip.Tip="Unsubscribe in Steam and delete the files" />
+                    <Button Classes="link" Content="Workshop" Command="{Binding OpenWorkshopCommand}" />
+                  </StackPanel>
+                </Grid>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+          <TextBlock Text="Loading your mods…" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding InstalledLoading}" />
+          <TextBlock Text="{Binding InstalledEmptyText}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding !InstalledLoading}" />
+        </Grid>
+      </Border>
+
+      <!-- Workshop: search -->
+      <StackPanel Grid.Row="2" Spacing="10" Margin="0,16,0,10" IsVisible="{Binding IsWorkshopView}">
+        <Grid ColumnDefinitions="*,8,200,8,Auto">
+          <TextBox Grid.Column="0" Watermark="Search the DayZ Workshop (or paste a Workshop link or ID)" Text="{Binding WorkshopSearch}">
+            <TextBox.KeyBindings>
+              <KeyBinding Gesture="Enter" Command="{Binding SearchWorkshopCommand}" />
+            </TextBox.KeyBindings>
+          </TextBox>
+          <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding WorkshopSortChoices}" SelectedIndex="{Binding WorkshopSortIndex}"
+                    ToolTip.Tip="How to sort when the search box is empty. Searches show the best matches first." />
+          <Button Grid.Column="4" Classes="primary" Content="Search" Command="{Binding SearchWorkshopCommand}" />
+        </Grid>
+        <TextBlock Text="{Binding WorkshopStatus}" Foreground="{StaticResource Silver}" FontSize="12" TextWrapping="Wrap" />
+      </StackPanel>
+
+      <Border Grid.Row="4" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+              IsVisible="{Binding IsWorkshopView}">
+        <Grid>
+          <ScrollViewer>
+            <StackPanel>
+              <ItemsControl ItemsSource="{Binding WorkshopResults}">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate x:DataType="vm:WorkshopRowViewModel">
+                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,10">
+                      <Grid ColumnDefinitions="96,14,*,14,Auto">
+                        <Border Grid.Column="0" Width="96" Height="96" CornerRadius="3" ClipToBounds="True" Background="#1B1B20" VerticalAlignment="Top">
+                          <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                        </Border>
+                        <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Top">
+                          <StackPanel Orientation="Horizontal" Spacing="8">
+                            <Border Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
+                                    IsVisible="{Binding !NotInstalled}" VerticalAlignment="Center">
+                              <TextBlock Text="{Binding StateText}" />
+                            </Border>
+                            <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                          </StackPanel>
+                          <TextBlock FontSize="11" Classes="muted" Text="{Binding MetaText}" />
+                          <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding RequiresText}" FontSize="11" Foreground="{StaticResource Warn}" IsVisible="{Binding HasRequires}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="4" Spacing="6" VerticalAlignment="Center" MinWidth="120">
+                          <Button Classes="primary" Content="Install" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                  IsVisible="{Binding NotInstalled}"
+                                  IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).InstallWorkshopItemCommand}" CommandParameter="{Binding}"
+                                  ToolTip.Tip="Subscribe and download through Steam (Steam shows you as playing DayZ while it downloads)" />
+                          <Button Classes="primary" Content="Update" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                  IsVisible="{Binding IsUpdate}"
+                                  IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
+                                  Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).InstallWorkshopItemCommand}" CommandParameter="{Binding}" />
+                          <Button Classes="ghost" Content="Open in Steam" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                  Command="{Binding OpenInSteamCommand}" ToolTip.Tip="Open this mod's Workshop page in the Steam app" />
+                          <Button Classes="link" Content="Open in browser" HorizontalAlignment="Center" Command="{Binding OpenWorkshopPageCommand}" />
+                        </StackPanel>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+              <Button Classes="ghost" Content="More results" HorizontalAlignment="Center" Margin="0,12" IsVisible="{Binding WorkshopHasMore}"
+                      Command="{Binding MoreWorkshopResultsCommand}" />
+            </StackPanel>
+          </ScrollViewer>
+          <TextBlock Text="Searching…" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center" IsVisible="{Binding WorkshopLoading}" />
+        </Grid>
+      </Border>
     </Grid>
 
     <!-- ============ Status bar ============ -->

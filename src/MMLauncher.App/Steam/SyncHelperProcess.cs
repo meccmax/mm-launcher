@@ -12,6 +12,8 @@ public sealed class SyncRequest
     public List<RequiredMod> ToDownload { get; set; } = [];
     public Dictionary<ulong, long> Sizes { get; set; } = [];
     public RepairSpec? Repair { get; set; }
+    /// <summary>True = unsubscribe from All instead of downloading.</summary>
+    public bool Remove { get; set; }
 }
 
 /// <summary>
@@ -32,13 +34,20 @@ public sealed class SyncHelperProcess : IModDownloader
     public const string Argument = "--steam-sync";
     private static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
 
-    public async Task<SyncResult> SyncAsync(
+    public Task<SyncResult> SyncAsync(
         IReadOnlyList<RequiredMod> all,
         IReadOnlyList<RequiredMod> toDownload,
         IReadOnlyDictionary<ulong, long> sizes,
         RepairSpec? repair,
         IProgress<SyncProgress> progress,
-        CancellationToken ct)
+        CancellationToken ct) =>
+        RunHelperAsync(new SyncRequest { All = all.ToList(), ToDownload = toDownload.ToList(), Sizes = sizes.ToDictionary(), Repair = repair },
+                       toDownload, progress, ct);
+
+    public Task<SyncResult> RemoveAsync(IReadOnlyList<RequiredMod> mods, IProgress<SyncProgress> progress, CancellationToken ct) =>
+        RunHelperAsync(new SyncRequest { All = mods.ToList(), Remove = true }, mods, progress, ct);
+
+    private async Task<SyncResult> RunHelperAsync(SyncRequest request, IReadOnlyList<RequiredMod> toDownload, IProgress<SyncProgress> progress, CancellationToken ct)
     {
         var exe = Environment.ProcessPath;
         if (exe == null)
@@ -76,7 +85,6 @@ public sealed class SyncHelperProcess : IModDownloader
 
         using (helper)
         {
-            var request = new SyncRequest { All = all.ToList(), ToDownload = toDownload.ToList(), Sizes = sizes.ToDictionary(), Repair = repair };
             await helper.StandardInput.WriteLineAsync(JsonSerializer.Serialize(request));
             helper.StandardInput.Close();
             var stderr = helper.StandardError.ReadToEndAsync(CancellationToken.None);
@@ -134,7 +142,10 @@ public sealed class SyncHelperProcess : IModDownloader
 
             // Progress is relayed straight to stdout (not through a sync context).
             var progress = new DirectProgress<SyncProgress>(p => Send("P", p));
-            var result = await new SteamworksDownloader().SyncAsync(request.All, request.ToDownload, request.Sizes, request.Repair, progress, CancellationToken.None);
+            var steam = new SteamworksDownloader();
+            var result = request.Remove
+                ? await steam.RemoveAsync(request.All, progress, CancellationToken.None)
+                : await steam.SyncAsync(request.All, request.ToDownload, request.Sizes, request.Repair, progress, CancellationToken.None);
             Send("R", result);
             return result.Success ? 0 : 1;
         }

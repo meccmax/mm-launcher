@@ -30,6 +30,9 @@ public interface IModDownloader
         RepairSpec? repair,
         IProgress<SyncProgress> progress,
         CancellationToken ct);
+
+    /// <summary>Unsubscribes from mods so Steam stops keeping them (the caller deletes the folders).</summary>
+    Task<SyncResult> RemoveAsync(IReadOnlyList<RequiredMod> mods, IProgress<SyncProgress> progress, CancellationToken ct);
 }
 
 public static class ModDownloader

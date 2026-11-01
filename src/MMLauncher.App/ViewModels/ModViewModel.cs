@@ -28,6 +28,14 @@ public partial class ModViewModel : ObservableObject
     [ObservableProperty] private ModState _state = ModState.Unknown;
     [ObservableProperty] private long _sizeBytes;
 
+    /// <summary>Mods page: which servers / presets use this mod ("" = none known).</summary>
+    [ObservableProperty] private string _usedBy = "";
+    public bool IsUnused => UsedBy.Length == 0;
+    partial void OnUsedByChanged(string value) { OnPropertyChanged(nameof(IsUnused)); OnPropertyChanged(nameof(UsedByText)); }
+    public string UsedByText => UsedBy.Length == 0 ? "Not used by any MM server, favorite, recent server or preset" : "Used by " + UsedBy;
+    /// <summary>Short form for the row, e.g. "used by 3 servers, 1 preset" (the full list is the tooltip).</summary>
+    [ObservableProperty] private string _usedByShort = "";
+
     /// <summary>Always loaded and can't be moved or removed (the DayZ Editor's own requirements).</summary>
     [ObservableProperty] private bool _locked;
     public bool Editable => !Locked;

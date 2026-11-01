@@ -131,7 +131,9 @@ server-list-cache.json.gz so a restart serves it straight away.
 Keep the key secret: anyone with it can use your Steam Web API quota. If it ever
 leaks, revoke it on the same page and make a new one.
 The same key also powers the launcher's Friends tab (which Steam friends are playing
-DayZ, and where). Lookups are cached for a minute and limited per address.
+DayZ, and where) and its Workshop search on the MODS page. Friends lookups are
+cached for a minute, Workshop searches for 5 minutes, and both are limited per
+address.
 
 
 ENCRYPTION (v0.5 and newer)

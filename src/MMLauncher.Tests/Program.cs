@@ -7,6 +7,7 @@ using MMLauncher.Core.Query;
 using MMLauncher.Core.Services;
 using MMLauncher.Core.Steam;
 using MMLauncher.Core.Updates;
+using MMLauncher.Core.Workshop;
 
 int failures = 0;
 void Check(bool ok, string what)
@@ -774,6 +775,88 @@ Console.WriteLine("== Friends ==");
     fstop.Cancel();
     steam.Stop();
     Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+}
+
+Console.WriteLine("== Workshop search (Mods page) ==");
+{
+    var dir = Path.Combine(root, "workshop");
+    Directory.CreateDirectory(dir);
+    Check(WorkshopSearchReply.IsSafePreview("https://images.steamusercontent.com/ugc/1/abc/") &&
+          !WorkshopSearchReply.IsSafePreview("http://images.steamusercontent.com/ugc/1/") &&
+          !WorkshopSearchReply.IsSafePreview("https://evil.example/steamusercontent.com/x") &&
+          !WorkshopSearchReply.IsSafePreview("https://steamusercontent.com.evil.example/x") &&
+          !WorkshopSearchReply.IsSafePreview("file:///C:/Windows/win.ini"), "thumbnails only from Steam's own https image hosts");
+    Check(WorkshopSearchReply.TryParseItem("https://steamcommunity.com/sharedfiles/filedetails/?id=1559212036", out var pid) && pid == 1559212036 &&
+          WorkshopSearchReply.TryParseItem("steamcommunity.com/workshop/filedetails/?l=english&id=2545327648&searchtext=", out pid) && pid == 2545327648 &&
+          WorkshopSearchReply.TryParseItem(" 2250764298 ", out pid) && pid == 2250764298 &&
+          !WorkshopSearchReply.TryParseItem("expansion", out _) && !WorkshopSearchReply.TryParseItem("2250764298 expansion", out _) &&
+          !WorkshopSearchReply.TryParseItem("https://evil.example/?id=2250764298", out _), "pasted Workshop links and IDs recognized; plain searches left alone");
+
+    using var steam = new HttpListener();
+    steam.Prefixes.Add("http://127.0.0.1:8096/");
+    steam.Start();
+    var asked = new List<string>();
+    _ = Task.Run(async () =>
+    {
+        while (steam.IsListening)
+        {
+            HttpListenerContext ctx;
+            try { ctx = await steam.GetContextAsync(); } catch { break; }
+            var qs = ctx.Request.QueryString;
+            lock (asked) asked.Add($"{qs["query_type"]}|{qs["search_text"]}|{qs["page"]}");
+            int code = qs["key"] == "rejected" ? 403 : 200;
+            var longTitle = new string('x', 500);
+            var body = $$$"""
+            {"response":{"total":2,"publishedfiledetails":[
+              {"publishedfileid":"2250764298","consumer_appid":221100,"title":"DayZ-Editor\u001b[31m","file_size":"40000000","subscriptions":180000,
+               "time_updated":1760000000,"short_description":"Build maps","preview_url":"https://images.steamusercontent.com/ugc/1/x/",
+               "children":[{"publishedfileid":"1559212036"},{"publishedfileid":"2545327648"},{"publishedfileid":"0"}]},
+              {"publishedfileid":"999","consumer_appid":107410,"title":"Arma mod"},
+              {"publishedfileid":"1234","consumer_appid":221100,"title":"{{{longTitle}}}","preview_url":"https://evil.example/a.png"}
+            ]}}
+            """;
+            ctx.Response.StatusCode = code;
+            var bytes = System.Text.Encoding.UTF8.GetBytes(body);
+            await ctx.Response.OutputStream.WriteAsync(bytes);
+            ctx.Response.Close();
+        }
+    });
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8096");
+    var wsvc = new MMServerAgent.WorkshopSearchService(new MMServerAgent.AgentConfig { SteamWebApiKey = "k" }, _ => { });
+    var wbad = new MMServerAgent.WorkshopSearchService(new MMServerAgent.AgentConfig { SteamWebApiKey = "rejected" }, _ => { });
+    var woff = new MMServerAgent.WorkshopSearchService(new MMServerAgent.AgentConfig { SteamWebApiKey = "" }, _ => { });
+    using var wstop = new CancellationTokenSource();
+    _ = new MMServerAgent.MiniHttpServer(2984, 1 << 20, r => r.Path == WorkshopSearchReply.Path
+        ? wsvc.HandleAsync(r.Query, r.RemoteAddress) : Task.FromResult(new MMServerAgent.HttpReply(404, "text/plain", "no"))).RunAsync(wstop.Token);
+    _ = new MMServerAgent.MiniHttpServer(2985, 1 << 20, r => wbad.HandleAsync(r.Query, r.RemoteAddress)).RunAsync(wstop.Token);
+    _ = new MMServerAgent.MiniHttpServer(2986, 1 << 20, r => woff.HandleAsync(r.Query, r.RemoteAddress)).RunAsync(wstop.Token);
+    await Task.Delay(200);
+    var wclient = new AgentClient(new AgentTrust(dir));
+    var ws = await wclient.SearchWorkshopAsync("127.0.0.1", 2984, "", "popular", 1);
+    Check(ws is { Ok: true, Total: 2 } && ws.Results.Count == 2 && ws.Results.All(r => r.Id != 999), "Workshop results: DayZ items only");
+    var ed = ws?.Results.FirstOrDefault(r => r.Id == 2250764298);
+    Check(ed != null && ed.Title == "DayZ-Editor[31m" && ed.Requires.SequenceEqual(new ulong[] { 1559212036, 2545327648 }) && ed.PreviewUrl.Length > 0,
+          "Workshop result cleaned (control characters), with the mods it needs");
+    var other = ws?.Results.FirstOrDefault(r => r.Id == 1234);
+    Check(other != null && other.Title.Length <= 120 && other.PreviewUrl == "", "long titles clipped; thumbnails from other hosts dropped");
+    await wclient.SearchWorkshopAsync("127.0.0.1", 2984, "Expansion", "subscribed", 2);
+    lock (asked) Check(asked.Contains("3||1") && asked.Contains("12|Expansion|2"), "popular uses Steam's trend query; text searches rank by match, with paging");
+    int wbefore; lock (asked) wbefore = asked.Count;
+    await wclient.SearchWorkshopAsync("127.0.0.1", 2984, "", "popular", 1);
+    lock (asked) Check(asked.Count == wbefore, "Workshop searches cached (no second Steam call)");
+    var rejected = await wclient.SearchWorkshopAsync("127.0.0.1", 2985, "x", "popular", 1);
+    Check(rejected is { Ok: false } && rejected.Message.Contains("Try again"), "Steam refusing the key gives a plain message (no key in it)");
+    var off = await wclient.SearchWorkshopAsync("127.0.0.1", 2986, "x", "popular", 1);
+    Check(off is { Ok: false } && off.Message.Contains("turned on"), "agents without a Steam key say Workshop search is off");
+    var silly = await new HttpClient().GetStringAsync($"http://127.0.0.1:2984{WorkshopSearchReply.Path}?q=&sort=../../x&page=99999");
+    lock (asked) Check(asked.Contains("3||50"), "unknown sort and huge page numbers are clamped, not passed to Steam");
+    for (int i = 0; i < 30; i++) await new HttpClient().GetAsync($"http://127.0.0.1:2984{WorkshopSearchReply.Path}?q=spam{i}");
+    var wlimited = await new HttpClient().GetAsync($"http://127.0.0.1:2984{WorkshopSearchReply.Path}?q=one-more");
+    Check((int)wlimited.StatusCode == 429, "Workshop searches are rate limited per address");
+    wstop.Cancel();
+    steam.Stop();
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+
 }
 
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");

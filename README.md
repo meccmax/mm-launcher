@@ -68,6 +68,16 @@ The **Friends** tab shows which Steam friends are playing DayZ and on which serv
 - **Requirements:** the player's friends list must be public, and a friend's server only shows if their game details are public. Both are Steam's defaults.
 - **Agent safeguards:** answers are cached for a minute and limited per address. Steam IDs aren't logged.
 
+### Mods page (v0.9)
+
+The **MODS** page has two views:
+
+- **Downloaded:** every DayZ Workshop mod on this PC, with its size, last update and what uses it (MM servers, favorite and recent servers, editor presets, and the DayZ Editor itself). Filter by name or ID, by "Need an update" or by "Not used by anything". **Update all** downloads every outdated mod. **Remove** (one mod, or all unused ones) unsubscribes in Steam, so it isn't downloaded again, and deletes the folder.
+- **Steam Workshop:** search the DayZ Workshop or browse it by popular this week, most subscribed, recently updated or newest. Pasting a Workshop link or ID finds that item. Each result shows its thumbnail, size, subscribers and whether it's already installed. **Install** subscribes and downloads it through Steam, along with any mods it lists as required. **Open in Steam** shows its page in the Steam app.
+
+- **How it works:** the search goes through an MM agent's Steam Web API key (`IPublishedFileService/QueryFiles`), so the launcher needs no key. Answers are cached for 5 minutes and limited to 30 searches a minute per address. Only DayZ items are returned; thumbnails load only from Steam's own image hosts (https).
+- **Steam status:** browsing never touches Steam. Installing, updating and removing use the same short Steam helper as joining, so Steam shows "Playing DayZ" only while that runs.
+
 ### DayZ Editor (v0.8)
 
 The **DAYZ EDITOR** page starts DayZ offline (main menu, no server) with Community Framework, Dabs Framework and [DayZ-Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2250764298) loaded first, then a preset's mods in order. Missing or outdated mods are downloaded through Steam first, the same way as for servers.

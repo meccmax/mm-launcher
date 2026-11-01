@@ -162,6 +162,41 @@ public sealed class AgentClient
         }
     }
 
+    /// <summary>Searches the DayZ Workshop through an agent. Null if the agent couldn't be reached.</summary>
+    public async Task<Workshop.WorkshopSearchReply?> SearchWorkshopAsync(string host, int port, string text, string sort, int page, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(25));
+        try
+        {
+            bool secure = _trust.RequiresTls(host, port);
+            var url = $"{(secure ? "https" : "http")}://{host}:{port}{Workshop.WorkshopSearchReply.Path}?q={Uri.EscapeDataString(text)}&sort={Uri.EscapeDataString(sort)}&page={page}";
+            using var res = await _http.GetAsync(url, cts.Token);
+            var body = await res.Content.ReadAsStringAsync(cts.Token);
+            if (body.Length > 4 * 1024 * 1024) return null;
+            var reply = System.Text.Json.JsonSerializer.Deserialize<Workshop.WorkshopSearchReply>(body, AgentResponse.Json);
+            if (reply == null) return null;
+            reply.Message = Editor.PresetFormat.Clean(reply.Message, 300);
+            reply.Results = reply.Results.Where(r => r.Id != 0).Take(100).Select(r => new Workshop.WorkshopResult
+            {
+                Id = r.Id,
+                Title = Editor.PresetFormat.Clean(r.Title, 120) is { Length: > 0 } t ? t : r.Id.ToString(),
+                SizeBytes = Math.Max(0, r.SizeBytes),
+                Updated = r.Updated,
+                Subscriptions = Math.Max(0, r.Subscriptions),
+                Description = Editor.PresetFormat.Clean(r.Description, 300),
+                PreviewUrl = Workshop.WorkshopSearchReply.IsSafePreview(r.PreviewUrl) ? r.PreviewUrl : "",
+                Requires = r.Requires.Where(id => id != 0 && id != r.Id).Distinct().Take(50).ToList(),
+            }).ToList();
+            return reply;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Workshop search through {host}:{port} failed: {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>Asks an agent which of a player's Steam friends are in DayZ. Null if the agent couldn't be reached.</summary>
     public async Task<Friends.FriendsReply?> GetFriendsAsync(string host, int port, ulong steamId, CancellationToken ct = default)
     {

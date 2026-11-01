@@ -128,6 +128,45 @@ public sealed class SteamworksDownloader : IModDownloader
         }
     }
 
+    public async Task<SyncResult> RemoveAsync(IReadOnlyList<RequiredMod> mods, IProgress<SyncProgress> progress, CancellationToken ct)
+    {
+        try { EnsureNativeLibrary(); }
+        catch (Exception ex) { return new SyncResult(false, "Couldn't load the Steam API library: " + ex.Message, mods); }
+
+        progress.Report(new SyncProgress("Connecting to Steam…", "Steam shows you as playing DayZ for a moment.", -1));
+        try
+        {
+            if (SteamClient.IsValid) SteamClient.Shutdown();
+            SteamClient.Init(DayZAppId, asyncCallbacks: true);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("SteamClient.Init failed: " + ex.Message);
+            return new SyncResult(false, "Couldn't connect to Steam. Make sure Steam is running and logged in, then try again.", mods);
+        }
+        var failed = new List<RequiredMod>();
+        try
+        {
+            int n = 0;
+            foreach (var mod in mods)
+            {
+                ct.ThrowIfCancellationRequested();
+                progress.Report(new SyncProgress($"Unsubscribing ({++n} of {mods.Count})", mod.Name, (double)n / mods.Count));
+                var item = new Item(mod.Id);
+                bool ok = !item.IsSubscribed || await item.Unsubscribe();
+                Log.Info($"Unsubscribe {mod.Id} {mod.Name}: {(ok ? "ok" : "FAILED")}");
+                if (!ok) failed.Add(mod);
+            }
+            return failed.Count == 0
+                ? new SyncResult(true, $"Unsubscribed from {mods.Count} mod(s).", [])
+                : new SyncResult(false, $"Steam didn't unsubscribe {failed.Count} mod(s): {string.Join(", ", failed.Select(f => f.Name))}.", failed);
+        }
+        finally
+        {
+            try { SteamClient.Shutdown(); } catch { }
+        }
+    }
+
     private static string? FolderOf(RepairSpec? spec, ulong id) =>
         string.IsNullOrEmpty(spec?.WorkshopPath) ? null : Path.Combine(spec.WorkshopPath, id.ToString());
 

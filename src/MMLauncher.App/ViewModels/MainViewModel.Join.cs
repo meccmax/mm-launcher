@@ -56,6 +56,7 @@ public partial class MainViewModel
         OnPropertyChanged(nameof(CanJoin));
         OnPropertyChanged(nameof(CanUpdateMods));
         OnPropertyChanged(nameof(CanStartEditor));
+        OnPropertyChanged(nameof(CanChangeMods));
         OnPropertyChanged(nameof(CanJoinWhenReady));
         OnPropertyChanged(nameof(ShowJoinButton));
         OnPropertyChanged(nameof(HasPanelAction));

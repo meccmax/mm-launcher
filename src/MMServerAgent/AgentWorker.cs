@@ -19,6 +19,7 @@ public sealed class AgentWorker : BackgroundService
     private ServerListFeed? _feed;
     private EditorPresetFolder? _presets;
     private FriendsService? _friends;
+    private WorkshopSearchService? _workshop;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -31,6 +32,7 @@ public sealed class AgentWorker : BackgroundService
         EditorPresetFolder.EnsureFolder();
         _presets = new EditorPresetFolder(Log);
         _friends = new FriendsService(_config, Log);
+        _workshop = new WorkshopSearchService(_config, Log);
         var feedTask = _feed.RunAsync(stoppingToken);
         Rescan();
         System.Security.Cryptography.X509Certificates.X509Certificate2? certificate = null;
@@ -114,6 +116,9 @@ public sealed class AgentWorker : BackgroundService
 
         if (path.Equals(AgentClient.Path, StringComparison.OrdinalIgnoreCase))
             return new HttpReply(200, "application/json", _json);
+
+        if (path.Equals(MMLauncher.Core.Workshop.WorkshopSearchReply.Path, StringComparison.OrdinalIgnoreCase) && _workshop != null)
+            return await _workshop.HandleAsync(request.Query, request.RemoteAddress);
 
         if (path.Equals(MMLauncher.Core.Friends.FriendsReply.Path, StringComparison.OrdinalIgnoreCase) && _friends != null)
             return await _friends.HandleAsync(request.Query, request.RemoteAddress);

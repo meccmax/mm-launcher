@@ -47,7 +47,7 @@ public sealed class FakeDownloader : IModDownloader
                         (finished + done) / (double)total));
                 }
                 finished += size;
-                Install(content, mod.Id);
+                Install(content, mod.Id, mod.Name);
                 Log.Info($"(fake) Downloaded {mod.Id} {mod.Name}");
             }
             return new SyncResult(true, $"Downloaded {toDownload.Count} mod(s). (simulated)", []);
@@ -58,7 +58,15 @@ public sealed class FakeDownloader : IModDownloader
         }
     }
 
-    private static void Install(string content, ulong id)
+    public async Task<SyncResult> RemoveAsync(IReadOnlyList<RequiredMod> mods, IProgress<SyncProgress> progress, CancellationToken ct)
+    {
+        progress.Report(new SyncProgress("Connecting to Steam…", "(simulated)", -1));
+        await Task.Delay(300, ct);
+        foreach (var m in mods) Log.Info($"(fake) Unsubscribed {m.Id} {m.Name}");
+        return new SyncResult(true, $"Unsubscribed from {mods.Count} mod(s). (simulated)", []);
+    }
+
+    private static void Install(string content, ulong id, string name)
     {
         var workshop = Directory.GetParent(content)!.Parent!.FullName;
         var modDir = Path.Combine(content, id.ToString());
@@ -66,7 +74,7 @@ public sealed class FakeDownloader : IModDownloader
         Directory.CreateDirectory(folder);
         File.WriteAllText(Path.Combine(folder, "fake.pbo"), "fake");
         File.WriteAllText(Path.Combine(folder, "fake.pbo.mm.bisign"), "sig");
-        File.WriteAllText(Path.Combine(modDir, "meta.cpp"), $"protocol = 1;\npublishedid = {id};\nname = \"fake\";\n");
+        File.WriteAllText(Path.Combine(modDir, "meta.cpp"), $"protocol = 1;\npublishedid = {id};\nname = \"{name.Replace("\"", "")}\";\n");
 
         var acf = Path.Combine(workshop, $"appworkshop_{LocalSteam.DayZAppId}.acf");
         var items = new Dictionary<string, (string Size, string Time)>();
