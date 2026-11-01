@@ -97,13 +97,40 @@ No critical problems were found. The main risks were in the **server agent's pro
 | v0.11.0 | Player history | The agent only queries its own servers on 127.0.0.1 and stores counts (no player names or IDs) in `player-history.jsonc` inside the locked agent folder. `/mm-agent/v1/history?port=` accepts only a valid port number and returns public player counts. Launchers reject odd step sizes, keep at most ~4000 readings and clamp values to 0–1000. |
 | v0.6.0 | Server browser feed through the agent | The Steam Web API key lives only in `agent.jsonc` (in the locked agent folder). It's never sent to launchers or written to `agent.log`, and Steam's error messages are logged without the request URL. The feed (`/mm-agent/v1/browser`) is public information (Valve's server list), served compressed. Per-address connection limits still apply. The launcher caps the download at 16 MB compressed and 32 MB unpacked, and treats every entry as untrusted: names are clipped, control characters stripped, and addresses validated. |
 
+## Re-audit: 1 November 2026 (v0.11.0)
+
+Covers everything added since the first audit: Friends, Mods page and Workshop search, removing mods, the installer, server news, the Steam permission check and player history. It also repeats the package, secret and settings checks.
+
+| Check | Result |
+|---|---|
+| Known-vulnerable packages (`dotnet list package --vulnerable --include-transitive`, all three projects) | None |
+| Secrets anywhere in the git history (GitHub tokens, Discord webhooks, private keys, Steam keys, `.pfx`/`.pem` files, real `agent.jsonc`/`settings.jsonc`) | None |
+| GitHub settings | Rulesets protect `main` and release tags. Secret scanning and push protection on. Dependabot security updates on. 2FA on (R1). CodeQL runs on every push and passes. |
+| Release workflow | Read-only by default; only the publish job can write. Every action pinned to a full commit SHA. No `pull_request_target`, and no untrusted text used inside scripts. |
+| New agent endpoints (`/workshop`, `/friends`, `/history`) | Inputs clamped or refused. Steam key never leaves the agent or appears in its log. Answers cached; Workshop and Friends rate-limited per address. `/history` returns only public player counts. |
+| New agent files (`news\`, `player-history.jsonc`) | Inside the locked agent folder and on the lockdown allow list. Reads capped (64 KB per news file, 30 files). History written via a temp file, then swapped in. |
+| Agent text shown in the launcher (news, Workshop results, history) | Cleaned again by the launcher. Control and right-to-left characters removed, lengths and counts capped. News links kept only if plain `https://` without a login part, opened only on click, with the site name shown on the button. |
+| Removing mods | Asks first. Unsubscribes through Steam, then moves the folder aside in one step. Never follows links; a mod in use is skipped untouched. |
+| Steam permission check | Read-only Windows calls; every handle closed. Never throws; stays silent when it can't tell. |
+
+**New findings, all fixed in this release:**
+
+| ID | Severity | Finding | Status |
+|---|---|---|---|
+| L11 | Low | **Workshop thumbnails followed redirects anywhere.** The first image address was checked to be Steam's, but a redirect could send the download to any website. That would reveal the player's IP address to that site. | Fixed: redirects are followed by hand (at most 3), and only to Steam's image hosts. |
+| L12 | Low | **A preset file built to be slow could freeze the launcher.** Thousands of unclosed rows made the HTML patterns very slow. Only files a player imports, or an admin puts in the agent's `editor-presets` folder, are parsed this way. | Fixed: the patterns give up after 2 seconds and the file counts as unreadable. Self-check added. |
+
+**Accepted, as before:** a trusted MM agent decides which mods a Workshop result lists as required (they're installed with it), what news says, and what links it carries. Agents are pinned (only keys published in `trust/agents.jsonc` or seen before are accepted). Someone with control of an MM agent could already change the mod lists players download, so this adds no new kind of risk.
+
+**R3 (code signing):** the SignPath Foundation application was declined (not enough public use yet). R3 stays open; reapply once more people use the launcher. Until then, every download is checked against `SHA256SUMS.txt` by the launcher's updater and `update-agent.bat`.
+
 ## Recommendations for the maintainers
 
 | ID | Recommendation |
 |---|---|
-| R1 | Turn on **two-factor authentication** on the GitHub account. Anyone who controls the account can publish an update that reaches every player. |
-| R2 | Add **branch and tag protection**: Settings → Rules → protect `main` and tags `v*` so they can't be force-pushed or deleted. Turn on **Private vulnerability reporting**, **Dependabot alerts** and **secret scanning** under Settings → Code security. |
-| R3 | **Sign the exe files** with a code-signing certificate once the project is ready for it. That removes the Windows SmartScreen warning, and a hijacked account alone couldn't produce a trusted update. |
+| R1 | Turn on **two-factor authentication** on the GitHub account. Anyone who controls the account can publish an update that reaches every player. *Done.* |
+| R2 | Add **branch and tag protection**: Settings → Rules → protect `main` and tags `v*` so they can't be force-pushed or deleted. Turn on **Private vulnerability reporting**, **Dependabot alerts** and **secret scanning** under Settings → Code security. *Rulesets, secret scanning and Dependabot security updates confirmed on 1 Nov 2026.* |
+| R3 | **Sign the exe files** with a code-signing certificate once the project is ready for it. That removes the Windows SmartScreen warning, and a hijacked account alone couldn't produce a trusted update. *SignPath Foundation declined on 1 Nov 2026 (not enough public use yet); reapply later.* |
 | R4 | ~~Put the agent behind HTTPS.~~ **Done in v0.5.0**, built into the agent (no Cloudflare or certificate needed). Remaining step for maintainers: add each agent's fingerprint to `trust/agents.jsonc`, then set `AllowPlainHttp` to `false` once players are on v0.5.0. |
 
 ## Re-running this audit

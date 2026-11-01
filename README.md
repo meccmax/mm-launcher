@@ -14,7 +14,7 @@ Both keep their settings in `%APPDATA%\MMLauncher` and update themselves when a 
 
 Server admins: download **MMServerAgent.zip** from the same page and follow `AGENT-SETUP.txt`.
 
-[Code signing policy](docs/CODE-SIGNING-POLICY.md) (including what the launcher sends and where).
+[Code signing policy](docs/CODE-SIGNING-POLICY.md) (including what the launcher sends and where) · [Security audit](docs/SECURITY-AUDIT.md) · [Originality report](docs/ORIGINALITY.md): all code is written for this project; no DZSA or other launcher code · [Third-party notices](THIRD-PARTY-NOTICES.md)
 
 ## Releasing (maintainers)
 

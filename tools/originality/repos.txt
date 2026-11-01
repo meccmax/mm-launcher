@@ -1,0 +1,18 @@
+# Open-source DayZ launchers and related projects compared against MM Launcher (1 Nov 2026).
+# DZSA Launcher itself is closed source, so it can't be compared this way.
+# Clone each with: git clone --depth 1 https://github.com/<name>.git
+bastimeyer/dayz-linux-cli-launcher
+WoozyMasta/dayz-ctl
+Jadfii/dayzmagiclauncher
+valters-tomsons/DayZLauncher-UnixPatcher
+Borcioo/dayz-labs
+Berry-Dingle/DayZ-Linux-Launcher
+viad00/DayzLauncher
+s-30j/DayZavr-Launcher-Source-Code
+richardbenson/DayZ-Launcher
+dan-myles/ftll-archive
+chrisaso/DZL
+m6v10/IconicPvE_Launcher
+wrdg/DayZExtract
+Nuclearistt/TEKLauncher
+Facepunch/Facepunch.Steamworks

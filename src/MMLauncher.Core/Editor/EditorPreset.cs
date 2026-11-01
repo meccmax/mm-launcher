@@ -91,10 +91,10 @@ public static partial class PresetFormat
     public const int MaxBytes = 1024 * 1024;
     public const int MaxMods = 500;
 
-    [GeneratedRegex(@"<tr[^>]*data-type\s*=\s*""ModContainer""[^>]*>(?<row>.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<tr[^>]*data-type\s*=\s*""ModContainer""[^>]*>(?<row>.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 2000)]
     private static partial Regex RowRx();
 
-    [GeneratedRegex(@"<td[^>]*data-type\s*=\s*""DisplayName""[^>]*>(?<name>.*?)</td>", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<td[^>]*data-type\s*=\s*""DisplayName""[^>]*>(?<name>.*?)</td>", RegexOptions.Singleline | RegexOptions.IgnoreCase, matchTimeoutMilliseconds: 2000)]
     private static partial Regex NameRx();
 
     [GeneratedRegex(@"(?:steamcommunity\.com/(?:sharedfiles|workshop)/filedetails/\?(?:[^""'\s<]*&)?id=)(?<id>\d{6,20})", RegexOptions.IgnoreCase)]
@@ -111,6 +111,13 @@ public static partial class PresetFormat
     /// or separated by ; or ,). Never throws; returns an empty preset if nothing is found.
     /// </summary>
     public static EditorPreset Parse(string text, string fallbackName)
+    {
+        // A deliberately awkward file could make the HTML patterns slow; give up on it instead.
+        try { return ParseUnchecked(text, fallbackName); }
+        catch (RegexMatchTimeoutException) { return new EditorPreset { Name = Clean(fallbackName, 80) }; }
+    }
+
+    private static EditorPreset ParseUnchecked(string text, string fallbackName)
     {
         if (text.Length > MaxBytes) text = text[..MaxBytes];
         var preset = new EditorPreset { Name = Clean(fallbackName, 80) };

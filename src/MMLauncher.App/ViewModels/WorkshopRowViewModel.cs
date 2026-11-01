@@ -9,7 +9,8 @@ namespace MMLauncher.App.ViewModels;
 /// <summary>One Workshop search result on the Mods page.</summary>
 public partial class WorkshopRowViewModel(WorkshopResult item) : ObservableObject
 {
-    private static readonly HttpClient Images = new() { Timeout = TimeSpan.FromSeconds(15) };
+    // Redirects are followed by hand (below), so a picture can never be fetched from anywhere but Steam's image hosts.
+    private static readonly HttpClient Images = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(15) };
     private const int MaxImageBytes = 3 * 1024 * 1024;
 
     public WorkshopResult Item { get; } = item;
@@ -48,7 +49,17 @@ public partial class WorkshopRowViewModel(WorkshopResult item) : ObservableObjec
         if (Thumbnail != null || !WorkshopSearchReply.IsSafePreview(Item.PreviewUrl)) return;
         try
         {
-            using var res = await Images.GetAsync(Item.PreviewUrl, HttpCompletionOption.ResponseHeadersRead);
+            var url = Item.PreviewUrl;
+            HttpResponseMessage res = await Images.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            // Steam's older image host redirects to the newer one; follow up to 3 hops, Steam hosts only.
+            for (int hop = 0; hop < 3 && (int)res.StatusCode is >= 300 and < 400 && res.Headers.Location is { } next; hop++)
+            {
+                url = (next.IsAbsoluteUri ? next : new Uri(new Uri(url), next)).AbsoluteUri;
+                res.Dispose();
+                if (!WorkshopSearchReply.IsSafePreview(url)) return;
+                res = await Images.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            }
+            using var _ = res;
             if (!res.IsSuccessStatusCode || res.Content.Headers.ContentLength > MaxImageBytes) return;
             await using var stream = await res.Content.ReadAsStreamAsync();
             using var ms = new MemoryStream();

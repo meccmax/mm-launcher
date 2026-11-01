@@ -869,6 +869,14 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
+Console.WriteLine("== Hostile preset file ==");
+{
+    var evil = string.Concat(Enumerable.Repeat("<tr data-type=\"ModContainer\"><td data-type=\"DisplayName\">x", 30000));
+    var evilClock = System.Diagnostics.Stopwatch.StartNew();
+    var evilParsed = MMLauncher.Core.Editor.PresetFormat.Parse(evil, "evil");
+    Check(evilClock.Elapsed < TimeSpan.FromSeconds(6) && evilParsed.Mods.Count == 0, $"a preset file built to be slow gives up quickly ({evilClock.Elapsed.TotalSeconds:0.0}s)");
+}
+
 Console.WriteLine("== Player history ==");
 {
     var store = new MMLauncher.Core.History.PlayerHistoryStore();
