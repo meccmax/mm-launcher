@@ -20,6 +20,9 @@ public sealed class AgentResponse
     /// <summary>True when this agent serves the list of all DayZ servers (GET /mm-agent/v1/browser).</summary>
     public bool BrowserFeed { get; set; }
 
+    /// <summary>True when this agent collects anonymous launcher usage stats (POST /mm-agent/v1/usage).</summary>
+    public bool UsageStats { get; set; }
+
     /// <summary>How many shared DayZ Editor presets this agent offers (GET /mm-agent/v1/editor-presets).</summary>
     public int EditorPresets { get; set; }
 

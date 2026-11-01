@@ -9,18 +9,18 @@
         Icon="avares://MMLauncher/Assets/mm.ico"
         Width="1200" Height="780" MinWidth="960" MinHeight="600"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}">
+        Background="{DynamicResource Bg}">
 
   <Grid RowDefinitions="Auto,*,Auto">
 
     <!-- ============ Header ============ -->
-    <Border Grid.Row="0" Background="#09090B" BorderBrush="{StaticResource Orange}" BorderThickness="0,0,0,2" Padding="18,12">
+    <Border Grid.Row="0" Background="{DynamicResource Chrome}" BorderBrush="{DynamicResource Orange}" BorderThickness="0,0,0,2" Padding="18,12">
       <DockPanel>
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
           <Image Source="avares://MMLauncher/Assets/mm.png" Width="40" Height="40" />
           <StackPanel VerticalAlignment="Center">
-            <TextBlock Text="MISFIT MERCENARIES" FontSize="19" FontWeight="Black" LetterSpacing="1.5" Foreground="{StaticResource Orange}" />
-            <TextBlock Text="SERVER LAUNCHER" FontSize="11" FontWeight="SemiBold" LetterSpacing="4" Foreground="{StaticResource Silver}" />
+            <TextBlock Text="MISFIT MERCENARIES" FontSize="19" FontWeight="Black" LetterSpacing="1.5" Foreground="{DynamicResource Orange}" />
+            <TextBlock Text="SERVER LAUNCHER" FontSize="11" FontWeight="SemiBold" LetterSpacing="4" Foreground="{DynamicResource Silver}" />
           </StackPanel>
         </StackPanel>
 
@@ -47,7 +47,7 @@
         </StackPanel>
 
         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,18,0">
-          <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Right" FontSize="12" Foreground="{StaticResource Silver}" TextTrimming="CharacterEllipsis" />
+          <TextBlock Text="{Binding StatusMessage}" HorizontalAlignment="Right" FontSize="12" Foreground="{DynamicResource Silver}" TextTrimming="CharacterEllipsis" />
           <TextBlock Text="{Binding LastRefreshText}" HorizontalAlignment="Right" FontSize="11" Classes="muted" />
         </StackPanel>
       </DockPanel>
@@ -57,7 +57,7 @@
     <Grid Grid.Row="1" ColumnDefinitions="390,*" IsVisible="{Binding IsServersPage}">
 
       <!-- Server lists: MM / All servers / Favorites / Recent -->
-      <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+      <Border Grid.Column="0" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="Auto,Auto,*">
           <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="10,10,10,4">
             <Button Grid.Column="0" Classes="tab" Classes.active="{Binding IsMmTab}" Content="MM" Command="{Binding ShowMmTabCommand}"
@@ -132,7 +132,7 @@
                                Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0" />
                     <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PlayersText}" FontSize="12" FontWeight="SemiBold"
-                               Foreground="{StaticResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
+                               Foreground="{DynamicResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
                     <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}"
                                  Margin="0,8,0,0" IsVisible="{Binding Online}" />
                   </Grid>
@@ -141,7 +141,7 @@
               </ListBox.ItemTemplate>
             </ListBox>
             <StackPanel VerticalAlignment="Center" Margin="30" Spacing="12" IsVisible="{Binding IsScanning}">
-              <ProgressBar IsIndeterminate="True" Foreground="{StaticResource Orange}" />
+              <ProgressBar IsIndeterminate="True" Foreground="{DynamicResource Orange}" />
               <TextBlock Text="Looking for MM servers…" HorizontalAlignment="Center" FontWeight="SemiBold" />
               <TextBlock Text="{Binding HostsText}" HorizontalAlignment="Center" Classes="muted" FontSize="12" TextWrapping="Wrap" TextAlignment="Center" />
             </StackPanel>
@@ -167,7 +167,7 @@
                       <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0"
                                  TextTrimming="CharacterEllipsis" />
                       <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PlayersText}" FontSize="12" FontWeight="SemiBold"
-                                 Foreground="{StaticResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
+                                 Foreground="{DynamicResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
                       <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}" Margin="0,7,0,0" />
                     </Grid>
                   </Grid>
@@ -175,7 +175,7 @@
               </ListBox.ItemTemplate>
             </ListBox>
             <StackPanel VerticalAlignment="Center" Margin="30" Spacing="12" IsVisible="{Binding BrowserLoading}">
-              <ProgressBar IsIndeterminate="True" Foreground="{StaticResource Orange}" />
+              <ProgressBar IsIndeterminate="True" Foreground="{DynamicResource Orange}" />
               <TextBlock Text="Getting the server list…" HorizontalAlignment="Center" FontWeight="SemiBold" />
             </StackPanel>
           </Panel>
@@ -191,10 +191,10 @@
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"
                                  ToolTip.Tip="{Binding Server}" />
                       <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Margin="10,0,0,0"
-                                 Foreground="{StaticResource Good}" IsVisible="{Binding Now}" VerticalAlignment="Center" />
+                                 Foreground="{DynamicResource Good}" IsVisible="{Binding Now}" VerticalAlignment="Center" />
                       <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Badge}" FontSize="11" Margin="10,0,0,0" Classes="muted"
                                  IsVisible="{Binding !Now}" VerticalAlignment="Center" />
-                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding FriendsText}" FontSize="12" Foreground="{StaticResource Silver}"
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding FriendsText}" FontSize="12" Foreground="{DynamicResource Silver}"
                                  Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                     </Grid>
                   </Grid>
@@ -203,7 +203,7 @@
             </ListBox>
             <TextBlock IsVisible="{Binding NoFriendRows}" Margin="30" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Classes="muted"
                        Text="No friends on DayZ servers right now. Servers you see friends on are remembered here for 30 days." />
-            <ProgressBar IsVisible="{Binding FriendsLoading}" IsIndeterminate="True" Foreground="{StaticResource Orange}" VerticalAlignment="Top" Margin="12,0" Height="3" MinHeight="3" />
+            <ProgressBar IsVisible="{Binding FriendsLoading}" IsIndeterminate="True" Foreground="{DynamicResource Orange}" VerticalAlignment="Top" Margin="12,0" Height="3" MinHeight="3" />
           </Panel>
 
           <!-- Favorites / Recent -->
@@ -226,7 +226,7 @@
                                Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
                     <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0" />
                     <TextBlock Grid.Row="1" Grid.Column="2" Text="{Binding PlayersText}" FontSize="12" FontWeight="SemiBold"
-                               Foreground="{StaticResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
+                               Foreground="{DynamicResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
                     <ProgressBar Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}"
                                  Margin="0,8,0,0" IsVisible="{Binding Online}" />
                   </Grid>
@@ -249,18 +249,18 @@
           <StackPanel Orientation="Horizontal" Spacing="10">
             <Ellipse Classes="dot" Classes.online="{Binding Online}" Classes.offline="{Binding !Online}" VerticalAlignment="Center" />
             <TextBlock Text="{Binding StatusText}" Classes="label" VerticalAlignment="Center" />
-            <Border Background="#3D1916" CornerRadius="3" Padding="6,1" IsVisible="{Binding Passworded}">
-              <TextBlock Text="PASSWORD" FontSize="10" FontWeight="Bold" Foreground="{StaticResource Bad}" />
+            <Border Background="{DynamicResource BadTint}" CornerRadius="3" Padding="6,1" IsVisible="{Binding Passworded}">
+              <TextBlock Text="PASSWORD" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource Bad}" />
             </Border>
           </StackPanel>
           <TextBlock Text="{Binding Name}" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" />
-          <SelectableTextBlock Text="{Binding PortsText}" Classes="muted" FontSize="12" Foreground="{StaticResource Muted}" />
+          <SelectableTextBlock Text="{Binding PortsText}" Classes="muted" FontSize="12" Foreground="{DynamicResource Muted}" />
           <TextBlock Text="{Binding $parent[Window].((vm:MainViewModel)DataContext).FriendsOnSelected}" FontSize="12" FontWeight="SemiBold"
-                     Foreground="{StaticResource Good}" TextWrapping="Wrap"
+                     Foreground="{DynamicResource Good}" TextWrapping="Wrap"
                      IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasFriendsOnSelected}" />
           <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"
                      IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-          <Border Background="#2A1D12" BorderBrush="{StaticResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3"
+          <Border Background="{DynamicResource AccentTint}" BorderBrush="{DynamicResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3"
                   Padding="12,8" Margin="0,8,0,0" IsVisible="{Binding HasMessage}" HorizontalAlignment="Left">
             <TextBlock Text="{Binding Message}" TextWrapping="Wrap" FontSize="13" />
           </Border>
@@ -311,17 +311,17 @@
                     ToolTip.Tip="Add or remove this server from your Favorites" />
           </StackPanel>
 
-          <CheckBox Margin="0,8,0,0" FontSize="12" Foreground="{StaticResource Silver}"
+          <CheckBox Margin="0,8,0,0" FontSize="12" Foreground="{DynamicResource Silver}"
                     Content="Rejoin automatically if DayZ crashes"
                     IsChecked="{Binding $parent[Window].((vm:MainViewModel)DataContext).AutoRejoin}"
                     ToolTip.Tip="If DayZ crashes, the launcher updates mods and rejoins the server you were on (waiting for it if it's restarting). Quitting DayZ normally never rejoins. You can cancel the countdown." />
 
-          <Border Background="#3A2C0E" BorderBrush="{StaticResource Warn}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,10,0,0"
+          <Border Background="{DynamicResource WarnTint}" BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,10,0,0"
                   IsVisible="{Binding RestartSoon}">
-            <TextBlock Text="{Binding RestartWarning}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Text="{Binding RestartWarning}" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" FontSize="12" />
           </Border>
-          <Border Background="#3A2C0E" CornerRadius="4" Padding="12,8" Margin="0,10,0,0" IsVisible="{Binding HasError}">
-            <TextBlock Text="{Binding ErrorText}" Foreground="{StaticResource Warn}" TextWrapping="Wrap" FontSize="12" />
+          <Border Background="{DynamicResource WarnTint}" CornerRadius="4" Padding="12,8" Margin="0,10,0,0" IsVisible="{Binding HasError}">
+            <TextBlock Text="{Binding ErrorText}" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" FontSize="12" />
           </Border>
         </StackPanel>
 
@@ -333,8 +333,8 @@
               <Button DockPanel.Dock="Right" Classes="link" Content="Cancel" Command="{Binding CancelRejoinCommand}" />
               <TextBlock Classes="synctitle" Text="{Binding RejoinTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
             </DockPanel>
-            <ProgressBar IsIndeterminate="True" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="4" MinHeight="4" />
-            <TextBlock Text="{Binding RejoinDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" />
+            <ProgressBar IsIndeterminate="True" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="4" MinHeight="4" />
+            <TextBlock Text="{Binding RejoinDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap" />
           </StackPanel>
         </Border>
         <Border Classes="sync" Classes.failed="{Binding SyncFailed}" Classes.done="{Binding SyncSucceeded}" Classes.warn="{Binding SyncWarning}"
@@ -347,8 +347,8 @@
               <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
             </DockPanel>
             <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
-                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
-            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="6" MinHeight="6" />
+            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                        IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
             <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0" IsVisible="{Binding HasPanelAction}">
               <Button Classes="primary" Padding="14,5" FontSize="12" Content="{Binding PanelActionText}" Command="{Binding PanelAction}" />
@@ -379,22 +379,22 @@
                       ToolTip.Tip="How busy this server has been over the last day and week" />
             </StackPanel>
             <DockPanel IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}" VerticalAlignment="Center">
-            <Border DockPanel.Dock="Right" Background="#16351F" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
+            <Border DockPanel.Dock="Right" Background="{DynamicResource GoodTint}" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
                     ToolTip.Tip="This list comes from the MM Server Agent, which reads the server's own startup line. It is complete.">
-              <TextBlock Text="VERIFIED BY MM AGENT" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Good}" />
+              <TextBlock Text="VERIFIED BY MM AGENT" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{DynamicResource Good}" />
             </Border>
-            <Border DockPanel.Dock="Right" Background="#2A2A31" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromServer}"
+            <Border DockPanel.Dock="Right" Background="{DynamicResource Line}" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromServer}"
                     ToolTip.Tip="No MM agent answered for this server, so the list comes from the server's status reply.">
-              <TextBlock Text="FROM SERVER STATUS" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Silver}" />
+              <TextBlock Text="FROM SERVER STATUS" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{DynamicResource Silver}" />
             </Border>
-            <TextBlock Text="{Binding ModSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Center"
+            <TextBlock Text="{Binding ModSummary}" Foreground="{DynamicResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Center"
                        TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ModSummary}" />
             </DockPanel>
           </DockPanel>
           <StackPanel Spacing="4" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}">
-          <TextBlock IsVisible="{Binding ShowTruncatedWarning}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"
+          <TextBlock IsVisible="{Binding ShowTruncatedWarning}" Foreground="{DynamicResource Warn}" FontSize="12" TextWrapping="Wrap"
                      Text="This server reported more mods than fit in its status reply, so this list may be incomplete. (Raise steamProtocolMaxDataSize in serverDZ.cfg, or run the MM Server Agent.)" />
-          <TextBlock IsVisible="{Binding HasModNote}" Text="{Binding ModNote}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" />
+          <TextBlock IsVisible="{Binding HasModNote}" Text="{Binding ModNote}" Foreground="{DynamicResource Warn}" FontSize="12" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,10,10,0">
             <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
             <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
@@ -405,7 +405,7 @@
         </StackPanel>
 
         <!-- Player history -->
-        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+        <Border Grid.Row="3" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                 IsVisible="{Binding IsPlayersDetails}" Padding="14,10,14,10">
           <Grid RowDefinitions="Auto,*,Auto">
             <DockPanel Grid.Row="0">
@@ -415,7 +415,7 @@
               </StackPanel>
               <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
                 <TextBlock Text="{Binding HistoryPeak}" FontSize="13" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding HistoryAverage}" FontSize="12" Foreground="{StaticResource Silver}" VerticalAlignment="Center" />
+                <TextBlock Text="{Binding HistoryAverage}" FontSize="12" Foreground="{DynamicResource Silver}" VerticalAlignment="Center" />
               </StackPanel>
             </DockPanel>
             <Panel Grid.Row="1" Margin="0,8,0,0">
@@ -423,29 +423,29 @@
               <TextBlock Text="{Binding HistoryStatus}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
                          TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasHistoryStatus}" />
             </Panel>
-            <TextBlock Grid.Row="2" Text="{Binding HistoryBusiest}" FontSize="12" Foreground="{StaticResource Good}" Margin="0,6,0,0"
+            <TextBlock Grid.Row="2" Text="{Binding HistoryBusiest}" FontSize="12" Foreground="{DynamicResource Good}" Margin="0,6,0,0"
                        IsVisible="{Binding HasHistoryBusiest}" />
           </Grid>
         </Border>
 
         <!-- News -->
-        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+        <Border Grid.Row="3" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                 IsVisible="{Binding IsNewsDetails}">
           <ScrollViewer DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel">
             <ItemsControl ItemsSource="{Binding News}" Margin="0,4">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:NewsItemViewModel">
-                  <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="16,12">
+                  <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="16,12">
                     <Grid ColumnDefinitions="3,14,*">
-                      <Border Grid.Column="0" CornerRadius="2" Background="{StaticResource Orange}" IsVisible="{Binding Important}" />
+                      <Border Grid.Column="0" CornerRadius="2" Background="{DynamicResource Orange}" IsVisible="{Binding Important}" />
                       <StackPanel Grid.Column="2" Spacing="5">
                         <StackPanel Orientation="Horizontal" Spacing="10">
                           <TextBlock Text="{Binding DateText}" Classes="label" VerticalAlignment="Center" IsVisible="{Binding HasDate}" />
                           <Border Classes="newbadge" Margin="0" IsVisible="{Binding IsNew}"><TextBlock Text="NEW" /></Border>
                         </StackPanel>
                         <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="Bold" TextWrapping="Wrap"
-                                   Foreground="{StaticResource Text}" Classes.important="{Binding Important}" />
-                        <SelectableTextBlock Text="{Binding Body}" FontSize="13" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource Text}" Classes.important="{Binding Important}" />
+                        <SelectableTextBlock Text="{Binding Body}" FontSize="13" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                                              IsVisible="{Binding HasBody}" />
                         <Button Classes="link" Content="{Binding LinkText}" Command="{Binding OpenLinkCommand}" IsVisible="{Binding HasLink}"
                                 HorizontalAlignment="Left" Padding="0,2" ToolTip.Tip="{Binding Item.Link}" />
@@ -459,7 +459,7 @@
         </Border>
 
         <!-- Mods list -->
-        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+        <Border Grid.Row="3" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1"
                 IsVisible="{Binding IsModsDetails}">
           <Grid>
             <ListBox Classes="mods" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" ItemsSource="{Binding Mods}">
@@ -474,7 +474,7 @@
                       <TextBlock Text="{Binding Name}" FontSize="13" TextTrimming="CharacterEllipsis" />
                       <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
                     </StackPanel>
-                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}"
+                    <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}"
                                HorizontalAlignment="Right" VerticalAlignment="Center" />
                     <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted"
                                HorizontalAlignment="Right" VerticalAlignment="Center" />
@@ -500,7 +500,7 @@
 
     <!-- ============ Body: DayZ Editor ============ -->
     <Grid Grid.Row="1" ColumnDefinitions="390,*" IsVisible="{Binding IsEditorPage}">
-      <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+      <Border Grid.Column="0" Background="{DynamicResource Panel}" BorderBrush="{DynamicResource Line}" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="Auto,*,Auto">
           <TextBlock Grid.Row="0" Classes="label" Text="EDITOR PRESETS" Margin="16,16,16,10" />
           <ListBox Grid.Row="1" Classes="servers" Margin="10,0,10,10" ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}">
@@ -535,7 +535,7 @@
           <TextBlock Text="{Binding PresetName}" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" IsVisible="{Binding PresetShared}" />
           <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
                      Text="Starts DayZ offline (no server) with CF, Dabs Framework and DayZ-Editor loaded first, then this preset's mods in the order below. Open the Editor from the main menu; save your work there as .dze files." />
-          <Border Background="#2A1D12" BorderBrush="{StaticResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,4,0,0"
+          <Border Background="{DynamicResource AccentTint}" BorderBrush="{DynamicResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,4,0,0"
                   IsVisible="{Binding PresetShared}" HorizontalAlignment="Left">
             <TextBlock TextWrapping="Wrap" FontSize="13" Text="Shared by MM staff from the server, so it can't be changed here. Click Copy to make your own version." />
           </Border>
@@ -561,8 +561,8 @@
               <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
             </DockPanel>
             <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
-                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
-            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                         IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="6" MinHeight="6" />
+            <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                        IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
         </Border>
@@ -584,14 +584,14 @@
             <TextBox Grid.Column="0" Watermark="…or paste Workshop IDs or links (several at once is fine)" Text="{Binding AddModText}" />
             <Button Grid.Column="2" Classes="ghost" Content="Add" Command="{Binding AddModsFromTextCommand}" />
           </Grid>
-          <TextBlock Text="{Binding EditorNote}" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap"
+          <TextBlock Text="{Binding EditorNote}" Foreground="{DynamicResource Warn}" FontSize="12" TextWrapping="Wrap"
                      IsVisible="{Binding EditorNote, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
 
         <StackPanel Grid.Row="4" Margin="0,18,0,8" Spacing="4">
           <DockPanel>
             <TextBlock DockPanel.Dock="Left" Classes="label" Text="LOAD ORDER" VerticalAlignment="Bottom" />
-            <TextBlock Text="{Binding EditorSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
+            <TextBlock Text="{Binding EditorSummary}" Foreground="{DynamicResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
           </DockPanel>
           <Grid ColumnDefinitions="112,*,90,120,190" Margin="10,10,10,0">
             <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
@@ -601,7 +601,7 @@
           </Grid>
         </StackPanel>
 
-        <Border Grid.Row="5" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1">
+        <Border Grid.Row="5" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1">
           <ListBox Classes="mods" ItemsSource="{Binding EditorMods}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModViewModel">
@@ -617,7 +617,7 @@
                     </StackPanel>
                     <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
                   </StackPanel>
-                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal" IsVisible="{Binding Editable}">
@@ -663,8 +663,8 @@
             <TextBlock Classes="synctitle" Text="{Binding SyncTitle}" FontWeight="SemiBold" FontSize="14" VerticalAlignment="Center" TextWrapping="Wrap" />
           </DockPanel>
           <ProgressBar IsVisible="{Binding IsSyncing}" Minimum="0" Maximum="1" Value="{Binding SyncFraction}"
-                       IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{StaticResource Orange}" Background="#2A2A31" Height="6" MinHeight="6" />
-          <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap"
+                       IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="6" MinHeight="6" />
+          <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                      IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
         </StackPanel>
       </Border>
@@ -682,7 +682,7 @@
             <Button Classes="ghost" Content="Reload" Command="{Binding ShowModsPageCommand}" ToolTip.Tip="Scan the downloaded mods again" />
           </StackPanel>
         </Grid>
-        <TextBlock Text="{Binding InstalledSummary}" Foreground="{StaticResource Silver}" FontSize="12" />
+        <TextBlock Text="{Binding InstalledSummary}" Foreground="{DynamicResource Silver}" FontSize="12" />
         <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,4,10,0">
           <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
           <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
@@ -691,7 +691,7 @@
         </Grid>
       </StackPanel>
 
-      <Border Grid.Row="4" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+      <Border Grid.Row="4" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1"
               IsVisible="{Binding IsInstalledView}">
         <Grid>
           <ListBox Classes="mods" ItemsSource="{Binding InstalledMods}">
@@ -707,10 +707,10 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                       <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
                       <TextBlock Text="{Binding UsedByShort}" FontSize="11" Classes="muted" IsVisible="{Binding !IsUnused}" />
-                      <TextBlock Text="not used by anything" FontSize="11" Foreground="{StaticResource Warn}" IsVisible="{Binding IsUnused}" />
+                      <TextBlock Text="not used by anything" FontSize="11" Foreground="{DynamicResource Warn}" IsVisible="{Binding IsUnused}" />
                     </StackPanel>
                   </StackPanel>
-                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                  <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                     <Button Classes="link" Content="Remove"
@@ -740,10 +740,10 @@
                     ToolTip.Tip="How to sort when the search box is empty. Searches show the best matches first." />
           <Button Grid.Column="4" Classes="primary" Content="Search" Command="{Binding SearchWorkshopCommand}" />
         </Grid>
-        <TextBlock Text="{Binding WorkshopStatus}" Foreground="{StaticResource Silver}" FontSize="12" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding WorkshopStatus}" Foreground="{DynamicResource Silver}" FontSize="12" TextWrapping="Wrap" />
       </StackPanel>
 
-      <Border Grid.Row="4" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+      <Border Grid.Row="4" Background="{DynamicResource Panel}" CornerRadius="4" BorderBrush="{DynamicResource Line}" BorderThickness="1"
               IsVisible="{Binding IsWorkshopView}">
         <Grid>
           <ScrollViewer>
@@ -751,9 +751,9 @@
               <ItemsControl ItemsSource="{Binding WorkshopResults}">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate x:DataType="vm:WorkshopRowViewModel">
-                    <Border BorderBrush="{StaticResource Line}" BorderThickness="0,0,0,1" Padding="12,10">
+                    <Border BorderBrush="{DynamicResource Line}" BorderThickness="0,0,0,1" Padding="12,10">
                       <Grid ColumnDefinitions="112,14,*,14,Auto">
-                        <Border Grid.Column="0" Width="96" Height="96" CornerRadius="3" ClipToBounds="True" Background="#1B1B20" VerticalAlignment="Top">
+                        <Border Grid.Column="0" Width="96" Height="96" CornerRadius="3" ClipToBounds="True" Background="{DynamicResource Panel2}" VerticalAlignment="Top">
                           <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
                         </Border>
                         <StackPanel Grid.Column="2" Spacing="4" VerticalAlignment="Top">
@@ -765,8 +765,8 @@
                             <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
                           </StackPanel>
                           <TextBlock FontSize="11" Classes="muted" Text="{Binding MetaText}" />
-                          <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
-                          <TextBlock Text="{Binding RequiresText}" FontSize="11" Foreground="{StaticResource Warn}" IsVisible="{Binding HasRequires}" />
+                          <TextBlock Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap" MaxLines="3" TextTrimming="CharacterEllipsis" />
+                          <TextBlock Text="{Binding RequiresText}" FontSize="11" Foreground="{DynamicResource Warn}" IsVisible="{Binding HasRequires}" />
                         </StackPanel>
                         <StackPanel Grid.Column="4" Spacing="6" VerticalAlignment="Center" MinWidth="120">
                           <Button Classes="primary" Content="Install" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
@@ -797,13 +797,13 @@
     </Grid>
 
     <!-- ============ Status bar ============ -->
-    <Border Grid.Row="2" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,6">
+    <Border Grid.Row="2" Background="{DynamicResource Chrome}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="16,6">
       <DockPanel>
         <Button DockPanel.Dock="Right" Classes="link" Content="{Binding VersionText}" Command="{Binding OpenReleasesCommand}"
                 ToolTip.Tip="MM Launcher version. Click to see all releases." />
         <Button DockPanel.Dock="Right" Classes="link" Content="Settings folder" Command="{Binding OpenSettingsFolderCommand}"
                 ToolTip.Tip="Open the folder with settings.jsonc and the server cache" />
-        <TextBlock DockPanel.Dock="Right" Text="{Binding AgentText}" FontSize="11" Foreground="{StaticResource Good}" VerticalAlignment="Center" Margin="0,0,14,0" />
+        <TextBlock DockPanel.Dock="Right" Text="{Binding AgentText}" FontSize="11" Foreground="{DynamicResource Good}" VerticalAlignment="Center" Margin="0,0,14,0" />
         <TextBlock Text="{Binding SteamText}" FontSize="11" Classes="muted" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
       </DockPanel>
     </Border>

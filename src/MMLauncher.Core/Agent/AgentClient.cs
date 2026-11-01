@@ -280,6 +280,29 @@ public sealed class AgentClient
     }
 
     /// <summary>Sends a report zip to an agent. Never throws; failures come back as Ok = false.</summary>
+    /// <summary>
+    /// Sends anonymous usage stats. Only over an encrypted connection to a known MM agent;
+    /// returns true when the agent stored them.
+    /// </summary>
+    public async Task<bool> SendUsageAsync(string host, int port, Usage.UsageBatch batch, CancellationToken ct = default)
+    {
+        if (!_trust.RequiresTls(host, port)) return false;
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(15));
+            var json = System.Text.Json.JsonSerializer.Serialize(batch, AgentResponse.Json);
+            using var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            using var response = await _http.PostAsync($"https://{host}:{port}{Usage.UsageBatch.Path}", content, cts.Token);
+            return response.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Usage stats to {host}:{port} not sent: {ex.Message}");
+            return false;
+        }
+    }
+
     public async Task<ReportUploadResult> UploadReportAsync(string host, int port, byte[] zip, CancellationToken ct = default)
     {
         // Reports hold logs and PC details: encrypted whenever the agent supports it,

@@ -26,10 +26,15 @@ public sealed class LauncherSettings
     public string ReportName { get; set; } = "";
     public bool CheckForUpdates { get; set; } = true;
     public bool AutoRejoin { get; set; }
+    public string Theme { get; set; } = "mm-orange";
+    /// <summary>"ask" (not answered yet: nothing is sent), "on" or "off".</summary>
+    public string UsageStats { get; set; } = "ask";
+    /// <summary>Random ID for anonymous usage stats; made when stats are turned on, cleared when off.</summary>
+    public string UsageId { get; set; } = "";
     public int SettingsVersion { get; set; } = CurrentVersion;
 
     /// <summary>Bump when a default changes in a way existing files should pick up.</summary>
-    private const int CurrentVersion = 3;
+    private const int CurrentVersion = 4;
 
     public bool LaunchDirect => LaunchMethod.Equals("Direct", StringComparison.OrdinalIgnoreCase);
     public bool UseJunctions => !ModFolderMode.Equals("Absolute", StringComparison.OrdinalIgnoreCase);
@@ -115,6 +120,19 @@ public sealed class LauncherSettings
         WorkshopPathOverride = (WorkshopPathOverride ?? "").Trim();
         ExtraLaunchParameters ??= "";
         AgentPorts = (AgentPorts ?? []).Where(p => p is > 0 and <= 65535).Distinct().ToList();
+        Theme = string.IsNullOrWhiteSpace(Theme) ? "mm-orange" : Theme.Trim();
+        UsageStats = (UsageStats ?? "").Trim().ToLowerInvariant() is "on" or "off" ? UsageStats!.Trim().ToLowerInvariant() : "ask";
+        if (UsageStats == "on" && !Guid.TryParse(UsageId, out _)) UsageId = Guid.NewGuid().ToString("N");
+        if (UsageStats != "on") UsageId = "";
+    }
+
+    public bool SendsUsageStats => UsageStats == "on" && UsageId.Length > 0;
+
+    /// <summary>Turns anonymous usage stats on (new random ID if there's none) or off (ID forgotten).</summary>
+    public void SetUsageStats(bool on)
+    {
+        UsageStats = on ? "on" : "off";
+        UsageId = on ? (Guid.TryParse(UsageId, out _) ? UsageId : Guid.NewGuid().ToString("N")) : "";
     }
 
     public void Save()
@@ -197,6 +215,20 @@ public sealed class LauncherSettings
         sb.AppendLine("  // never rejoins). Waits for the server if it's restarting, updates mods first, and");
         sb.AppendLine("  // shows a countdown you can cancel. Same as the checkbox under JOIN SERVER.");
         sb.AppendLine($"  \"AutoRejoin\": {J(AutoRejoin)},");
+        sb.AppendLine();
+        sb.AppendLine("  // Color scheme (also in Settings): \"mm-orange\" (default), \"arctic-blue\", \"toxic-green\",");
+        sb.AppendLine("  // \"blood-red\", \"royal-purple\", \"steel\" or \"daylight\" (light).");
+        sb.AppendLine($"  \"Theme\": {J(Theme)},");
+        sb.AppendLine();
+        sb.AppendLine("  // Anonymous usage stats sent to MM's own servers to help improve the launcher (also in Settings):");
+        sb.AppendLine("  //   \"ask\" ask once on the next start (nothing is sent until you answer)");
+        sb.AppendLine("  //   \"on\"  send: launcher version, Windows version, joins and play time on MM servers,");
+        sb.AppendLine("  //         joins to other servers (counted only, never which), mod download times, errors");
+        sb.AppendLine("  //   \"off\" send nothing");
+        sb.AppendLine("  // No names, Steam IDs or IP addresses are kept. UsageId is a random number made when you turn");
+        sb.AppendLine("  // this on (empty when off), so the stats can tell installs apart without knowing whose they are.");
+        sb.AppendLine($"  \"UsageStats\": {J(UsageStats)},");
+        sb.AppendLine($"  \"UsageId\": {J(UsageId)},");
         sb.AppendLine();
         sb.AppendLine("  // Format version of this file. Managed by the launcher; don't change it.");
         sb.AppendLine($"  \"SettingsVersion\": {SettingsVersion}");

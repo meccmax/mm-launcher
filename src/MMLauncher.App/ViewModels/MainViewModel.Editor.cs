@@ -385,8 +385,11 @@ public partial class MainViewModel
             bool started = GameLauncher.DryRun || await GameLauncher.WaitForDayZAsync(TimeSpan.FromSeconds(45));
             IsSyncing = false;
             if (started)
+            {
+                TrackUsage(new() { Type = "editor", Count = mods.Count });
                 ShowResult(true, "DayZ is starting with the Editor",
                     "Once you're at the main menu, open the Editor from there. Your work is saved from inside the Editor (File > Save), as .dze files.");
+            }
             else
                 ShowResult(false, "DayZ didn't start", "The start command was sent but DayZ didn't open within 45 seconds. If a Windows prompt asked to let BattlEye make changes, accept it and try again.");
         }

@@ -165,7 +165,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     // Old settings file (no SettingsVersion, LaunchMethod Steam) is moved to Direct.
     File.WriteAllText(LauncherSettings.FilePath, "{ \"LaunchMethod\": \"Steam\", \"Hosts\": [\"x\"] }");
     var migrated = LauncherSettings.Load();
-    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 3"), "old settings migrated to Direct launch");
+    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 4"), "old settings migrated to Direct launch");
     File.WriteAllText(LauncherSettings.FilePath, File.ReadAllText(LauncherSettings.FilePath).Replace("\"LaunchMethod\": \"Direct\"", "\"LaunchMethod\": \"Steam\""));
     Check(LauncherSettings.Load().LaunchMethod == "Steam", "a deliberate Steam choice in a new file is kept");
     // v0.4.x file (version 2): rewritten so the new AutoRejoin option and its comment appear; choices kept.
@@ -173,7 +173,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     var v2 = LauncherSettings.Load();
     var v2text = File.ReadAllText(LauncherSettings.FilePath);
     Check(v2.LaunchMethod == "Steam" && !v2.AutoRejoin && v2text.Contains("\"AutoRejoin\": false") && v2text.Contains("// Rejoin automatically")
-          && v2text.Contains("\"SettingsVersion\": 3"), "version 2 settings gain the AutoRejoin option (off) and keep choices");
+          && v2text.Contains("\"SettingsVersion\": 4") && v2text.Contains("\"UsageStats\": \"ask\"") && v2text.Contains("\"Theme\": \"mm-orange\""), "older settings gain AutoRejoin (off), Theme and UsageStats (ask) and keep choices");
     v2.AutoRejoin = true; v2.Save();
     Check(LauncherSettings.Load().AutoRejoin, "AutoRejoin choice is saved");
 }
@@ -867,6 +867,71 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Diagnose(true, true) == SteamPermissions.Problem.None && SteamPermissions.Diagnose(false, false) == SteamPermissions.Problem.None
           && SteamPermissions.Diagnose(false, null) == SteamPermissions.Problem.None, "matching (or unknown) permissions: no warning");
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
+}
+
+Console.WriteLine("== Usage stats ==");
+{
+    var now = DateTimeOffset.Now;
+    var id = Guid.NewGuid().ToString("N");
+    var raw = new MMLauncher.Core.Usage.UsageBatch
+    {
+        Id = id, Version = "0.12.0", Os = "Windows 11 (26100)\u0007",
+        Events =
+        [
+            new() { Type = "join", At = now, Mm = true, Server = "MM Deer Isle", Count = 52 },
+            new() { Type = "join", At = now, Mm = false, Server = "Somebody's private server", Count = 3 },
+            new() { Type = "play", At = now, Mm = true, Server = "MM Deer Isle", Seconds = 5400, Ok = false },
+            new() { Type = "sync", At = now, Seconds = -5, Count = 3, Bytes = -1, Ok = true },
+            new() { Type = "error", At = now, Code = "Launch Failed: C:\\Users\\max\\x" },
+            new() { Type = "steal-passwords", At = now },
+            new() { Type = "start", At = now.AddDays(-90) },
+        ],
+    };
+    var clean = MMLauncher.Core.Usage.UsageBatch.Clean(raw, now)!;
+    Check(clean.Events.Count == 5, $"only known event types from the last 30 days are kept ({clean.Events.Count})");
+    Check(clean.Events[1].Server == "" && clean.Events[0].Server == "MM Deer Isle", "non-MM servers are never named");
+    Check(clean.Events[3].Seconds == 0 && clean.Events[3].Bytes == 0 && clean.Os == "Windows 11 (26100)", "numbers clamped, text cleaned");
+    Check(clean.Events[4].Code == "launchfailedcusersmaxx".Replace("launchfailed", "launch-failed") || clean.Events[4].Code.All(c => char.IsAsciiLetterOrDigit(c) || c == '-'),
+          "error codes are reduced to letters, digits and dashes (no paths or free text)");
+    Check(MMLauncher.Core.Usage.UsageBatch.Clean(new() { Id = "not-an-id" }, now) == null, "a batch without a proper random ID is refused");
+
+    var st = new LauncherSettings();
+    st.SetUsageStats(true);
+    var firstId = st.UsageId;
+    st.SetUsageStats(true);
+    Check(st.SendsUsageStats && Guid.TryParseExact(firstId, "N", out _) && st.UsageId == firstId, "turning stats on makes one random ID and keeps it");
+    st.SetUsageStats(false);
+    Check(!st.SendsUsageStats && st.UsageId == "", "turning stats off forgets the ID");
+    Check(new LauncherSettings().UsageStats == "ask" && !new LauncherSettings().SendsUsageStats, "new installs send nothing until the player answers");
+
+    // Agent: store, refuse, limit, summarize.
+    var usageDir = MMServerAgent.UsageReceiver.FolderPath;
+    if (Directory.Exists(usageDir)) Directory.Delete(usageDir, true);
+    var urecv = new MMServerAgent.UsageReceiver(new MMServerAgent.AgentConfig { AcceptUsageStats = true }, _ => { });
+    var uoff = new MMServerAgent.UsageReceiver(new MMServerAgent.AgentConfig { AcceptUsageStats = false }, _ => { });
+    using var ustop = new CancellationTokenSource();
+    Task<MMServerAgent.HttpReply> Route(MMServerAgent.UsageReceiver r, MMServerAgent.HttpRequestInfo q) => Task.FromResult(r.Handle(q));
+    _ = new MMServerAgent.MiniHttpServer(2987, 1 << 20, q => Route(urecv, q), (m, p, a, l) => urecv.Admit(a, l)).RunAsync(ustop.Token);
+    _ = new MMServerAgent.MiniHttpServer(2988, 1 << 20, q => Route(uoff, q), (m, p, a, l) => uoff.Admit(a, l)).RunAsync(ustop.Token);
+    await Task.Delay(200);
+    var json = System.Text.Json.JsonSerializer.Serialize(raw, MMLauncher.Core.Agent.AgentResponse.Json);
+    var posted = await new HttpClient().PostAsync($"http://127.0.0.1:2987{MMLauncher.Core.Usage.UsageBatch.Path}", new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+    var lines = Directory.Exists(usageDir) ? Directory.GetFiles(usageDir, "usage-*.jsonl").SelectMany(File.ReadAllLines).ToList() : [];
+    Check(posted.IsSuccessStatusCode && lines.Count == 5 && !lines.Any(l => l.Contains("127.0.0.1") || l.Contains("private server")),
+          $"agent stores the cleaned events, without the sender's address ({lines.Count} lines)");
+    var offReply = await new HttpClient().PostAsync($"http://127.0.0.1:2988{MMLauncher.Core.Usage.UsageBatch.Path}", new StringContent(json));
+    var junk = await new HttpClient().PostAsync($"http://127.0.0.1:2987{MMLauncher.Core.Usage.UsageBatch.Path}", new StringContent("{not json"));
+    Check((int)offReply.StatusCode == 403 && (int)junk.StatusCode == 400, "agents with stats off refuse them; junk is refused");
+    int limitedAt = 0;
+    for (int i = 0; i < 70 && limitedAt == 0; i++)
+        if ((int)(await new HttpClient().PostAsync($"http://127.0.0.1:2987{MMLauncher.Core.Usage.UsageBatch.Path}", new StringContent(json))).StatusCode == 429) limitedAt = i;
+    Check(limitedAt > 0, "usage stats are rate limited per address");
+    ustop.Cancel();
+
+    var summary = MMServerAgent.UsageReceiver.BuildSummary(MMServerAgent.UsageReceiver.ReadEvents(DateTime.Now.AddDays(-30)), DateTimeOffset.Now);
+    Check(summary.Contains("Joins to MM servers") && summary.Contains("MM Deer Isle") && summary.Contains("(100%)") && !summary.Contains("private server"),
+          "summary.txt: joins, MM servers, crash share; other servers never named");
+    Directory.Delete(usageDir, true);
 }
 
 Console.WriteLine("== Hostile preset file ==");

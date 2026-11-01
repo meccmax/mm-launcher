@@ -30,14 +30,15 @@ Every release is built from a tagged commit on `main` by the release workflow, w
 
 ## Privacy
 
-MM Launcher and MM Server Agent don't collect analytics or telemetry. What they send, and where:
+MM Launcher sends anonymous usage stats only if the player says yes (it asks once, and nothing is sent before they answer; changeable any time in Settings). Otherwise there is no analytics or telemetry. What it sends, and where:
 
 - **MM Launcher**
   - **Game servers:** standard Steam status queries (name, players, mods) to the DayZ servers you look at.
   - **MM server agents** (Misfit Mercenaries' own servers): asks for server details, editor presets, the server list and Workshop searches. For the Friends tab, it sends your public Steam ID so the agent can ask Steam which friends are playing. **Report a problem** sends logs only when you click Send; home-folder names are removed first, and you can save the report as a zip instead.
   - **Steam:** public Workshop item lookups. Downloads, updates and removals go through your own Steam client.
+  - **Usage stats (only if the player said yes):** launcher and Windows version, joins and play time on MM servers, how many times other servers were joined (never which), mod download times, errors and crashes. Tagged with a random ID that's deleted when stats are turned off. Sent only to MM's own server agents, over their encrypted connection. The agents keep no names, Steam IDs or IP addresses.
   - **GitHub:** checks this repository's releases for updates (downloading one only when you click to install it), and reads the list of trusted MM agents (`trust/agents.jsonc`).
-- **MM Server Agent** (run by server admins): sends the Steam Web API requests the admin turns on (server list, friends, Workshop search), and posts problem reports to the admin's own Discord webhook if one is set.
+- **MM Server Agent** (run by server admins): sends the Steam Web API requests the admin turns on (server list, friends, Workshop search), and posts problem reports to the admin's own Discord webhook if one is set. Usage stats it receives stay on that server (the `usage` folder) and are deleted after `KeepUsageDays`.
 
 Nothing else is sent anywhere. The installer can be removed in Windows Settings > Apps > Installed apps (or with the uninstaller in the install folder). The portable `MMLauncher.exe` is a single file you can delete. Settings live in `%APPDATA%\MMLauncher`.
 

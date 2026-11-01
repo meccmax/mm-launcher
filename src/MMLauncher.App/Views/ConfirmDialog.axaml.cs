@@ -7,11 +7,12 @@ public partial class ConfirmDialog : Window
 {
     public ConfirmDialog() => InitializeComponent();
 
-    public ConfirmDialog(string title, string message, string okText) : this()
+    public ConfirmDialog(string title, string message, string okText, string cancelText = "Cancel") : this()
     {
         TitleText.Text = title;
         MessageText.Text = message;
         OkButton.Content = okText;
+        CancelButton.Content = cancelText;
     }
 
     private void OnOk(object? sender, RoutedEventArgs e) => Close(true);

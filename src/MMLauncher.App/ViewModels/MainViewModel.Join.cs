@@ -20,6 +20,8 @@ public partial class MainViewModel
 
     /// <summary>Set by the window: (title, message, ok button text) → true if confirmed.</summary>
     public Func<string, string, string, Task<bool>>? AskConfirm { get; set; }
+    /// <summary>Set by the window: a yes/no question with both button labels (title, message, yes, no).</summary>
+    public Func<string, string, string, string, Task<bool>>? AskYesNo { get; set; }
 
     [ObservableProperty] private bool _isSyncing;
     [ObservableProperty] private string _syncTitle = "";
@@ -129,6 +131,7 @@ public partial class MainViewModel
             if (started)
             {
                 Log.Info("DayZ process detected.");
+                TrackUsage(new() { Type = "join", Mm = IsMmServer(server), Server = IsMmServer(server) ? server.Name : "", Count = mods.Count });
                 ShowResult(true, "DayZ is starting", $"Joining {server.Name} with {mods.Count} mods. Good hunting.");
                 StatusMessage = "DayZ launched";
                 StartRejoinWatch(server, password);
@@ -140,12 +143,14 @@ public partial class MainViewModel
                     ? "If a Windows prompt asked to let BattlEye make changes, accept it and try again. Otherwise try the \"Steam\" launch method in Settings."
                     : "If Steam shows a pop-up asking to allow the launch options, accept it. Otherwise try the \"Direct\" launch method in Settings.";
                 Log.Error("DayZ process did not appear within 45 seconds.");
+                TrackUsage(new() { Type = "error", Code = "dayz-not-started" });
                 ShowResult(false, "DayZ didn't start", "The start command was sent but DayZ didn't open within 45 seconds. " + hint);
             }
         }
         catch (Exception ex)
         {
             Log.Error("Launch failed: " + ex.Message);
+            TrackUsage(new() { Type = "error", Code = "launch-failed" });
             ShowResult(false, "Couldn't start DayZ", ex.Message);
         }
     }
@@ -450,6 +455,7 @@ public partial class MainViewModel
         });
 
         SyncResult result;
+        var syncClock = System.Diagnostics.Stopwatch.StartNew();
         try
         {
             // Always tell the downloader where mods live, so it checks folders on disk and
@@ -472,6 +478,12 @@ public partial class MainViewModel
         foreach (var s in Servers) s.ApplyModDetails(workshop, _steam);
         RefreshEditorModStates(workshop);
         Log.Info("Sync result: " + result.Message);
+        if (plan.ToDownload.Count > 0 || !result.Success)
+            TrackUsage(new()
+            {
+                Type = "sync", Ok = result.Success, Seconds = (int)syncClock.Elapsed.TotalSeconds,
+                Count = plan.ToDownload.Count, Bytes = plan.DownloadBytes, Code = repair != null ? "repair" : "",
+            });
 
         if (!result.Success)
         {
@@ -508,6 +520,7 @@ public partial class MainViewModel
     {
         var problem = SteamPermissions.Check();
         if (problem == SteamPermissions.Problem.None) return true;
+        TrackUsage(new() { Type = "error", Code = problem == SteamPermissions.Problem.SteamIsAdmin ? "steam-is-admin" : "launcher-is-admin" });
         if (AskConfirm != null && await AskConfirm("DayZ won't be able to find Steam", SteamPermissions.Explain(problem), "Start anyway"))
             return true;
         ShowResult(false, "Not started: fix Steam's permissions first", SteamPermissions.Explain(problem));

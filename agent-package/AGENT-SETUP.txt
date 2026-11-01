@@ -117,6 +117,21 @@ NEW in the server list, and the server opens on its NEWS tab. Saved changes show
 up within a minute; no restart. Delete a post to take it down.
 
 
+USAGE STATS (v0.12 and newer)
+-----------------------------
+Launchers ask players once whether to send anonymous usage stats to MM. For those who
+say yes, the agent keeps them in the "usage" folder next to MMServerAgent.exe:
+  usage\summary.txt             readable overview of the last 7 and 30 days (rewritten
+                                every 10 minutes while stats come in): active launchers,
+                                joins to MM vs other servers, hours and average session
+                                per MM server, crashes, mod downloads, errors, versions
+  usage\usage-YYYY-MM-DD.jsonl  the raw events, one per line
+Anonymous: no names, Steam IDs or IP addresses are stored, and other servers players
+join are counted but never named. In agent.jsonc:
+  "AcceptUsageStats": true      false = launchers send nothing to this agent
+  "KeepUsageDays": 90           older day files are deleted
+
+
 PLAYER HISTORY (v0.11 and newer)
 --------------------------------
 Every 5 minutes the agent asks each DayZ server on this machine how many players it
@@ -205,6 +220,7 @@ FILES
   editor-presets\       DayZ Editor presets shared with every launcher (.html / .txt)
   news\                server news for the launcher's NEWS tab (all.txt, <port>.txt)
   player-history.jsonc  7 days of player counts for the PLAYERS chart
+  usage\               anonymous launcher usage stats and summary.txt
   agent.log            what it's doing; send this to Claude if anything's off
   reports\             problem reports players sent (zips)
   check-agent.bat      show what it sees right now

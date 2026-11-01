@@ -50,6 +50,8 @@ public partial class MainWindow : Window
                 await new PasswordDialog(serverName).ShowDialog<string?>(this);
             vm.AskConfirm = async (title, message, ok) =>
                 await new ConfirmDialog(title, message, ok).ShowDialog<bool>(this);
+            vm.AskYesNo = async (title, message, yes, no) =>
+                await new ConfirmDialog(title, message, yes, no).ShowDialog<bool>(this);
             vm.OpenReportWindow = async reportVm =>
                 await new ReportWindow { DataContext = reportVm }.ShowDialog(this);
             vm.OpenSettingsWindow = async settingsVm =>

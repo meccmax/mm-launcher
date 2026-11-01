@@ -92,6 +92,8 @@ public partial class MainViewModel : ObservableObject
             await RefreshAsync();
         }
         ConfigureAutoRefresh();
+        await AskAboutUsageStatsAsync();
+        TrackUsage(new() { Type = "start" });
     }
 
     private void ConfigureAutoRefresh()

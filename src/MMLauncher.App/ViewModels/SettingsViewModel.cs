@@ -28,6 +28,10 @@ public partial class SettingsViewModel : ObservableObject
         _extraParameters = settings.ExtraLaunchParameters;
         _autoRefreshSeconds = settings.AutoRefreshSeconds;
         _checkForUpdates = settings.CheckForUpdates;
+        _originalTheme = Themes.AppTheme.Find(settings.Theme);
+        _themeIndex = Math.Max(0, Themes.AppTheme.All.ToList().IndexOf(_originalTheme));
+        _usageStatsOn = settings.UsageStats == "on";
+        _usageWasAsked = settings.UsageStats != "ask";
         Recheck();
     }
 
@@ -50,6 +54,19 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private decimal? _autoRefreshSeconds;
     [ObservableProperty] private bool _checkForUpdates;
     [ObservableProperty] private string _updateStatus = "";
+
+    // ---- appearance: picking a theme shows it right away; Cancel (or closing) puts the old one back
+    private readonly Themes.AppTheme _originalTheme;
+    [ObservableProperty] private int _themeIndex;
+    public IReadOnlyList<string> ThemeNames { get; } = Themes.AppTheme.All.Select(t => t.Name).ToList();
+    partial void OnThemeIndexChanged(int value) => Themes.AppTheme.All[Math.Clamp(value, 0, Themes.AppTheme.All.Count - 1)].Apply();
+
+    /// <summary>Called when the window closes without Save.</summary>
+    public void RevertPreview() { if (!Saved) _originalTheme.Apply(); }
+
+    // ---- anonymous usage stats
+    private readonly bool _usageWasAsked;
+    [ObservableProperty] private bool _usageStatsOn;
 
     /// <summary>Set by the main window: runs an update check now and returns a sentence about it.</summary>
     public Func<Task<string>>? CheckUpdatesNow { get; set; }
@@ -221,6 +238,9 @@ public partial class SettingsViewModel : ObservableObject
         s.AutoRefreshSeconds = (int)Math.Clamp(AutoRefreshSeconds ?? 30, 0, 3600);
         if (s.AutoRefreshSeconds is > 0 and < 10) s.AutoRefreshSeconds = 10;
         s.CheckForUpdates = CheckForUpdates;
+        s.Theme = Themes.AppTheme.All[Math.Clamp(ThemeIndex, 0, Themes.AppTheme.All.Count - 1)].Key;
+        // Still "ask" and the box wasn't touched: keep asking on the next start.
+        if (_usageWasAsked || UsageStatsOn) s.SetUsageStats(UsageStatsOn);
         s.Save();
         Log.Info($"Settings saved: Steam='{s.SteamPathOverride}' DayZ='{s.DayZPathOverride}' Workshop='{s.WorkshopPathOverride}' Launch={s.LaunchMethod}");
         Saved = true;
@@ -228,7 +248,7 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void Cancel() => Close?.Invoke(false);
+    private void Cancel() { RevertPreview(); Close?.Invoke(false); }
 
     [RelayCommand]
     private void ResetLaunchOptions()

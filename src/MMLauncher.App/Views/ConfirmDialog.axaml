@@ -5,12 +5,12 @@
         Width="460" SizeToContent="Height" CanResize="False"
         WindowStartupLocation="CenterOwner"
         Icon="avares://MMLauncher/Assets/mm.ico"
-        Background="{StaticResource Panel}">
+        Background="{DynamicResource Panel}">
   <StackPanel Margin="22" Spacing="12">
     <TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-    <TextBlock x:Name="MessageText" Foreground="{StaticResource Silver}" FontSize="13" TextWrapping="Wrap" />
+    <TextBlock x:Name="MessageText" Foreground="{DynamicResource Silver}" FontSize="13" TextWrapping="Wrap" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,6,0,0">
-      <Button Classes="ghost" Content="Cancel" Click="OnCancel" IsCancel="True" />
+      <Button x:Name="CancelButton" Classes="ghost" Content="Cancel" Click="OnCancel" IsCancel="True" />
       <Button x:Name="OkButton" Classes="primary" Content="OK" Click="OnOk" IsDefault="True" />
     </StackPanel>
   </StackPanel>

@@ -34,6 +34,9 @@ public sealed class AgentConfig
     public int MaxReportsPerDay { get; set; } = 50;
     public int MaxReportMB { get; set; } = 9;
     public int KeepReportsMB { get; set; } = 500;
+    // Anonymous launcher usage stats
+    public bool AcceptUsageStats { get; set; } = true;
+    public int KeepUsageDays { get; set; } = 90;
 
     public Dictionary<string, ServerExtras> Servers { get; set; } = new()
     {
@@ -75,7 +78,8 @@ public sealed class AgentConfig
                     cfg.SteamWebApiKey = (cfg.SteamWebApiKey ?? "").Trim();
                     cfg.RestartEveryHours = Math.Clamp(cfg.RestartEveryHours, 0, 168);
                     cfg.RestartTimes ??= [];
-                    if (!text.Contains("\"RestartEveryHours\"", StringComparison.OrdinalIgnoreCase))
+                    cfg.KeepUsageDays = Math.Clamp(cfg.KeepUsageDays, 7, 3650);
+                    if (!text.Contains("\"AcceptUsageStats\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -163,6 +167,16 @@ public sealed class AgentConfig
         sb.AppendLine();
         sb.AppendLine("  // Disk space the saved reports may use, in MB. Oldest are deleted first.");
         sb.AppendLine($"  \"KeepReportsMB\": {KeepReportsMB},");
+        sb.AppendLine();
+        sb.AppendLine("  // ---------------- Anonymous launcher usage stats ----------------");
+        sb.AppendLine("  // true = launchers whose players said yes send anonymous stats here: launcher and Windows");
+        sb.AppendLine("  // version, joins and play time on MM servers, joins to other servers (counted only), mod");
+        sb.AppendLine("  // download times, errors and crashes. Saved as one file per day in the \"usage\" folder");
+        sb.AppendLine("  // next to this exe, with a readable summary in usage\\summary.txt. No names, Steam IDs or");
+        sb.AppendLine("  // IP addresses are stored. false = launchers don't send any.");
+        sb.AppendLine($"  \"AcceptUsageStats\": {J(AcceptUsageStats)},");
+        sb.AppendLine("  // Days of usage stats to keep (7-3650). Older day files are deleted.");
+        sb.AppendLine($"  \"KeepUsageDays\": {KeepUsageDays},");
         sb.AppendLine();
         sb.AppendLine("  // Optional per-server extras, keyed by the server's GAME port (-port=).");
         sb.AppendLine("  //   DisplayName  name shown in the launcher instead of the cfg hostname");

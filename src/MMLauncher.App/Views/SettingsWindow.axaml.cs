@@ -13,6 +13,7 @@ public partial class SettingsWindow : Window
         {
             if (DataContext is not SettingsViewModel vm) return;
             vm.Close = _ => Close();
+            Closed += (_, _) => vm.RevertPreview();
             vm.PickFolder = async (title, start) =>
             {
                 IStorageFolder? startFolder = null;

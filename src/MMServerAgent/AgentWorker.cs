@@ -20,6 +20,7 @@ public sealed class AgentWorker : BackgroundService
     private EditorPresetFolder? _presets;
     private NewsFolder? _news;
     private PlayerHistoryRecorder? _history;
+    private UsageReceiver? _usage;
     private FriendsService? _friends;
     private WorkshopSearchService? _workshop;
 
@@ -36,6 +37,8 @@ public sealed class AgentWorker : BackgroundService
         NewsFolder.EnsureFolder();
         _news = new NewsFolder(Log);
         _history = new PlayerHistoryRecorder(Log);
+        _usage = new UsageReceiver(_config, Log);
+        Log(_config.AcceptUsageStats ? "Usage stats: on (anonymous; saved in the usage folder, see usage\\summary.txt)" : "Usage stats: off");
         _friends = new FriendsService(_config, Log);
         _workshop = new WorkshopSearchService(_config, Log);
         var feedTask = _feed.RunAsync(stoppingToken);
@@ -91,6 +94,7 @@ public sealed class AgentWorker : BackgroundService
                 ReportsEnabled = _config.AcceptReports,
                 BrowserFeed = _feed?.Enabled == true,
                 EditorPresets = _presets?.Count ?? 0,
+                UsageStats = _usage?.Enabled == true,
             }, AgentResponse.Json);
 
             var after = detection.Servers.Select(s => $"{s.GamePort}:{s.Mods.Count}").ToList();
@@ -107,6 +111,8 @@ public sealed class AgentWorker : BackgroundService
     /// <summary>Checks a POST before its body is received: only report uploads, and only if allowed.</summary>
     private HttpReply? BeforeBody(string method, string path, System.Net.IPAddress remote, long length)
     {
+        if (path.Equals(MMLauncher.Core.Usage.UsageBatch.Path, StringComparison.OrdinalIgnoreCase) && _usage != null)
+            return _usage.Admit(remote, length);
         if (!path.Equals(AgentClient.ReportPath, StringComparison.OrdinalIgnoreCase) || _reports == null)
             return new HttpReply(404, "text/plain", "Not found.");
         return _reports.Admit(remote, length);
@@ -126,6 +132,8 @@ public sealed class AgentWorker : BackgroundService
                     return new HttpReply(500, "application/json", "{\"ok\":false,\"message\":\"The server hit an error saving the report.\"}");
                 }
             }
+            if (path.Equals(MMLauncher.Core.Usage.UsageBatch.Path, StringComparison.OrdinalIgnoreCase) && _usage != null)
+                return _usage.Handle(request);
             return new HttpReply(404, "text/plain", "Not found.");
         }
 

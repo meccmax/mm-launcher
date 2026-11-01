@@ -70,6 +70,19 @@ The **Friends** tab shows which Steam friends are playing DayZ and on which serv
 - **Requirements:** the player's friends list must be public, and a friend's server only shows if their game details are public. Both are Steam's defaults.
 - **Agent safeguards:** answers are cached for a minute and limited per address. Steam IDs aren't logged.
 
+### Themes (v0.12)
+
+**Settings > Appearance** has seven color schemes: MM Orange (default), Arctic Blue, Toxic Green, Blood Red, Royal Purple, Steel and Daylight (a light theme). The launcher changes as soon as you pick one; Save keeps it, Cancel goes back. Every color in the launcher comes from one named set (`Themes/AppTheme.cs`), so adding a scheme is one entry there.
+
+### Usage stats (v0.12)
+
+On first start the launcher asks once whether to send **anonymous usage stats** to MM. Nothing is sent until the player answers, and the answer can be changed in **Settings > Usage stats**.
+
+- **What's sent:** launcher and Windows version; launcher starts; joins and play time on MM servers (with the server's name); joins and play time on other servers, counted but never named; mod download counts, sizes and times; DayZ crashes; and fixed error codes (e.g. `dayz-not-started`).
+- **Anonymous:** each launcher is a random ID made when stats are turned on and deleted when they're turned off. No names, Steam IDs, file paths or IP addresses are stored.
+- **Only to MM:** sent only to MM agents that say they collect stats, and only over their encrypted connection. Events wait in `usage-queue.jsonc` (at most 200, a week old at most) if no agent is reachable.
+- **On the agent:** saved one file per day in the agent's `usage` folder, plus `usage\summary.txt`, a readable overview of the last 7 and 30 days that's rewritten every 10 minutes. It shows active launchers, joins to MM and other servers, launchers that only play on MM, hours and average session per MM server, crash share, mod downloads, errors, versions and Windows builds. `AcceptUsageStats` and `KeepUsageDays` in `agent.jsonc` control it.
+
 ### Player history (v0.11)
 
 Each MM server's details have a **PLAYERS** tab: a chart of its player count over the last **24 hours** or **7 days**, with the peak, the average and when it's usually busiest ("Usually busiest 8 PM – 11 PM"). Hover the chart for the count at any time. Grey bands are when the server was down (restarts).

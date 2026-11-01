@@ -14,6 +14,7 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            Themes.AppTheme.Find(Core.Config.LauncherSettings.Load().Theme).Apply();
             var vm = new MainViewModel();
             desktop.MainWindow = new MainWindow { DataContext = vm };
             _ = vm.InitializeAsync();

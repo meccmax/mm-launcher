@@ -49,6 +49,9 @@ public sealed class AgentSnapshot
         return a.Host != null ? (a.Host, a.Port) : null;
     }
 
+    /// <summary>Agents that collect anonymous usage stats.</summary>
+    public List<(string Host, int Port)> UsageAgents { get; } = [];
+
     /// <summary>Agents that share DayZ Editor presets.</summary>
     public List<(string Host, int Port)> PresetAgents { get; } = [];
 
@@ -185,6 +188,8 @@ public sealed class LauncherService
                 snapshot.PresetAgents.Add((reply.Host, reply.Port));
             if (reply.Response.BrowserFeed)
                 snapshot.BrowserAgents.Add((reply.Host, reply.Port));
+            if (reply.Response.UsageStats)
+                snapshot.UsageAgents.Add((reply.Host, reply.Port));
             if (reply.Response.ReportsEnabled)
                 snapshot.ReportAgents.Add((reply.Host, reply.Port, address, reply.Response.Servers.Select(s => s.QueryPort).ToList()));
         }

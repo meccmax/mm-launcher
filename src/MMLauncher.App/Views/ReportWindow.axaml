@@ -7,11 +7,11 @@
         Width="760" Height="760" MinWidth="620" MinHeight="560"
         WindowStartupLocation="CenterOwner"
         Icon="avares://MMLauncher/Assets/mm.ico"
-        Background="{StaticResource Bg}">
+        Background="{DynamicResource Bg}">
 
   <Window.Styles>
     <Style Selector="TextBlock.section">
-      <Setter Property="Foreground" Value="{StaticResource Orange}" />
+      <Setter Property="Foreground" Value="{DynamicResource Orange}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="LetterSpacing" Value="1.5" />
@@ -21,27 +21,27 @@
       <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="TextBlock.help">
-      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style Selector="Border.card">
-      <Setter Property="Background" Value="{StaticResource Panel}" />
-      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Background" Value="{DynamicResource Panel}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="16,14" />
     </Style>
     <Style Selector="Border.result">
-      <Setter Property="Background" Value="#2B1513" />
-      <Setter Property="BorderBrush" Value="{StaticResource Bad}" />
+      <Setter Property="Background" Value="{DynamicResource BadTintSoft}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Bad}" />
       <Setter Property="BorderThickness" Value="3,0,0,0" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="14,10" />
     </Style>
     <Style Selector="Border.result.ok">
-      <Setter Property="Background" Value="#132A19" />
-      <Setter Property="BorderBrush" Value="{StaticResource Good}" />
+      <Setter Property="Background" Value="{DynamicResource GoodTintSoft}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Good}" />
     </Style>
   </Window.Styles>
 
@@ -74,8 +74,8 @@
         <TextBlock Classes="section" Text="WHAT'S INCLUDED" />
         <Border Classes="card">
           <StackPanel Spacing="10">
-            <TextBlock Text="{Binding SessionText}" FontSize="13" Foreground="{StaticResource Silver}" />
-            <TextBlock Text="{Binding CrashText}" FontSize="12" Foreground="{StaticResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasCrash}" />
+            <TextBlock Text="{Binding SessionText}" FontSize="13" Foreground="{DynamicResource Silver}" />
+            <TextBlock Text="{Binding CrashText}" FontSize="12" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" IsVisible="{Binding HasCrash}" />
             <ItemsControl ItemsSource="{Binding Items}">
               <ItemsControl.ItemTemplate>
                 <DataTemplate x:DataType="vm:ReportItem">
@@ -84,7 +84,7 @@
                       <TextBlock Text="{Binding Description}" FontSize="13" />
                       <TextBlock Text="{Binding FileName}" FontSize="11" Classes="help" />
                     </StackPanel>
-                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="12" Foreground="{StaticResource Silver}" VerticalAlignment="Center" />
+                    <TextBlock Grid.Column="1" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}" VerticalAlignment="Center" />
                   </Grid>
                 </DataTemplate>
               </ItemsControl.ItemTemplate>
@@ -112,7 +112,7 @@
       </Grid>
     </Border>
 
-    <Border Grid.Row="2" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+    <Border Grid.Row="2" Background="{DynamicResource Chrome}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
       <Grid ColumnDefinitions="*,Auto">
         <TextBlock Classes="help" Text="{Binding SendHint}" VerticalAlignment="Center" Margin="0,0,16,0" />
         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">

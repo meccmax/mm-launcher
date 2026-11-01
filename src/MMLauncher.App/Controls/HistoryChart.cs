@@ -23,15 +23,11 @@ public sealed class HistoryChart : Control
 
     static HistoryChart() => AffectsRender<HistoryChart>(HistoryProperty, RangeHoursProperty);
 
-    private static readonly IBrush Orange = new SolidColorBrush(Color.Parse("#FF7A00"));
-    private static readonly IBrush Fill = new SolidColorBrush(Color.Parse("#FF7A00"), 0.22);
-    private static readonly IBrush DownFill = new SolidColorBrush(Color.Parse("#2A2A31"), 0.55);
-    private static readonly IBrush Muted = new SolidColorBrush(Color.Parse("#8A8A93"));
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#ECECEF"));
-    private static readonly IPen Grid = new Pen(new SolidColorBrush(Color.Parse("#2A2A31")), 1);
-    private static readonly IPen MaxPen = new Pen(new SolidColorBrush(Color.Parse("#4A4A55")), 1, new DashStyle([4, 4], 0));
-    private static readonly IPen Line = new Pen(new SolidColorBrush(Color.Parse("#FF7A00")), 2) { LineJoin = PenLineJoin.Round };
-    private static readonly IPen Cursor = new Pen(new SolidColorBrush(Color.Parse("#ECECEF"), 0.5), 1);
+    // Colors come from the current theme (see Themes/AppTheme.cs), looked up on every draw.
+    private IBrush Res(string key, string fallback) =>
+        this.TryFindResource(key, out var v) && v is IBrush b ? b : new SolidColorBrush(Color.Parse(fallback));
+    private static IBrush Alpha(IBrush brush, double opacity) =>
+        brush is ISolidColorBrush s ? new SolidColorBrush(s.Color, opacity) : brush;
 
     private const double Left = 34, Right = 10, Top = 26, Bottom = 22;
     private Point? _mouse;
@@ -41,6 +37,16 @@ public sealed class HistoryChart : Control
 
     public override void Render(DrawingContext ctx)
     {
+        var Orange = Res("Orange", "#FF7A00");
+        var Fill = Alpha(Orange, 0.22);
+        var lineBrush = Res("Line", "#2A2A31");
+        var DownFill = Alpha(lineBrush, 0.55);
+        var Muted = Res("Muted", "#8C9099");
+        var TextBrush = Res("Text", "#ECECEE");
+        var Grid = new Pen(lineBrush, 1);
+        var MaxPen = new Pen(Alpha(Muted, 0.6), 1, new DashStyle([4, 4], 0));
+        var Line = new Pen(Orange, 2) { LineJoin = PenLineJoin.Round };
+        var Cursor = new Pen(Alpha(TextBrush, 0.5), 1);
         var size = Bounds.Size;
         ctx.FillRectangle(Brushes.Transparent, new Rect(size)); // so the mouse is seen everywhere
         var h = History;

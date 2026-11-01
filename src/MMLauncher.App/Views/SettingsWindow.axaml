@@ -7,11 +7,11 @@
         Width="760" Height="720" MinWidth="620" MinHeight="520"
         WindowStartupLocation="CenterOwner"
         Icon="avares://MMLauncher/Assets/mm.ico"
-        Background="{StaticResource Bg}">
+        Background="{DynamicResource Bg}">
 
   <Window.Styles>
     <Style Selector="TextBlock.section">
-      <Setter Property="Foreground" Value="{StaticResource Orange}" />
+      <Setter Property="Foreground" Value="{DynamicResource Orange}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="FontWeight" Value="Bold" />
       <Setter Property="LetterSpacing" Value="1.5" />
@@ -22,21 +22,21 @@
       <Setter Property="FontSize" Value="13" />
     </Style>
     <Style Selector="TextBlock.help">
-      <Setter Property="Foreground" Value="{StaticResource Muted}" />
+      <Setter Property="Foreground" Value="{DynamicResource Muted}" />
       <Setter Property="FontSize" Value="12" />
       <Setter Property="TextWrapping" Value="Wrap" />
     </Style>
     <Style Selector="TextBlock.status">
       <Setter Property="FontSize" Value="12" />
       <Setter Property="TextWrapping" Value="Wrap" />
-      <Setter Property="Foreground" Value="{StaticResource Bad}" />
+      <Setter Property="Foreground" Value="{DynamicResource Bad}" />
     </Style>
     <Style Selector="TextBlock.status.ok">
-      <Setter Property="Foreground" Value="{StaticResource Good}" />
+      <Setter Property="Foreground" Value="{DynamicResource Good}" />
     </Style>
     <Style Selector="Border.card">
-      <Setter Property="Background" Value="{StaticResource Panel}" />
-      <Setter Property="BorderBrush" Value="{StaticResource Line}" />
+      <Setter Property="Background" Value="{DynamicResource Panel}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
       <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="4" />
       <Setter Property="Padding" Value="16,14" />
@@ -120,6 +120,27 @@
           </StackPanel>
         </Border>
 
+        <!-- ================= Appearance ================= -->
+        <TextBlock Classes="section" Text="APPEARANCE" />
+        <Border Classes="card">
+          <StackPanel Spacing="8">
+            <TextBlock Classes="field" Text="Color scheme" />
+            <ComboBox ItemsSource="{Binding ThemeNames}" SelectedIndex="{Binding ThemeIndex}" MinWidth="260" />
+            <TextBlock Classes="help" Text="Shown right away so you can try them. Save keeps it; Cancel goes back." />
+          </StackPanel>
+        </Border>
+
+        <!-- ================= Usage stats ================= -->
+        <TextBlock Classes="section" Text="USAGE STATS" />
+        <Border Classes="card">
+          <StackPanel Spacing="8">
+            <CheckBox IsChecked="{Binding UsageStatsOn}">
+              <TextBlock Text="Send anonymous usage stats to MM to help improve the launcher" TextWrapping="Wrap" FontSize="13" />
+            </CheckBox>
+            <TextBlock Classes="help" Text="What's sent: launcher and Windows version, when you join MM servers and how long you play, how many times you join other servers (never which), mod download times, and errors. It goes only to MM's own servers. No names, Steam IDs or IP addresses are kept; your launcher is told apart by a random number that's forgotten when you turn this off." />
+          </StackPanel>
+        </Border>
+
         <!-- ================= Updates ================= -->
         <TextBlock Classes="section" Text="UPDATES" />
         <Border Classes="card">
@@ -130,7 +151,7 @@
             </CheckBox>
             <StackPanel Orientation="Horizontal" Spacing="12">
               <Button Classes="ghost" Content="Check now" Command="{Binding CheckNowCommand}" />
-              <TextBlock Text="{Binding UpdateStatus}" VerticalAlignment="Center" FontSize="12" Foreground="{StaticResource Silver}" TextWrapping="Wrap" />
+              <TextBlock Text="{Binding UpdateStatus}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap" />
             </StackPanel>
           </StackPanel>
         </Border>
@@ -146,14 +167,14 @@
               <Button Classes="ghost" Content="Open launcher folder" Command="{Binding OpenDataFolderCommand}" Margin="0,0,8,8" />
               <Button Classes="ghost" Content="Open log" Command="{Binding OpenLogFileCommand}" Margin="0,0,8,8" />
             </WrapPanel>
-            <TextBlock Classes="help" Foreground="{StaticResource Silver}" Text="{Binding MaintenanceMessage}"
+            <TextBlock Classes="help" Foreground="{DynamicResource Silver}" Text="{Binding MaintenanceMessage}"
                        IsVisible="{Binding MaintenanceMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           </StackPanel>
         </Border>
       </StackPanel>
     </ScrollViewer>
 
-    <Border Grid.Row="1" Background="#09090B" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+    <Border Grid.Row="1" Background="{DynamicResource Chrome}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
         <Button Classes="ghost" Content="Cancel" Command="{Binding CancelCommand}" />
         <Button Classes="primary" Content="Save" Command="{Binding SaveCommand}" />
