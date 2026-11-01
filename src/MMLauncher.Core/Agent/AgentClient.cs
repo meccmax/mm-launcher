@@ -228,6 +228,28 @@ public sealed class AgentClient
         }
     }
 
+    /// <summary>One server's player counts for the last 7 days, or null (no history, agent unreachable).</summary>
+    public async Task<History.PlayerHistoryReply?> GetPlayerHistoryAsync(string host, int port, int gamePort, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(10));
+        try
+        {
+            bool secure = _trust.RequiresTls(host, port);
+            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}{History.PlayerHistoryReply.Path}?port={gamePort}",
+                HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            if (!res.IsSuccessStatusCode || res.Content.Headers.ContentLength > 1024 * 1024) return null;
+            var text = await res.Content.ReadAsStringAsync(cts.Token);
+            if (text.Length > 1024 * 1024) return null;
+            return History.PlayerHistoryReply.Sanitize(System.Text.Json.JsonSerializer.Deserialize<History.PlayerHistoryReply>(text, AgentResponse.Json));
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Player history from the agent at {host}:{port} failed: {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>Shared DayZ Editor presets from an agent. Empty on any problem.</summary>
     public async Task<List<Editor.EditorPreset>> GetEditorPresetsAsync(string host, int port, CancellationToken ct = default)
     {

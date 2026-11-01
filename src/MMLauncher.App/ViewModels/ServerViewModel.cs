@@ -56,6 +56,10 @@ public partial class ServerViewModel : ObservableObject
     public ObservableCollection<NewsItemViewModel> News { get; } = [];
     [ObservableProperty] private int _unseenNews;
     public bool HasNews => News.Count > 0;
+    /// <summary>The MM agent has player-count history for this server (the PLAYERS tab).</summary>
+    [ObservableProperty] private bool _hasHistory;
+    public bool ShowDetailTabs => HasNews || HasHistory;
+    partial void OnHasHistoryChanged(bool value) => OnPropertyChanged(nameof(ShowDetailTabs));
     public bool HasUnseenNews => UnseenNews > 0;
     public string NewsTabText => UnseenNews > 0 ? $"NEWS  ·  {UnseenNews} NEW" : News.Count > 0 ? $"NEWS ({News.Count})" : "NEWS";
     partial void OnUnseenNewsChanged(int value)
@@ -73,6 +77,7 @@ public partial class ServerViewModel : ObservableObject
         foreach (var i in items) News.Add(new NewsItemViewModel(i, !NewsSeen.Current.IsSeen(Key, i)));
         UnseenNews = News.Count(n => n.IsNew);
         OnPropertyChanged(nameof(HasNews));
+        OnPropertyChanged(nameof(ShowDetailTabs));
         OnPropertyChanged(nameof(NewsTabText));
     }
 
@@ -181,6 +186,7 @@ public partial class ServerViewModel : ObservableObject
             Name = agent.DisplayName ?? agent.Name;
             Message = agent.Message ?? "";
             ApplyNews(agent.News);
+            HasHistory = agent.HasHistory;
             UptimeSeconds = agent.UptimeSeconds;
             NextRestart = agent.NextRestart;
             RestartApproximate = agent.RestartApproximate;

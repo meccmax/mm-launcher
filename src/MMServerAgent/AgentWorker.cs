@@ -19,6 +19,7 @@ public sealed class AgentWorker : BackgroundService
     private ServerListFeed? _feed;
     private EditorPresetFolder? _presets;
     private NewsFolder? _news;
+    private PlayerHistoryRecorder? _history;
     private FriendsService? _friends;
     private WorkshopSearchService? _workshop;
 
@@ -34,6 +35,7 @@ public sealed class AgentWorker : BackgroundService
         _presets = new EditorPresetFolder(Log);
         NewsFolder.EnsureFolder();
         _news = new NewsFolder(Log);
+        _history = new PlayerHistoryRecorder(Log);
         _friends = new FriendsService(_config, Log);
         _workshop = new WorkshopSearchService(_config, Log);
         var feedTask = _feed.RunAsync(stoppingToken);
@@ -58,6 +60,11 @@ public sealed class AgentWorker : BackgroundService
             try { await Task.Delay(TimeSpan.FromSeconds(_config.RescanSeconds), stoppingToken); }
             catch (OperationCanceledException) { break; }
             Rescan();
+            if (_history != null)
+            {
+                try { await _history.SampleIfDueAsync(_last.Servers); }
+                catch (Exception ex) { Log("Player history: " + ex.Message); }
+            }
         }
         await server;
         await feedTask;
@@ -69,8 +76,11 @@ public sealed class AgentWorker : BackgroundService
         {
             var before = _last.Servers.Select(s => $"{s.GamePort}:{s.Mods.Count}").ToList();
             var detection = ServerDetector.Detect(_config);
-            if (_news != null)
-                foreach (var server in detection.Servers) server.News = _news.For(server.GamePort);
+            foreach (var server in detection.Servers)
+            {
+                if (_news != null) server.News = _news.For(server.GamePort);
+                server.HasHistory = _history?.Has(server.GamePort) == true;
+            }
             _last = detection;
             _lastScan = DateTime.Now;
             _json = JsonSerializer.Serialize(new AgentResponse
@@ -124,6 +134,9 @@ public sealed class AgentWorker : BackgroundService
 
         if (path.Equals(MMLauncher.Core.Workshop.WorkshopSearchReply.Path, StringComparison.OrdinalIgnoreCase) && _workshop != null)
             return await _workshop.HandleAsync(request.Query, request.RemoteAddress);
+
+        if (path.Equals(MMLauncher.Core.History.PlayerHistoryReply.Path, StringComparison.OrdinalIgnoreCase) && _history != null)
+            return _history.Handle(request.Query);
 
         if (path.Equals(MMLauncher.Core.Friends.FriendsReply.Path, StringComparison.OrdinalIgnoreCase) && _friends != null)
             return await _friends.HandleAsync(request.Query, request.RemoteAddress);

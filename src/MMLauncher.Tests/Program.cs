@@ -869,6 +869,41 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
+Console.WriteLine("== Player history ==");
+{
+    var store = new MMLauncher.Core.History.PlayerHistoryStore();
+    var t0 = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+    for (int i = 0; i < 8 * 288; i++)            // 8 days, every 5 minutes
+        store.Record(2302, t0.AddMinutes(5 * i), i % 48 == 0 ? null : 10 + (i % 288) / 12, 60);
+    var now = t0.AddMinutes(5 * (8 * 288 - 1));
+    var reply = store.Reply(2302, now)!;
+    Check(reply.Players.Count == 7 * 288 && reply.StepSeconds == 300 && reply.MaxPlayers == 60, $"7 days kept, older readings dropped ({reply.Players.Count})");
+    Check(reply.Players.Contains(-1) && reply.Players.Max() == 33 && reply.TimeAt(reply.Players.Count - 1) == now, "restarts are gaps; last reading is now");
+    store.Record(2302, now, 5, 60);
+    Check(store.Reply(2302, now)!.Players[^1] == 33, "two readings in one slot keep the higher");
+    Check(store.Reply(2399, now) == null, "unknown port: no history");
+
+    var path = Path.Combine(root, "player-history.jsonc");
+    store.Save(path);
+    var loaded = MMLauncher.Core.History.PlayerHistoryStore.Load(path);
+    Check(File.ReadAllText(path).StartsWith("//") && loaded.Servers[2302].Count > 2000, "history file has its explaining comments and loads back");
+
+    var bad = MMLauncher.Core.History.PlayerHistoryReply.Sanitize(new() { Start = 1, StepSeconds = 5, Players = [1] });
+    var big = MMLauncher.Core.History.PlayerHistoryReply.Sanitize(new()
+        { Start = 1_700_000_000, StepSeconds = 300, MaxPlayers = 99999, Players = Enumerable.Range(0, 20000).Select(i => i % 2 == 0 ? -7 : 5000).ToList() });
+    Check(bad == null && big != null && big.Players.Count == MMLauncher.Core.History.PlayerHistoryReply.MaxSamples
+          && big.Players.All(p => p == -1 || p == 1000) && big.MaxPlayers == 1000, "history from an agent is checked: step, length and values clamped");
+
+    var stats = MMLauncher.Core.History.HistoryStats.Summarize(reply, now.AddHours(-24), TimeZoneInfo.Utc);
+    Check(stats.PeakPlayers == 33 && stats.Readings > 250 && stats.BusiestText == "Usually busiest 9 PM – 12 AM",
+          $"peak, average and busiest hours ({stats.BusiestText})");
+    var thin = new MMLauncher.Core.History.PlayerHistoryReply { Start = t0.ToUnixTimeSeconds(), StepSeconds = 300, Players = [5, 6, 7] };
+    Check(MMLauncher.Core.History.HistoryStats.BusiestHours(thin, TimeZoneInfo.Utc) == "", "no 'busiest' claim from a few readings");
+
+    var recorder = new MMServerAgent.PlayerHistoryRecorder(_ => { });
+    Check(recorder.Handle("port=abc").Status == 400 && recorder.Handle("port=70000").Status == 400, "agent refuses a bad port");
+}
+
 Console.WriteLine("== Server news ==");
 {
     var newsText = "// a comment\r\nstray text before any post\r\n" +

@@ -70,6 +70,13 @@ The **Friends** tab shows which Steam friends are playing DayZ and on which serv
 - **Requirements:** the player's friends list must be public, and a friend's server only shows if their game details are public. Both are Steam's defaults.
 - **Agent safeguards:** answers are cached for a minute and limited per address. Steam IDs aren't logged.
 
+### Player history (v0.11)
+
+Each MM server's details have a **PLAYERS** tab: a chart of its player count over the last **24 hours** or **7 days**, with the peak, the average and when it's usually busiest ("Usually busiest 8 PM – 11 PM"). Hover the chart for the count at any time. Grey bands are when the server was down (restarts).
+
+- **How it works:** every 5 minutes the agent asks each DayZ server on its machine for its player count (the normal status query, on 127.0.0.1) and keeps 7 days in `player-history.jsonc` next to it. The history builds up even when nobody has the launcher open. Launchers fetch it from `/mm-agent/v1/history?port=<game port>` only when the tab is opened.
+- **Limits:** the launcher accepts at most about two weeks of 5-minute readings and clamps every value.
+
 ### Server news (v0.10)
 
 Each MM server's details have a **NEWS** tab next to REQUIRED MODS, for wipes, events and changes. Admins write posts as plain text in the agent's `news` folder: `all.txt` for every server, `<game port>.txt` for one server (shown first). A post starts with `# ` (an optional `yyyy-mm-dd` date, then the title), followed by its text and an optional `link: https://…` line; `#!` highlights it. The agent creates a commented `all.txt` explaining this.

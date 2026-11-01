@@ -71,6 +71,9 @@ public sealed class AgentServerInfo
     /// <summary>True when NextRestart is an estimate (interval since start) rather than a fixed time.</summary>
     public bool RestartApproximate { get; set; }
 
+    /// <summary>True when the agent has player-count history for this server (GET /mm-agent/v1/history?port=).</summary>
+    public bool HasHistory { get; set; }
+
     /// <summary>News posts from the agent's news folder (null = none). Newest first.</summary>
     public List<News.NewsItem>? News { get; set; }
 

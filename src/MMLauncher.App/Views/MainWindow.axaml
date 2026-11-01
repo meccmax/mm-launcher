@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:MMLauncher.App.ViewModels"
         xmlns:ed="using:MMLauncher.Core.Editor"
+        xmlns:ctl="using:MMLauncher.App.Controls"
         x:Class="MMLauncher.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Title="MM Launcher — Misfit Mercenaries"
@@ -361,15 +362,21 @@
         <!-- Mods header -->
         <StackPanel Grid.Row="2" DataContext="{Binding SelectedServer}" x:DataType="vm:ServerViewModel" Margin="0,22,0,8" Spacing="4">
           <DockPanel>
-            <TextBlock DockPanel.Dock="Left" Classes="label" Text="REQUIRED MODS" VerticalAlignment="Bottom" IsVisible="{Binding !HasNews}" />
-            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" IsVisible="{Binding HasNews}" Margin="0,0,10,0">
+            <TextBlock DockPanel.Dock="Left" Classes="label" Text="REQUIRED MODS" VerticalAlignment="Bottom" IsVisible="{Binding !ShowDetailTabs}" />
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="4" IsVisible="{Binding ShowDetailTabs}" Margin="0,0,10,0">
               <Button Classes="tab" Padding="12,6" Content="REQUIRED MODS"
                       Classes.active="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowModsDetailsCommand}" />
               <Button Classes="tab" Padding="12,6" Content="{Binding NewsTabText}" Classes.unseen="{Binding HasUnseenNews}"
                       Classes.active="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsNewsDetails}"
                       Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowNewsDetailsCommand}"
+                      IsVisible="{Binding HasNews}"
                       ToolTip.Tip="News from MM staff for this server (wipes, events, changes)" />
+              <Button Classes="tab" Padding="12,6" Content="PLAYERS"
+                      Classes.active="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsPlayersDetails}"
+                      Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowPlayersDetailsCommand}"
+                      IsVisible="{Binding HasHistory}"
+                      ToolTip.Tip="How busy this server has been over the last day and week" />
             </StackPanel>
             <DockPanel IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}" VerticalAlignment="Center">
             <Border DockPanel.Dock="Right" Background="#16351F" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
@@ -380,7 +387,8 @@
                     ToolTip.Tip="No MM agent answered for this server, so the list comes from the server's status reply.">
               <TextBlock Text="FROM SERVER STATUS" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{StaticResource Silver}" />
             </Border>
-            <TextBlock Text="{Binding ModSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Bottom" />
+            <TextBlock Text="{Binding ModSummary}" Foreground="{StaticResource Silver}" FontSize="12" Margin="14,0,0,0" VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding ModSummary}" />
             </DockPanel>
           </DockPanel>
           <StackPanel Spacing="4" IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}">
@@ -395,6 +403,30 @@
           </Grid>
           </StackPanel>
         </StackPanel>
+
+        <!-- Player history -->
+        <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
+                IsVisible="{Binding IsPlayersDetails}" Padding="14,10,14,10">
+          <Grid RowDefinitions="Auto,*,Auto">
+            <DockPanel Grid.Row="0">
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="4">
+                <Button Classes="tab" Padding="10,4" Content="24 hours" Classes.active="{Binding HistoryIsDay}" Command="{Binding ShowHistoryDayCommand}" />
+                <Button Classes="tab" Padding="10,4" Content="7 days" Classes.active="{Binding HistoryIsWeek}" Command="{Binding ShowHistoryWeekCommand}" />
+              </StackPanel>
+              <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                <TextBlock Text="{Binding HistoryPeak}" FontSize="13" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding HistoryAverage}" FontSize="12" Foreground="{StaticResource Silver}" VerticalAlignment="Center" />
+              </StackPanel>
+            </DockPanel>
+            <Panel Grid.Row="1" Margin="0,8,0,0">
+              <ctl:HistoryChart History="{Binding ShownHistory}" RangeHours="{Binding HistoryHours}" MinHeight="120" />
+              <TextBlock Text="{Binding HistoryStatus}" Classes="muted" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         TextWrapping="Wrap" TextAlignment="Center" IsVisible="{Binding HasHistoryStatus}" />
+            </Panel>
+            <TextBlock Grid.Row="2" Text="{Binding HistoryBusiest}" FontSize="12" Foreground="{StaticResource Good}" Margin="0,6,0,0"
+                       IsVisible="{Binding HasHistoryBusiest}" />
+          </Grid>
+        </Border>
 
         <!-- News -->
         <Border Grid.Row="3" Background="{StaticResource Panel}" CornerRadius="4" BorderBrush="{StaticResource Line}" BorderThickness="1"
