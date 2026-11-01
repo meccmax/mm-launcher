@@ -114,6 +114,7 @@ public partial class MainViewModel
             var command = GameLauncher.Build(new LaunchRequest(server.ConnectIp, server.GamePort!.Value, mods, password), _service.Settings, _steam!);
             if (!GameLauncher.SteamIsRunning())
                 throw new LaunchException("Steam isn't running. Start Steam, then click JOIN SERVER again.");
+            if (!auto && !await SteamPermissionsOkAsync()) return;
             GameLauncher.Start(command);
 
             // Don't assume it worked: wait for the DayZ process to actually appear.
@@ -497,5 +498,19 @@ public partial class MainViewModel
         SyncFailed = !ok;
         SyncWarning = false;
         if (!ok) Log.Warn($"{title}: {detail}");
+    }
+
+    /// <summary>
+    /// Steam and MM Launcher at different permission levels (one as administrator) means DayZ
+    /// can't find Steam. Explains how to fix it; "Start anyway" in case the check is wrong.
+    /// </summary>
+    private async Task<bool> SteamPermissionsOkAsync()
+    {
+        var problem = SteamPermissions.Check();
+        if (problem == SteamPermissions.Problem.None) return true;
+        if (AskConfirm != null && await AskConfirm("DayZ won't be able to find Steam", SteamPermissions.Explain(problem), "Start anyway"))
+            return true;
+        ShowResult(false, "Not started: fix Steam's permissions first", SteamPermissions.Explain(problem));
+        return false;
     }
 }

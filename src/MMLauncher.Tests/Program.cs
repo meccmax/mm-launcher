@@ -3,6 +3,7 @@ using MMLauncher.Core.Agent;
 using MMLauncher.Core.Config;
 using MMLauncher.Core.DayZ;
 using MMLauncher.Core.Discovery;
+using MMLauncher.Core.Launch;
 using MMLauncher.Core.Query;
 using MMLauncher.Core.Services;
 using MMLauncher.Core.Steam;
@@ -857,6 +858,15 @@ Console.WriteLine("== Workshop search (Mods page) ==");
     steam.Stop();
     Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
 
+}
+
+Console.WriteLine("== Steam permissions (\"Unable to locate a running instance of Steam\") ==");
+{
+    Check(SteamPermissions.Diagnose(false, true) == SteamPermissions.Problem.SteamIsAdmin, "Steam as administrator, launcher not: flagged");
+    Check(SteamPermissions.Diagnose(true, false) == SteamPermissions.Problem.LauncherIsAdmin, "launcher as administrator, Steam not: flagged");
+    Check(SteamPermissions.Diagnose(true, true) == SteamPermissions.Problem.None && SteamPermissions.Diagnose(false, false) == SteamPermissions.Problem.None
+          && SteamPermissions.Diagnose(false, null) == SteamPermissions.Problem.None, "matching (or unknown) permissions: no warning");
+    Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
 Console.WriteLine("== Server news ==");
