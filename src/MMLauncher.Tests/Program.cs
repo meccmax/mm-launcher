@@ -694,6 +694,88 @@ Console.WriteLine("== Crash or normal quit ==");
     Directory.Delete(logs, true);
 }
 
+Console.WriteLine("== Friends ==");
+{
+    var dir = Path.Combine(root, "friends");
+    if (Directory.Exists(dir)) Directory.Delete(dir, true);
+    Directory.CreateDirectory(dir);
+    var login = Path.Combine(dir, "loginusers.vdf");
+    File.WriteAllText(login, """
+    "users"
+    {
+        "76561198000000001" { "AccountName" "alt" "MostRecent" "0" }
+        "76561198012345678" { "AccountName" "max" "PersonaName" "Max" "MostRecent" "1" }
+    }
+    """);
+    Check(MMLauncher.Core.Friends.SteamAccount.FromLoginUsers(login) == 76561198012345678UL, "signed-in Steam account read from Steam's loginusers.vdf");
+    Check(!MMLauncher.Core.Friends.SteamAccount.IsValid(42) && MMLauncher.Core.Friends.SteamAccount.IsValid(76561198012345678UL), "Steam ID check");
+
+    var hist = new MMLauncher.Core.Friends.FriendHistory();
+    var t0 = DateTimeOffset.Now.AddDays(-40);
+    hist.Record([new() { Name = "Old", Server = "1.1.1.1:2302" }], _ => "Old server", t0);
+    hist.Record([new() { Name = "Nully", Server = "2.2.2.2:2302" }, new() { Name = "Max", Server = "2.2.2.2:2302" }, new() { Name = "Menu", Server = "" }],
+                k => k == "2.2.2.2:2302" ? "MM Deer Isle" : null, DateTimeOffset.Now);
+    Check(hist.Servers.Count == 1 && hist.Servers[0].ServerName == "MM Deer Isle" && hist.Servers[0].Friends.Count == 2,
+          "friend history: servers recorded with names, entries older than 30 days dropped, menu-only friends skipped");
+
+    // Agent asks (fake) Steam for friends and what they play.
+    using var steam = new HttpListener();
+    steam.Prefixes.Add("http://127.0.0.1:8095/");
+    steam.Start();
+    var asked = new List<string>();
+    _ = Task.Run(async () =>
+    {
+        while (steam.IsListening)
+        {
+            HttpListenerContext ctx;
+            try { ctx = await steam.GetContextAsync(); } catch { break; }
+            var url = ctx.Request.Url!.AbsolutePath;
+            lock (asked) asked.Add(url + "?" + ctx.Request.QueryString["steamid"] + ctx.Request.QueryString["steamids"]);
+            string body; int code = 200;
+            if (url.Contains("GetFriendList"))
+            {
+                if (ctx.Request.QueryString["steamid"] == "76561198000000666") { code = 401; body = "<html>Unauthorized</html>"; }
+                else body = """{"friendslist":{"friends":[{"steamid":"76561198000000002"},{"steamid":"76561198000000003"},{"steamid":"76561198000000004"},{"steamid":"bad"}]}}""";
+            }
+            else
+                body = """
+                {"response":{"players":[
+                  {"steamid":"76561198000000002","personaname":"Nully","gameid":"221100","gameserverip":"2.2.2.2:2302"},
+                  {"steamid":"76561198000000003","personaname":"In Menu\u0007","gameid":"221100"},
+                  {"steamid":"76561198000000004","personaname":"Arma Guy","gameid":"107410","gameserverip":"3.3.3.3:2302"}
+                ]}}
+                """;
+            ctx.Response.StatusCode = code;
+            var bytes = System.Text.Encoding.UTF8.GetBytes(body);
+            await ctx.Response.OutputStream.WriteAsync(bytes);
+            ctx.Response.Close();
+        }
+    });
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8095");
+    var fsvc = new MMServerAgent.FriendsService(new MMServerAgent.AgentConfig { SteamWebApiKey = "k" }, _ => { });
+    using var fstop = new CancellationTokenSource();
+    _ = new MMServerAgent.MiniHttpServer(2983, 1 << 20, r => r.Path == MMLauncher.Core.Friends.FriendsReply.Path
+        ? fsvc.HandleAsync(r.Query, r.RemoteAddress) : Task.FromResult(new MMServerAgent.HttpReply(404, "text/plain", "no"))).RunAsync(fstop.Token);
+    await Task.Delay(200);
+    var fclient = new AgentClient(new AgentTrust(dir));
+    var fr = await fclient.GetFriendsAsync("127.0.0.1", 2983, 76561198012345678UL);
+    Check(fr is { Ok: true, FriendCount: 3 } && fr.InDayZ.Count == 2 && fr.InDayZ.Single(f => f.Name == "Nully").Server == "2.2.2.2:2302"
+          && fr.InDayZ.Single(f => f.Name == "In Menu").Server == "", "friends in DayZ and their servers (other games and junk IDs left out, names cleaned)");
+    int before; lock (asked) before = asked.Count;
+    await fclient.GetFriendsAsync("127.0.0.1", 2983, 76561198012345678UL);
+    lock (asked) Check(asked.Count == before, "friends answer cached for a minute (no second Steam call)");
+    var priv = await fclient.GetFriendsAsync("127.0.0.1", 2983, 76561198000000666UL);
+    Check(priv is { Ok: false } && priv.Message.Contains("private"), "private friends list explained");
+    var bad = await new HttpClient().GetAsync($"http://127.0.0.1:2983{MMLauncher.Core.Friends.FriendsReply.Path}?steamid=12345");
+    Check((int)bad.StatusCode == 400, "agent refuses a Steam ID that isn't one");
+    for (int i = 0; i < 15; i++) await new HttpClient().GetAsync($"http://127.0.0.1:2983{MMLauncher.Core.Friends.FriendsReply.Path}?steamid={76561198000001000UL + (ulong)i}");
+    var limited = await new HttpClient().GetAsync($"http://127.0.0.1:2983{MMLauncher.Core.Friends.FriendsReply.Path}?steamid=76561198000002000");
+    Check((int)limited.StatusCode == 429, "friend lookups are rate limited per address");
+    fstop.Cancel();
+    steam.Stop();
+    Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

@@ -55,6 +55,14 @@ When the agent knows a server's restart schedule (`RestartEveryHours`, counted f
 
 Auto-rejoin uses it too: if DayZ closes right around a scheduled restart, the launcher waits for the restart to happen before rejoining.
 
+### Friends (v0.9)
+
+The **Friends** tab shows which Steam friends are playing DayZ and on which server ("PLAYING NOW"), plus servers friends were seen on before ("seen 3 h ago", kept for 30 days in `friends-history.jsonc`). Clicking a server opens it like any other, with JOIN. The details panel also says "Friends here: …" on any server where friends are playing.
+
+- **How it works:** the launcher reads which Steam account is signed in (it never starts Steam as DayZ). An MM agent with a Steam Web API key then asks Steam for that account's friends (`GetFriendList`) and what they're playing (`GetPlayerSummaries`).
+- **Requirements:** the player's friends list must be public, and a friend's server only shows if their game details are public. Both are Steam's defaults.
+- **Agent safeguards:** answers are cached for a minute and limited per address. Steam IDs aren't logged.
+
 ### DayZ Editor (v0.8)
 
 The **DAYZ EDITOR** page starts DayZ offline (main menu, no server) with Community Framework, Dabs Framework and [DayZ-Editor](https://steamcommunity.com/sharedfiles/filedetails/?id=2250764298) loaded first, then a preset's mods in order. Missing or outdated mods are downloaded through Steam first, the same way as for servers.

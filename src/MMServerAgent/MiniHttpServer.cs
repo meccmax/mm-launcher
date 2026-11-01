@@ -8,7 +8,7 @@ using System.Text;
 namespace MMServerAgent;
 
 /// <summary>A request as the agent's handlers see it.</summary>
-public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false);
+public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false, string Query = "");
 
 /// <summary>A response from a handler.</summary>
 public sealed record HttpReply(int Status, string ContentType, string Body, byte[]? Bytes = null, string? ContentEncoding = null);
@@ -162,7 +162,10 @@ public sealed class MiniHttpServer(
         var requestLine = lines[0].Split(' ');
         if (requestLine.Length < 2) { await WriteAsync(stream, new HttpReply(400, "text/plain", "Bad request."), ct); return; }
         var method = requestLine[0].ToUpperInvariant();
-        var path = requestLine[1].Split('?')[0];
+        var target = requestLine[1];
+        int q = target.IndexOf('?');
+        var path = q >= 0 ? target[..q] : target;
+        var query = q >= 0 ? target[(q + 1)..] : "";
 
         var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var line in lines.Skip(1))
@@ -212,7 +215,7 @@ public sealed class MiniHttpServer(
         }
 
         headers.TryGetValue("Content-Type", out var contentType);
-        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? "", encrypted));
+        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? "", encrypted, query));
         await WriteAsync(stream, reply, ct);
     }
 

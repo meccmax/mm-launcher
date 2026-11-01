@@ -54,6 +54,7 @@ public partial class MainViewModel
     public bool IsAllTab => ListTab == "all";
     public bool IsFavoritesTab => ListTab == "fav";
     public bool IsRecentTab => ListTab == "recent";
+    public bool IsSavedTab => IsFavoritesTab || IsRecentTab;
     public bool NoFavorites => IsFavoritesTab && FavoriteServers.Count == 0;
     public bool NoRecent => IsRecentTab && RecentServers.Count == 0;
     public IEnumerable<ServerViewModel> SavedServers => IsFavoritesTab ? FavoriteServers : RecentServers;
@@ -63,8 +64,10 @@ public partial class MainViewModel
 
     partial void OnListTabChanged(string value)
     {
-        foreach (var n in new[] { nameof(IsMmTab), nameof(IsAllTab), nameof(IsFavoritesTab), nameof(IsRecentTab), nameof(NoFavorites), nameof(NoRecent), nameof(SavedServers) })
+        foreach (var n in new[] { nameof(IsMmTab), nameof(IsAllTab), nameof(IsFavoritesTab), nameof(IsRecentTab), nameof(IsSavedTab),
+                                  nameof(IsFriendsTab), nameof(NoFriendRows), nameof(NoFavorites), nameof(NoRecent), nameof(SavedServers) })
             OnPropertyChanged(n);
+        if (value != "friends") _friendsTimer.Stop();
     }
 
     [RelayCommand] private void ShowMmTab() { ListTab = "mm"; if (SelectedMmServer != null) SelectedServer = SelectedMmServer; }

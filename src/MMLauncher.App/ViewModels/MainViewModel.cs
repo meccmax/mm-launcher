@@ -63,6 +63,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectedIsFavorite));
         OnPropertyChanged(nameof(FavoriteText));
+        OnPropertyChanged(nameof(FriendsOnSelected));
+        OnPropertyChanged(nameof(HasFriendsOnSelected));
         if (!IsSyncing) ClearPanel();
         RaiseJoinState();
     }

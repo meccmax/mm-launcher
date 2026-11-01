@@ -162,6 +162,36 @@ public sealed class AgentClient
         }
     }
 
+    /// <summary>Asks an agent which of a player's Steam friends are in DayZ. Null if the agent couldn't be reached.</summary>
+    public async Task<Friends.FriendsReply?> GetFriendsAsync(string host, int port, ulong steamId, CancellationToken ct = default)
+    {
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        cts.CancelAfter(TimeSpan.FromSeconds(25));
+        try
+        {
+            bool secure = _trust.RequiresTls(host, port);
+            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}{Friends.FriendsReply.Path}?steamid={steamId}", cts.Token);
+            var text = await res.Content.ReadAsStringAsync(cts.Token);
+            if (text.Length > 2 * 1024 * 1024) return null;
+            var reply = System.Text.Json.JsonSerializer.Deserialize<Friends.FriendsReply>(text, AgentResponse.Json);
+            if (reply == null) return null;
+            // Untrusted: clip everything.
+            reply.Message = Editor.PresetFormat.Clean(reply.Message, 300);
+            reply.InDayZ = reply.InDayZ.Take(500).Select(f => new Friends.FriendInfo
+            {
+                SteamId = new string(f.SteamId.Where(char.IsDigit).Take(20).ToArray()),
+                Name = Editor.PresetFormat.Clean(f.Name, 64),
+                Server = f.Server.Length <= 64 && System.Text.RegularExpressions.Regex.IsMatch(f.Server, @"^\d{1,3}(\.\d{1,3}){3}:\d{1,5}$") ? f.Server : "",
+            }).ToList();
+            return reply;
+        }
+        catch (Exception ex)
+        {
+            Log.Info($"Friends from the agent at {host}:{port} failed: {ex.Message}");
+            return null;
+        }
+    }
+
     /// <summary>Shared DayZ Editor presets from an agent. Empty on any problem.</summary>
     public async Task<List<Editor.EditorPreset>> GetEditorPresetsAsync(string host, int port, CancellationToken ct = default)
     {

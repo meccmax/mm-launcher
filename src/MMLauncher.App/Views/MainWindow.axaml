@@ -56,16 +56,27 @@
       <!-- Server lists: MM / All servers / Favorites / Recent -->
       <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
         <Grid RowDefinitions="Auto,Auto,*">
-          <Grid Grid.Row="0" ColumnDefinitions="*,*,*,*" Margin="10,10,10,4">
-            <Button Grid.Column="0" Classes="tab" Classes.active="{Binding IsMmTab}" Content="MM servers" Command="{Binding ShowMmTabCommand}" />
+          <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="10,10,10,4">
+            <Button Grid.Column="0" Classes="tab" Classes.active="{Binding IsMmTab}" Content="MM" Command="{Binding ShowMmTabCommand}"
+                    ToolTip.Tip="Misfit Mercenaries servers" Padding="12,8" />
             <Button Grid.Column="1" Classes="tab" Classes.active="{Binding IsAllTab}" Content="All servers" Command="{Binding ShowAllTabCommand}"
-                    ToolTip.Tip="Every DayZ server, with search and filters" />
-            <Button Grid.Column="2" Classes="tab" Classes.active="{Binding IsFavoritesTab}" Content="Favorites" Command="{Binding ShowFavoritesTabCommand}" />
-            <Button Grid.Column="3" Classes="tab" Classes.active="{Binding IsRecentTab}" Content="Recent" Command="{Binding ShowRecentTabCommand}" />
+                    ToolTip.Tip="Every DayZ server, with search and filters" Padding="12,8" />
+            <Button Grid.Column="2" Classes="tab" Classes.active="{Binding IsFriendsTab}" Content="Friends" Command="{Binding ShowFriendsTabCommand}"
+                    ToolTip.Tip="Servers your Steam friends are playing on, or were seen on" Padding="12,8" />
+            <Button Grid.Column="3" Classes="tab" Classes.active="{Binding IsFavoritesTab}" Content="Favorites" Command="{Binding ShowFavoritesTabCommand}" Padding="12,8" />
+            <Button Grid.Column="4" Classes="tab" Classes.active="{Binding IsRecentTab}" Content="Recent" Command="{Binding ShowRecentTabCommand}" Padding="12,8" />
           </Grid>
 
           <!-- Headers -->
           <TextBlock Grid.Row="1" Classes="label" Text="{Binding ServerCountText}" Margin="16,10,16,10" IsVisible="{Binding IsMmTab}" />
+          <StackPanel Grid.Row="1" IsVisible="{Binding IsFriendsTab}" Margin="16,10,12,8" Spacing="4">
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Classes="link" Content="Refresh" Command="{Binding RefreshFriendsCommand}" IsEnabled="{Binding !FriendsLoading}" />
+              <TextBlock Classes="label" Text="STEAM FRIENDS IN DAYZ" VerticalAlignment="Center" />
+            </DockPanel>
+            <TextBlock Text="{Binding FriendsStatus}" FontSize="12" Classes="muted" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding FriendsInMenus}" FontSize="12" Classes="muted" TextWrapping="Wrap" IsVisible="{Binding HasFriendsInMenus}" />
+          </StackPanel>
           <TextBlock Grid.Row="1" Classes="label" Text="FAVORITES" Margin="16,10,16,10" IsVisible="{Binding IsFavoritesTab}" />
           <TextBlock Grid.Row="1" Classes="label" Text="RECENTLY PLAYED" Margin="16,10,16,10" IsVisible="{Binding IsRecentTab}" />
           <StackPanel Grid.Row="1" IsVisible="{Binding IsAllTab}" Margin="12,8,12,8" Spacing="6">
@@ -162,10 +173,35 @@
             </StackPanel>
           </Panel>
 
+          <!-- Friends -->
+          <Panel Grid.Row="2" IsVisible="{Binding IsFriendsTab}">
+            <ListBox Classes="servers" Margin="10,0,10,10" ItemsSource="{Binding FriendRows}" SelectedItem="{Binding SelectedFriendRow}">
+              <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="vm:FriendServerRow">
+                  <Grid ColumnDefinitions="4,*">
+                    <Border Classes="accent" Grid.Column="0" Background="Transparent" CornerRadius="4,0,0,4" />
+                    <Grid Grid.Column="1" Margin="12,10" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                      <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13" TextTrimming="CharacterEllipsis"
+                                 ToolTip.Tip="{Binding Server}" />
+                      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Badge}" FontSize="10" FontWeight="Bold" Margin="10,0,0,0"
+                                 Foreground="{StaticResource Good}" IsVisible="{Binding Now}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding Badge}" FontSize="11" Margin="10,0,0,0" Classes="muted"
+                                 IsVisible="{Binding !Now}" VerticalAlignment="Center" />
+                      <TextBlock Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding FriendsText}" FontSize="12" Foreground="{StaticResource Silver}"
+                                 Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                    </Grid>
+                  </Grid>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock IsVisible="{Binding NoFriendRows}" Margin="30" VerticalAlignment="Center" TextWrapping="Wrap" TextAlignment="Center" Classes="muted"
+                       Text="No friends on DayZ servers right now. Servers you see friends on are remembered here for 30 days." />
+            <ProgressBar IsVisible="{Binding FriendsLoading}" IsIndeterminate="True" Foreground="{StaticResource Orange}" VerticalAlignment="Top" Margin="12,0" Height="3" MinHeight="3" />
+          </Panel>
+
           <!-- Favorites / Recent -->
-          <Panel Grid.Row="2" IsVisible="{Binding !IsMmTab}">
-            <ListBox Classes="servers" Margin="10,0,10,10" ItemsSource="{Binding SavedServers}" SelectedItem="{Binding SelectedSavedServer}"
-                     IsVisible="{Binding !IsAllTab}">
+          <Panel Grid.Row="2" IsVisible="{Binding IsSavedTab}">
+            <ListBox Classes="servers" Margin="10,0,10,10" ItemsSource="{Binding SavedServers}" SelectedItem="{Binding SelectedSavedServer}">
               <ListBox.ItemTemplate>
                 <DataTemplate x:DataType="vm:ServerViewModel">
                 <Grid ColumnDefinitions="4,*">
@@ -208,6 +244,9 @@
           </StackPanel>
           <TextBlock Text="{Binding Name}" FontSize="24" FontWeight="Bold" TextWrapping="Wrap" />
           <SelectableTextBlock Text="{Binding PortsText}" Classes="muted" FontSize="12" Foreground="{StaticResource Muted}" />
+          <TextBlock Text="{Binding $parent[Window].((vm:MainViewModel)DataContext).FriendsOnSelected}" FontSize="12" FontWeight="SemiBold"
+                     Foreground="{StaticResource Good}" TextWrapping="Wrap"
+                     IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasFriendsOnSelected}" />
           <TextBlock Text="{Binding Description}" Classes="muted" FontSize="12" TextWrapping="Wrap" Margin="0,2,0,0"
                      IsVisible="{Binding Description, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
           <Border Background="#2A1D12" BorderBrush="{StaticResource Orange}" BorderThickness="3,0,0,0" CornerRadius="3"
