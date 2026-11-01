@@ -9,8 +9,9 @@ namespace MMServerAgent;
 
 /// <summary>
 /// Every 5 minutes, asks each running DayZ server on this machine how many players it has
-/// (the normal Steam status query, on 127.0.0.1) and keeps 7 days of it in
-/// player-history.jsonc. Launchers draw it as the PLAYERS chart.
+/// (the normal Steam status query) and keeps 7 days of it in player-history.jsonc. Launchers
+/// draw it as the PLAYERS chart. A server started with -ip= only answers on that address, so
+/// besides 127.0.0.1 every address of this machine is tried, and the one that works is remembered.
 /// </summary>
 public sealed class PlayerHistoryRecorder(Action<string> log)
 {
@@ -21,7 +22,8 @@ public sealed class PlayerHistoryRecorder(Action<string> log)
     private readonly PlayerHistoryStore _store = PlayerHistoryStore.Load(FilePath);
     private readonly ConcurrentDictionary<int, string> _json = new();
     private DateTimeOffset _lastSample = DateTimeOffset.MinValue;
-    private bool _warnedQuery;
+    private readonly ConcurrentDictionary<int, IPAddress> _answersOn = new();
+    private readonly ConcurrentDictionary<int, bool> _warned = new();
 
     // Up to ~2000 numbers per answer: no indenting.
     private static readonly JsonSerializerOptions Compact = new(AgentResponse.Json) { WriteIndented = false };
@@ -44,18 +46,25 @@ public sealed class PlayerHistoryRecorder(Action<string> log)
     public async Task SampleAsync(IReadOnlyList<AgentServerInfo> running, DateTimeOffset now)
     {
         _lastSample = now;
+        var addresses = LocalAddresses();
         var readings = await Task.WhenAll(running.Select(async s =>
         {
-            try
+            var (info, at) = await QueryAsync(s.GamePort, s.QueryPort, addresses);
+            if (info != null && at != null)
             {
-                var (info, _) = await A2sClient.QueryInfoAsync(new IPEndPoint(IPAddress.Loopback, s.QueryPort), TimeSpan.FromSeconds(3));
+                if (!_answersOn.TryGetValue(s.GamePort, out var before) || !before.Equals(at))
+                {
+                    _answersOn[s.GamePort] = at;
+                    if (!at.Equals(IPAddress.Loopback) || _warned.ContainsKey(s.GamePort))
+                        log($"Player history: port {s.GamePort} answers on {at}:{s.QueryPort}.");
+                }
+                _warned.TryRemove(s.GamePort, out _);
                 return (s.GamePort, Players: (int?)info.Players, Max: info.MaxPlayers > 0 ? info.MaxPlayers : s.MaxPlayers);
             }
-            catch (Exception ex)
-            {
-                if (!_warnedQuery) { _warnedQuery = true; log($"Player history: port {s.GamePort} didn't answer a status query on 127.0.0.1:{s.QueryPort} ({ex.Message}); recorded as down."); }
-                return (s.GamePort, Players: (int?)null, Max: s.MaxPlayers);
-            }
+            if (_warned.TryAdd(s.GamePort, true))
+                log($"Player history: port {s.GamePort} didn't answer a status query on query port {s.QueryPort} at 127.0.0.1 or " +
+                    $"{(addresses.Count == 0 ? "any other address" : string.Join(", ", addresses))}; recorded as down until it does.");
+            return (s.GamePort, Players: (int?)null, Max: s.MaxPlayers);
         }));
         lock (_lock)
         {
@@ -67,6 +76,39 @@ public sealed class PlayerHistoryRecorder(Action<string> log)
             try { _store.Save(FilePath); }
             catch (Exception ex) { log("Player history: couldn't save " + FileName + ": " + ex.Message); }
         }
+    }
+
+    /// <summary>Tries the address that worked last time for this server, then 127.0.0.1, then this machine's other addresses.</summary>
+    private async Task<(A2sInfo? Info, IPAddress? At)> QueryAsync(int gamePort, int queryPort, IReadOnlyList<IPAddress> addresses)
+    {
+        var order = new List<IPAddress>();
+        if (_answersOn.TryGetValue(gamePort, out var known)) order.Add(known);
+        foreach (var a in new[] { IPAddress.Loopback }.Concat(addresses))
+            if (!order.Contains(a)) order.Add(a);
+        // All at once, so a server that answers nowhere costs one timeout, not one per address.
+        var tries = await Task.WhenAll(order.Select(async a =>
+        {
+            try { return (await A2sClient.QueryInfoAsync(new IPEndPoint(a, queryPort), TimeSpan.FromSeconds(2))).Info; }
+            catch (Exception) { return null; }
+        }));
+        for (int i = 0; i < order.Count; i++)
+            if (tries[i] != null) return (tries[i], order[i]);
+        return (null, null);
+    }
+
+    /// <summary>This machine's own IPv4 addresses (network cards that are up), not counting 127.0.0.1.</summary>
+    private static List<IPAddress> LocalAddresses()
+    {
+        try
+        {
+            return System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up)
+                .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+                .Select(u => u.Address)
+                .Where(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork && !IPAddress.IsLoopback(a))
+                .Distinct().Take(16).ToList();
+        }
+        catch (Exception) { return []; }
     }
 
     public HttpReply Handle(string query)
