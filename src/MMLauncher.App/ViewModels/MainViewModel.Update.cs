@@ -13,6 +13,9 @@ public partial class MainViewModel
 {
     private static readonly TimeSpan UpdateCheckEvery = TimeSpan.FromHours(6);
     private readonly UpdateChecker _updates = new(new HttpClient { Timeout = TimeSpan.FromMinutes(5) });
+
+    /// <summary>Set by the window: "Update to vX?" with formatted notes (title, message, notes, notes page) → yes/no.</summary>
+    public Func<string, string, IReadOnlyList<NoteLine>, string, Task<bool>>? AskUpdate { get; set; }
     private readonly DispatcherTimer _updateTimer = new() { Interval = UpdateCheckEvery };
     private ReleaseInfo? _availableRelease;
 
@@ -48,7 +51,7 @@ public partial class MainViewModel
             }
             _availableRelease = latest;
             UpdateAvailable = true;
-            UpdateButtonText = $"Update to v{latest.Version}";
+            UpdateButtonText = $"MM Launcher v{latest.Version} is available. Click to see what's new and update.";
             Log.Info($"Update available: {latest.Tag}");
             return $"Version v{latest.Version} is available.";
         }
@@ -71,7 +74,8 @@ public partial class MainViewModel
             return;
         }
 
-        if (!SelfUpdater.CanSelfUpdate)
+        bool dryRun = Core.Launch.GameLauncher.DryRun; // MMLAUNCHER_DRY_RUN=1: show the window, install nothing (testing)
+        if (!SelfUpdater.CanSelfUpdate && !dryRun)
         {
             // Developer build, or the exe sits somewhere we can't write: send them to the download page.
             OpenUrl(release.PageUrl);
@@ -79,15 +83,20 @@ public partial class MainViewModel
             return;
         }
 
-        if (AskConfirm != null)
+        if (AskUpdate != null)
         {
-            var notes = string.IsNullOrWhiteSpace(release.Notes) ? "" : "\n\nWhat's new:\n" + Trim(release.Notes, 900);
-            if (!await AskConfirm($"Update to v{release.Version}?",
-                    $"The launcher downloads the new version from GitHub, checks it, and restarts. You're on {VersionText}.{notes}",
-                    "Update and restart"))
+            // Everything new since this version (several releases if some were skipped).
+            var since = await _updates.GetNotesSinceAsync(SelfUpdater.CurrentVersion) ?? [(release.Version, release.Notes)];
+            if (since.Count == 0) since = [(release.Version, release.Notes)];
+            var notes = since.Count == 1 ? ReleaseNotes.Parse(since[0].Notes) : ReleaseNotes.Combine(since);
+            var skipped = since.Count > 1 ? $" This includes {since.Count} updates." : "";
+            if (!await AskUpdate($"Update to v{release.Version}?",
+                    $"The launcher downloads the new version from GitHub, checks it, and restarts. You're on {VersionText}.{skipped}",
+                    notes, since.Count > 1 ? UpdateChecker.ReleasesPage : release.PageUrl))
                 return;
         }
 
+        if (dryRun) { Log.Info("Dry run: update not installed."); return; }
         Updating = true;
         try
         {
@@ -118,5 +127,4 @@ public partial class MainViewModel
         try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); } catch { }
     }
 
-    private static string Trim(string s, int max) => s.Length <= max ? s : s[..max] + "…";
 }

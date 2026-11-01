@@ -32,10 +32,11 @@
                   ToolTip.Tip="Your downloaded mods (update, remove), and the Steam Workshop" />
         </StackPanel>
 
-        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-          <Button Classes="primary" Content="{Binding UpdateButtonText}" Command="{Binding UpdateNowCommand}"
+        <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <!-- Short label so the header still fits next to Refresh; the version is in the tooltip. -->
+          <Button Classes="primary" Content="Update" Command="{Binding UpdateNowCommand}" Padding="14,8"
                   IsVisible="{Binding UpdateAvailable}" IsEnabled="{Binding !Updating}"
-                  ToolTip.Tip="A newer MM Launcher is available. Click to see what's new and update." />
+                  ToolTip.Tip="{Binding UpdateButtonText}" />
           <Button Classes="ghost" Content="Report a problem" Command="{Binding ReportProblemCommand}"
                   ToolTip.Tip="Crashed or kicked? Bundle the logs and send them to staff" />
           <Button Classes="ghost" Content="Settings" Command="{Binding OpenSettingsCommand}"

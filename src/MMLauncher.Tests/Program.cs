@@ -869,6 +869,24 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
+Console.WriteLine("== Release notes in the update window ==");
+{
+    var notesDir = new DirectoryInfo(AppContext.BaseDirectory);
+    while (notesDir != null && !Directory.Exists(Path.Combine(notesDir.FullName, "release-notes"))) notesDir = notesDir.Parent;
+    var md = File.ReadAllText(Path.Combine(notesDir!.FullName, "release-notes", "v0.12.0.md"));
+    var noteLines = MMLauncher.Core.Updates.ReleaseNotes.Parse(md);
+    var notesText = string.Join("\n", noteLines.Select(l => l.Text));
+    Check(noteLines.Count > 5 && !notesText.Contains("**") && !notesText.Contains("##") && !notesText.Contains("](") && !notesText.Contains('`'),
+          "markdown marks removed (no ##, **, links or backticks)");
+    Check(noteLines.Any(l => l.Kind == MMLauncher.Core.Updates.NoteKind.Heading && l.Text == "New: color themes")
+          && noteLines.Count(l => l.Kind == MMLauncher.Core.Updates.NoteKind.Bullet) >= 4, "headings and bullet points kept as such");
+    Check(!notesText.Contains("MMServerAgent.zip") && !notesText.Contains("update-agent.bat") && notesText.Contains("Nothing is sent unless you say yes"),
+          "Downloads and Server admins sections left for the web page; nothing else cut");
+    var combined = MMLauncher.Core.Updates.ReleaseNotes.Combine([(new Version(0, 11, 0), "## A\n- one"), (new Version(0, 12, 0), "## B\n- two")]);
+    Check(combined[0].Text == "v0.12.0" && combined.Any(l => l.Text == "v0.11.0") && combined.FindIndex(l => l.Text == "v0.12.0") < combined.FindIndex(l => l.Text == "v0.11.0"),
+          "skipped versions all shown, newest first");
+}
+
 Console.WriteLine("== Usage stats ==");
 {
     var now = DateTimeOffset.Now;

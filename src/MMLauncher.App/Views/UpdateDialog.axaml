@@ -1,0 +1,26 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MMLauncher.App.Views.UpdateDialog"
+        Title="MM Launcher"
+        Width="560" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://MMLauncher/Assets/mm.ico"
+        Background="{DynamicResource Panel}">
+  <StackPanel Margin="22" Spacing="12">
+    <TextBlock x:Name="TitleText" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+    <TextBlock x:Name="MessageText" Foreground="{DynamicResource Silver}" FontSize="13" TextWrapping="Wrap" />
+    <!-- What's new: every release since the one installed, scrollable so nothing is cut off -->
+    <Border x:Name="NotesBox" Background="{DynamicResource Bg}" BorderBrush="{DynamicResource Line}" BorderThickness="1" CornerRadius="4">
+      <ScrollViewer MaxHeight="380" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="NotesPanel" Margin="14,12" Spacing="2" />
+      </ScrollViewer>
+    </Border>
+    <DockPanel Margin="0,6,0,0">
+      <Button x:Name="NotesLink" DockPanel.Dock="Left" Classes="link" Content="All release notes on GitHub" Click="OnNotesLink" VerticalAlignment="Center" />
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+        <Button Classes="ghost" Content="Not now" Click="OnCancel" IsCancel="True" />
+        <Button x:Name="OkButton" Classes="primary" Content="Update and restart" Click="OnOk" IsDefault="True" />
+      </StackPanel>
+    </DockPanel>
+  </StackPanel>
+</Window>

@@ -57,6 +57,38 @@ public sealed class UpdateChecker(HttpClient http)
             assets);
     }
 
+    /// <summary>
+    /// Release notes of every stable release newer than <paramref name="current"/> (up to 10),
+    /// so someone skipping versions sees everything they're getting. Null if GitHub can't be reached.
+    /// </summary>
+    public async Task<List<(Version Version, string Notes)>?> GetNotesSinceAsync(Version current, CancellationToken ct = default)
+    {
+        if (Environment.GetEnvironmentVariable("MMLAUNCHER_UPDATE_URL") is { Length: > 0 }) return null; // test server: latest only
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Get, $"https://api.github.com/repos/{Repository}/releases?per_page=15");
+            req.Headers.UserAgent.ParseAdd("MMLauncher-Updater");
+            req.Headers.Accept.ParseAdd("application/vnd.github+json");
+            using var res = await http.SendAsync(req, ct);
+            if (!res.IsSuccessStatusCode) return null;
+            using var doc = JsonDocument.Parse(await res.Content.ReadAsStringAsync(ct));
+            var list = new List<(Version, string)>();
+            foreach (var r in doc.RootElement.EnumerateArray())
+            {
+                if (r.TryGetProperty("draft", out var d) && d.GetBoolean()) continue;
+                if (r.TryGetProperty("prerelease", out var p) && p.GetBoolean()) continue;
+                if (!TryParseVersion(r.GetProperty("tag_name").GetString() ?? "", out var v) || !IsNewer(v, current)) continue;
+                var body = r.TryGetProperty("body", out var b) ? b.GetString() ?? "" : "";
+                list.Add((v, body.Length > 20_000 ? body[..20_000] : body));
+            }
+            return list.OrderByDescending(x => x.Item1).Take(10).ToList();
+        }
+        catch (Exception) when (!ct.IsCancellationRequested)
+        {
+            return null;
+        }
+    }
+
     /// <summary>"v0.5.0" / "0.5.0" / "0.5" -> 0.5.0. Anything after a '-' (e.g. "-beta") is ignored.</summary>
     public static bool TryParseVersion(string text, out Version version)
     {
