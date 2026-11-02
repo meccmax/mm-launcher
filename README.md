@@ -44,11 +44,13 @@ Server admins: download **MMServerAgent.zip** from the same page and follow `AGE
 
 The left panel has four tabs:
 - **MM servers:** the Misfit Mercenaries servers, as before.
-- **All servers:** every public DayZ server. Search by name, map or IP address, and filter by map (with server counts), 1PP or 3PP, modded or vanilla, hide empty, hide full. Sort by players, name, map or ping. Ping and live player counts are measured for the servers near the top of the list; sorting by ping measures a few hundred.
+- **All servers:** every public DayZ server. Search by name, map, **mod** or IP address, and filter by map (with server counts), country or continent, player count (has players, 1–14, 15–49, 50+), PvE or PvP, 1PP or 3PP, modded or vanilla, hide full and **Has AI**. Sort by players, name, map or ping. Ping and live player counts are measured for the servers near the top of the list; sorting by ping measures a few hundred.
 - **Favorites:** servers starred with the ☆ Favorite button.
 - **Recent:** the last 25 servers joined.
 
 Any server picked in any tab opens in the same details panel, with the full mod list, JOIN SERVER (with mod sync), Verify files, Repair and auto-rejoin. Vanilla servers with no mods can be joined too.
+
+**Mod search, AI and countries (v0.14).** Typing "Terje" finds every server running a Terje mod, even when its name doesn't say so, and the row shows which mods matched. "Has AI" keeps servers running an AI mod (DayZ-Expansion-AI, the Expansion Bundle, or a mod with AI or Bandits in its name) or with AI in their name. Both use mod lists the agent collects from every modded server with the standard A2S_RULES query (at most 40 servers a second, every 30 minutes), served at `/mm-agent/v1/browser-mods` and cached by the launcher as `browser-mods-cache.json.gz`. PvE is read from server names (DayZ has no PvE setting): "PvE" = PvE only, "PvPvE" or "PvE/PvP" = mixed. Countries come from the server's IP address, looked up on the agent with DB-IP's free country database ([db-ip.com](https://db-ip.com), CC BY 4.0), so they show where a server is hosted.
 
 The full list comes from Valve's Steam Web API (`IGameServersService/GetServerList`) through the MM Server Agent, which holds the API key (`SteamWebApiKey` in `agent.jsonc`) so it never ships in the launcher. Valve answers at most 10,000 servers per request, so the agent asks in parts (servers with players, empty servers, then by map where a part is still too big) and merges them. It refreshes the list every few minutes and serves it gzip-compressed over the encrypted connection at `/mm-agent/v1/browser`. The launcher keeps a copy (`browser-cache.json.gz`), so the tab opens instantly. Favorites and recent servers are saved in `favorites.jsonc`.
 
@@ -101,7 +103,8 @@ Each MM server's details have a **NEWS** tab next to REQUIRED MODS, for wipes, e
 
 The **MODS** page has two views:
 
-- **Downloaded:** every DayZ Workshop mod on this PC, with its size, last update and what uses it (MM servers, favorite and recent servers, editor presets, and the DayZ Editor itself). Filter by name or ID, by "Need an update" or by "Not used by anything". **Update all** downloads every outdated mod. **Remove** (one mod, or all unused ones) unsubscribes in Steam, so it isn't downloaded again, and deletes the folder.
+- **Downloaded:** every DayZ Workshop mod on this PC, with its size, last update, when you last played with it and what uses it (MM servers, favorite and recent servers, editor presets, and the DayZ Editor itself). Filter by name or ID, by "Need an update", "Not used by anything" or "Not played in 30+ days". **Update all** downloads every outdated mod. **Remove** (one mod, all unused ones, or all not played lately) unsubscribes in Steam, so it isn't downloaded again, and deletes the folder.
+- **Done with a server?** "Remove its mods…" in the server's mod list removes the mods only that server uses; mods another server, favorite, recent server or preset needs are kept. Favorite and recent servers remember their mod lists (in `favorites.jsonc`), so their mods count as used even before their tab is opened. When each mod was last loaded into DayZ is kept in `mod-usage.jsonc`.
 - **Steam Workshop:** search the DayZ Workshop or browse it by popular this week, most subscribed, recently updated or newest. Pasting a Workshop link or ID finds that item. Each result shows its thumbnail, size, subscribers and whether it's already installed. **Install** subscribes and downloads it through Steam, along with any mods it lists as required. **Open in Steam** shows its page in the Steam app.
 
 - **How it works:** the search goes through an MM agent's Steam Web API key (`IPublishedFileService/QueryFiles`), so the launcher needs no key. Answers are cached for 5 minutes and limited to 30 searches a minute per address. Only DayZ items are returned; thumbnails load only from Steam's own image hosts (https).

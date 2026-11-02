@@ -47,9 +47,9 @@ public static class A2sClient
     /// DayZ hides its binary mod list inside rule entries with 2-byte binary keys.
     /// </summary>
     public static async Task<List<KeyValuePair<byte[], byte[]>>> QueryRulesAsync(
-        IPEndPoint endpoint, TimeSpan? timeout = null, CancellationToken ct = default)
+        IPEndPoint endpoint, TimeSpan? timeout = null, CancellationToken ct = default, int attempts = Attempts)
     {
-        return await WithRetries(endpoint, async udp =>
+        return await WithRetries(endpoint, attempts, async udp =>
         {
             var t = timeout ?? DefaultTimeout;
             var reply = await ExchangeAsync(udp, A2sPackets.RulesRequest(), t, ct);
@@ -72,10 +72,13 @@ public static class A2sClient
         }, ct);
     }
 
-    private static async Task<T> WithRetries<T>(IPEndPoint endpoint, Func<UdpClient, Task<T>> action, CancellationToken ct)
+    private static Task<T> WithRetries<T>(IPEndPoint endpoint, Func<UdpClient, Task<T>> action, CancellationToken ct) =>
+        WithRetries(endpoint, Attempts, action, ct);
+
+    private static async Task<T> WithRetries<T>(IPEndPoint endpoint, int attempts, Func<UdpClient, Task<T>> action, CancellationToken ct)
     {
         Exception? last = null;
-        for (int attempt = 1; attempt <= Attempts; attempt++)
+        for (int attempt = 1; attempt <= Math.Max(1, attempts); attempt++)
         {
             ct.ThrowIfCancellationRequested();
             using var udp = new UdpClient(endpoint.AddressFamily);

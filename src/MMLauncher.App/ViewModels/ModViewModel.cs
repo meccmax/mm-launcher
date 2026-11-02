@@ -36,6 +36,11 @@ public partial class ModViewModel : ObservableObject
     /// <summary>Short form for the row, e.g. "used by 3 servers, 1 preset" (the full list is the tooltip).</summary>
     [ObservableProperty] private string _usedByShort = "";
 
+    /// <summary>Mods page: "last played 3 days ago" ("" when it hasn't been loaded since tracking started).</summary>
+    [ObservableProperty] private string _lastUsedText = "";
+    /// <summary>Mods page: not loaded into DayZ for 30+ days.</summary>
+    [ObservableProperty] private bool _isStale;
+
     /// <summary>Always loaded and can't be moved or removed (the DayZ Editor's own requirements).</summary>
     [ObservableProperty] private bool _locked;
     public bool Editable => !Locked;

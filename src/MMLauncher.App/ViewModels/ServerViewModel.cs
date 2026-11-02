@@ -139,6 +139,8 @@ public partial class ServerViewModel : ObservableObject
     }
 
     public bool HasMods => Mods.Count > 0;
+    /// <summary>At least one of its mods is downloaded (so "Remove its mods" has something to do).</summary>
+    public bool HasDownloadedMods => Mods.Any(m => m.State is ModState.Installed or ModState.UpdateAvailable);
     public bool WaitingForMods => !HasMods && !ModsKnown;
     public bool IsVanilla => !HasMods && ModsKnown;
 
@@ -257,6 +259,7 @@ public partial class ServerViewModel : ObservableObject
             if (missing > 0) parts.Add($"{missing} missing");
         }
         ModSummary = string.Join("  ·  ", parts.Where(p => p.Length > 0));
+        OnPropertyChanged(nameof(HasDownloadedMods));
     }
 
     private void RaiseDerived()

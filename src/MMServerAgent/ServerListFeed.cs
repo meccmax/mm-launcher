@@ -9,7 +9,7 @@ namespace MMServerAgent;
 /// agent.jsonc (the key stays on this server), and keeps the last good list
 /// (also on disk, so a restart serves it straight away).
 /// </summary>
-public sealed class ServerListFeed(AgentConfig config, Action<string> log)
+public sealed class ServerListFeed(AgentConfig config, Action<string> log, GeoIpUpdater? geo = null)
 {
     public const string CacheFile = "server-list-cache.json.gz";
     /// <summary>Valve returns at most this many servers per request, whatever "limit" says.</summary>
@@ -24,6 +24,12 @@ public sealed class ServerListFeed(AgentConfig config, Action<string> log)
     /// <summary>The latest list, gzip-compressed JSON (null until the first fetch).</summary>
     public byte[]? Gzip => _gzip;
     public int Count => _count;
+
+    /// <summary>The latest list itself (for the mod list crawler).</summary>
+    public IReadOnlyList<BrowserEntry> Servers { get; private set; } = [];
+
+    /// <summary>Raised after each fresh list from Steam.</summary>
+    public event Action? Updated;
 
     /// <summary>MMAGENT_STEAM_API overrides Valve's address (testing).</summary>
     private static string BaseUrl =>
@@ -44,6 +50,7 @@ public sealed class ServerListFeed(AgentConfig config, Action<string> log)
             {
                 _gzip = await File.ReadAllBytesAsync(CachePath, ct);
                 _count = cached.Servers.Count;
+                Servers = cached.Servers;
             }
         }
         catch { }
@@ -54,15 +61,26 @@ public sealed class ServerListFeed(AgentConfig config, Action<string> log)
         bool firstOk = true;
         while (!ct.IsCancellationRequested)
         {
+            if (geo != null)
+            {
+                try { await geo.EnsureFreshAsync(http, ct); }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
+            }
             try
             {
                 var feed = await FetchAsync(http, ct);
+                if (geo?.Enabled == true)
+                    foreach (var e in feed.Servers)
+                        if (e.TrySplit(out var ip, out _)) e.Country = geo.Lookup(ip);
                 var gz = feed.ToGzip();
                 _gzip = gz;
                 _count = feed.Servers.Count;
+                Servers = feed.Servers;
                 try { await File.WriteAllBytesAsync(CachePath, gz, ct); } catch { }
-                if (firstOk) log($"Server browser feed: {feed.Servers.Count} DayZ servers from Steam ({gz.Length / 1024} KB), refreshing every {every.TotalMinutes:0} min");
+                if (firstOk) log($"Server browser feed: {feed.Servers.Count} DayZ servers from Steam ({gz.Length / 1024} KB), refreshing every {every.TotalMinutes:0} min" +
+                                 (geo?.Enabled == true ? $"; {feed.Servers.Count(e => e.Country.Length > 0)} with a country" : ""));
                 firstOk = false;
+                try { Updated?.Invoke(); } catch { }
             }
             catch (OperationCanceledException) when (ct.IsCancellationRequested) { break; }
             catch (Exception ex)

@@ -126,6 +126,22 @@ Covers everything added since the first audit: Friends, Mods page and Workshop s
 
 **R3 (code signing):** the SignPath Foundation application was declined (not enough public use yet). R3 stays open; reapply once more people use the launcher. Until then, every download is checked against `SHA256SUMS.txt` by the launcher's updater and `update-agent.bat`.
 
+## Review: 2 November 2026 (v0.14.0)
+
+Covers the browser's new country, PvE, player-count, mod search and "Has AI" filters, and the Mods page's cleanup tools. No new packages.
+
+| Check | Result |
+|---|---|
+| Agent asking other servers for their mods | Only addresses in Valve's own server list, only modded ones, one small standard query each per round (every 30 minutes), at most 24 at once and 40 a second. Someone listing a fake server at a victim's address would get one packet per round, so it can't be used to flood anyone. |
+| Replies from unknown servers (parsed on the agent) | Same bounds-checked reader the launcher has always used for every server. At most 400 mods per server and 80 characters per name are kept; control and invisible formatting characters removed. A server that answers with junk is skipped. |
+| New endpoint `/mm-agent/v1/browser-mods` | Read-only, no input. Holds only what servers announce publicly. |
+| Mod lists received by the launcher | Size-capped (16 MB compressed, 48 MB unpacked). Every mod position is checked against the list, duplicates and junk dropped. Names are only shown as plain text. |
+| Country database | Downloaded by the agent over HTTPS from db-ip.com, at most once every 6 hours when due, capped at 64 MB, checked to read before it replaces the old copy. Lookups happen on the agent; no address is sent anywhere. |
+| New agent files (`geoip\`, `mod-index-cache.json.gz`) | Added to the lockdown allow list, so `install` / `update` still lock the agent folder. |
+| Removing mods | "Remove its mods" and "Remove these" ask first and use the same remove path as before. A mod that another MM server, favorite, recent server, preset or the DayZ Editor uses is never picked by "Remove its mods". Favorites and recent servers now remember their mod lists, so "Remove unused" no longer treats their mods as unused when their tab hasn't been opened yet (a gap found during this work, now fixed). |
+
+**Fixed in this release:** server names from Steam's list are now stripped of invisible right-to-left characters too (news already was), so a name can't be made to read differently from what it is. Self-check added.
+
 ## Recommendations for the maintainers
 
 | ID | Recommendation |

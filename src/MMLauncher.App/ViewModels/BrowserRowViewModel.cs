@@ -18,6 +18,8 @@ public partial class BrowserRowViewModel : ObservableObject
         Perspective = tags.FirstPersonOnly ? "1PP" : "3PP";
         TimeOfDay = tags.TimeOfDay ?? "";
         Queue = tags.Queue;
+        Country = entry.Country.ToUpperInvariant();
+        Mode = GameModes.Label(GameModes.Classify(entry.Name, entry.Keywords));
     }
 
     public BrowserEntry Entry { get; }
@@ -28,13 +30,37 @@ public partial class BrowserRowViewModel : ObservableObject
     [ObservableProperty] private int _maxPlayers;
     [ObservableProperty] private int? _pingMs;          // null = not measured yet, -1 = no answer
     [ObservableProperty] private bool _passworded;
+    /// <summary>When a search matched this server's mods rather than its name: "runs TerjeCore, TerjeSkills".</summary>
+    [ObservableProperty] private string _modHint = "";
+    public bool HasModHint => ModHint.Length > 0;
+    partial void OnModHintChanged(string value) => OnPropertyChanged(nameof(HasModHint));
+
+    /// <summary>How many mods it runs ("" if not known), and whether one of them is an AI mod.</summary>
+    public string ModCountText { get; private set; } = "";
+    public bool RunsAi { get; private set; }
+
+    public void ApplyModIndex(BrowserModIndex? index)
+    {
+        int count = index?.ModsOf(Entry.Address).Count ?? 0;
+        ModCountText = count > 0 ? $"{count} mods" : "";
+        RunsAi = BrowserModIndex.NameSaysAi(Entry.Name) || index?.RunsAi(Entry.Address) == true;
+        OnPropertyChanged(nameof(ModCountText));
+        OnPropertyChanged(nameof(RunsAi));
+        OnPropertyChanged(nameof(MapLine));
+    }
     public string Perspective { get; }
     public string TimeOfDay { get; }
     public int? Queue { get; }
+    /// <summary>"US", "DE", … ("" when unknown).</summary>
+    public string Country { get; }
+    public string CountryName => Countries.Name(Country);
+    public bool HasCountry => Country.Length > 0;
+    /// <summary>"PvE", "PvP", "PvPvE" when the server's name says so.</summary>
+    public string Mode { get; }
 
     public string MapLine => string.Join("  ·  ", new[]
     {
-        Format.MapName(Entry.Map), Perspective, TimeOfDay, Queue is > 0 ? $"queue {Queue}" : "", Passworded ? "password" : "",
+        Format.MapName(Entry.Map), Perspective, Mode, RunsAi ? "AI" : "", ModCountText, TimeOfDay, Queue is > 0 ? $"queue {Queue}" : "", Passworded ? "password" : "",
     }.Where(p => p.Length > 0));
 
     public string PlayersText => $"{Players}/{MaxPlayers}";

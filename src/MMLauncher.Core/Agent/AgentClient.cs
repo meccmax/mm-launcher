@@ -134,14 +134,22 @@ public sealed class AgentClient
     }
 
     /// <summary>Downloads the list of all DayZ servers an agent passes on from Steam. Null on any problem.</summary>
-    public async Task<Browser.BrowserFeed?> GetBrowserFeedAsync(string host, int port, CancellationToken ct = default)
+    public async Task<Browser.BrowserFeed?> GetBrowserFeedAsync(string host, int port, CancellationToken ct = default) =>
+        await GetGzipAsync(host, port, Browser.BrowserFeed.Path, "Server list", ct) is { } gz ? Browser.BrowserFeed.FromGzip(gz) : null;
+
+    /// <summary>Which mods each modded server runs (null if this agent doesn't collect them, or isn't ready).</summary>
+    public async Task<Browser.BrowserModIndex?> GetBrowserModsAsync(string host, int port, CancellationToken ct = default) =>
+        await GetGzipAsync(host, port, Browser.BrowserModIndex.Path, "Mod lists", ct) is { } gz ? Browser.BrowserModIndex.FromGzip(gz) : null;
+
+    /// <summary>Downloads one of the agent's gzip-compressed lists (at most 16 MB compressed).</summary>
+    private async Task<byte[]?> GetGzipAsync(string host, int port, string path, string what, CancellationToken ct)
     {
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(30));
         try
         {
             bool secure = _trust.RequiresTls(host, port);
-            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}{Browser.BrowserFeed.Path}", HttpCompletionOption.ResponseHeadersRead, cts.Token);
+            using var res = await _http.GetAsync($"{(secure ? "https" : "http")}://{host}:{port}{path}", HttpCompletionOption.ResponseHeadersRead, cts.Token);
             if (!res.IsSuccessStatusCode) return null;
             const int maxCompressed = 16 * 1024 * 1024;
             if (res.Content.Headers.ContentLength > maxCompressed) return null;
@@ -154,11 +162,11 @@ public sealed class AgentClient
                 ms.Write(buffer, 0, n);
                 if (ms.Length > maxCompressed) return null;
             }
-            return Browser.BrowserFeed.FromGzip(ms.ToArray());
+            return ms.ToArray();
         }
         catch (Exception ex)
         {
-            Log.Info($"Server list from the agent at {host}:{port} failed: {ex.Message}");
+            Log.Info($"{what} from the agent at {host}:{port} failed: {ex.Message}");
             return null;
         }
     }

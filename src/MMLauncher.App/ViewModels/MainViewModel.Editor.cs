@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using MMLauncher.Core.Config;
 using MMLauncher.Core.DayZ;
 using MMLauncher.Core.Editor;
 using MMLauncher.Core.Launch;
@@ -387,6 +388,7 @@ public partial class MainViewModel
             if (started)
             {
                 TrackUsage(new() { Type = "editor", Count = mods.Count });
+                ModUsage.Current.MarkUsed(mods.Select(m => m.Id));
                 ShowResult(true, "DayZ is starting with the Editor",
                     "Once you're at the main menu, open the Editor from there. Your work is saved from inside the Editor (File > Save), as .dze files.");
             }

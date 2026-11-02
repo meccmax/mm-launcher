@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MMLauncher.App.Steam;
+using MMLauncher.Core.Config;
 using MMLauncher.Core.DayZ;
 using MMLauncher.Core.Editor;
 using MMLauncher.Core.Launch;
@@ -37,11 +38,24 @@ public partial class MainViewModel
     [ObservableProperty] private string _workshopStatus = "";
     [ObservableProperty] private bool _workshopLoading;
     [ObservableProperty] private bool _workshopHasMore;
+    [ObservableProperty] private string _staleNotice = "";
 
     public ObservableCollection<ModViewModel> InstalledMods { get; } = [];
     public ObservableCollection<WorkshopRowViewModel> WorkshopResults { get; } = [];
 
-    public IReadOnlyList<string> InstalledFilterChoices { get; } = ["All mods", "Need an update", "Not used by anything"];
+    public IReadOnlyList<string> InstalledFilterChoices { get; } = ["All mods", "Need an update", "Not used by anything", $"Not played in {ModUsage.StaleDays}+ days"];
+    private const int StaleFilter = 3;
+
+    public bool HasStaleNotice => StaleNotice.Length > 0;
+    partial void OnStaleNoticeChanged(string value) => OnPropertyChanged(nameof(HasStaleNotice));
+
+    /// <summary>The toolbar's remove button: "Remove unused…", or "Remove these N…" when showing mods not played lately.</summary>
+    public string RemoveSetText => InstalledFilterIndex == StaleFilter
+        ? $"Remove these {_allInstalled.Count(m => m.IsStale)}…"
+        : "Remove unused…";
+    public string RemoveSetTip => InstalledFilterIndex == StaleFilter
+        ? $"Unsubscribe from and delete every mod you haven't played with in {ModUsage.StaleDays}+ days. Ones a server still uses are downloaded again when you join it."
+        : "Unsubscribe from and delete mods no MM server, favorite, recent server or editor preset uses";
     public IReadOnlyList<string> WorkshopSortChoices { get; } = WorkshopSearchReply.Sorts.Select(s => s.Label).ToList();
 
     public bool IsModsPage => Page == "mods";
@@ -80,12 +94,17 @@ public partial class MainViewModel
             }
             if (_sharedPresets.Count == 0) { try { await LoadSharedPresetsAsync(); } catch (Exception ex) { Log.Warn("Shared presets: " + ex.Message); } }
             var usedBy = UsedByMap();
+            var usage = ModUsage.Current;
+            var now = DateTimeOffset.Now;
             _allInstalled = ids.Select(id =>
             {
                 var local = _steam.Mods[id];
                 var vm = new ModViewModel(new DayZServerMod(id, MetaName(local.Folder) ?? id.ToString(), 0));
                 vm.Apply(_installedWorkshop.GetValueOrDefault(id), local, true);
                 if (vm.SizeBytes == 0 && local.SizeBytes > 0) { vm.SizeBytes = local.SizeBytes; vm.SizeText = Format.Size(local.SizeBytes); }
+                vm.IsStale = usage.IsStale(id, now);
+                vm.LastUsedText = ModUsage.Describe(usage.LastUsedOf(id), now) is { } when ? "last played " + when
+                                : vm.IsStale ? $"not played in {(int)(now - usage.Since).TotalDays}+ days" : "";
                 if (usedBy.TryGetValue(id, out var users))
                 {
                     vm.UsedBy = string.Join(", ", users.Take(8)) + (users.Count > 8 ? $" and {users.Count - 8} more" : "");
@@ -109,17 +128,33 @@ public partial class MainViewModel
         }
     }
 
-    /// <summary>Mod ID → the MM servers, saved servers and editor presets that use it.</summary>
-    private Dictionary<ulong, List<string>> UsedByMap()
+    /// <summary>
+    /// Mod ID → the MM servers, saved servers and editor presets that use it. Favorites and
+    /// recent servers count even when their tab hasn't been opened, from the mod lists saved
+    /// with them. <paramref name="except"/> leaves one server out (for "remove this server's mods").
+    /// </summary>
+    private Dictionary<ulong, List<string>> UsedByMap(ServerViewModel? except = null)
     {
+        bool IsExcluded(string host, int queryPort) => except != null && queryPort == except.Cached.QueryPort &&
+            (host.Equals(except.Cached.Host, StringComparison.OrdinalIgnoreCase) || host.Equals(except.ConnectIp, StringComparison.OrdinalIgnoreCase));
         var map = new Dictionary<ulong, List<string>>();
         void Add(ulong id, string who)
         {
             if (!map.TryGetValue(id, out var list)) map[id] = list = [];
             if (!list.Contains(who)) list.Add(who);
         }
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var s in Servers.Concat(FavoriteServers).Concat(RecentServers))
+        {
+            if (IsExcluded(s.Cached.Host, s.Cached.QueryPort) || IsExcluded(s.ConnectIp, s.Cached.QueryPort)) continue;
+            if (s.Mods.Count > 0) seen.Add(s.Key);
             foreach (var m in s.Mods) Add(m.WorkshopId, ShortName(s.Name));
+        }
+        foreach (var saved in _lists.Favorites.Concat(_lists.Recent))
+        {
+            if (IsExcluded(saved.Host, saved.QueryPort) || seen.Contains(saved.Key)) continue;
+            foreach (var id in saved.ModIds) Add(id, ShortName(saved.Name.Length > 0 ? saved.Name : saved.Key));
+        }
         // The DayZ Editor's own mods count as used by the DAYZ EDITOR page, so "Remove unused"
         // never takes the Editor away.
         foreach (var m in DayZEditor.Required) Add(m.Id, "the DayZ Editor");
@@ -145,14 +180,21 @@ public partial class MainViewModel
     private static string ShortName(string name) => name.Length <= 40 ? name : name[..39] + "…";
 
     partial void OnInstalledSearchChanged(string value) => ApplyInstalledFilter();
-    partial void OnInstalledFilterIndexChanged(int value) => ApplyInstalledFilter();
+    partial void OnInstalledFilterIndexChanged(int value)
+    {
+        ApplyInstalledFilter();
+        OnPropertyChanged(nameof(RemoveSetText));
+        OnPropertyChanged(nameof(RemoveSetTip));
+    }
+
+    [RelayCommand] private void ShowStaleMods() => InstalledFilterIndex = StaleFilter;
 
     private void ApplyInstalledFilter()
     {
         var words = InstalledSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var list = _allInstalled.Where(m =>
             words.All(w => m.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || m.WorkshopId.ToString().StartsWith(w)) &&
-            InstalledFilterIndex switch { 1 => m.IsUpdate, 2 => m.IsUnused, _ => true }).ToList();
+            InstalledFilterIndex switch { 1 => m.IsUpdate, 2 => m.IsUnused, StaleFilter => m.IsStale, _ => true }).ToList();
         InstalledMods.Clear();
         foreach (var m in list) InstalledMods.Add(m);
         InstalledEmptyText = list.Count > 0 ? "" : _allInstalled.Count == 0 ? "No DayZ mods downloaded yet." : "No mods match.";
@@ -162,8 +204,16 @@ public partial class MainViewModel
         int updates = _allInstalled.Count(m => m.IsUpdate);
         InstalledSummary = $"{_allInstalled.Count} mods  ·  {Format.Size(total)}" +
                            (updates > 0 ? $"  ·  {updates} need an update" : "") +
-                           (unused.Count > 0 ? $"  ·  {unused.Count} not used by anything ({Format.Size(unused.Sum(m => m.SizeBytes))})" : "");
+                           (unused.Count > 0 ? $"  ·  {unused.Count} not used by anything" + SizeNote(unused) : "");
+        var stale = _allInstalled.Where(m => m.IsStale).ToList();
+        StaleNotice = stale.Count == 0 || InstalledFilterIndex == StaleFilter ? ""
+            : $"{stale.Count} mod{(stale.Count == 1 ? "" : "s")} you haven't played with in {ModUsage.StaleDays}+ days" +
+              (stale.Sum(m => m.SizeBytes) is > 0 and var bytes ? $" take{(stale.Count == 1 ? "s" : "")} up {Format.Size(bytes)}." : ".");
+        OnPropertyChanged(nameof(RemoveSetText));
     }
+
+    /// <summary>" (1.2 GB)", or "" when the sizes aren't known.</summary>
+    private static string SizeNote(IEnumerable<ModViewModel> mods) => mods.Sum(m => m.SizeBytes) is > 0 and var b ? $" ({Format.Size(b)})" : "";
 
     [RelayCommand]
     private async Task UpdateAllModsAsync()
@@ -181,10 +231,47 @@ public partial class MainViewModel
         mod == null ? Task.CompletedTask : RemoveModsAsync([mod]);
 
     [RelayCommand]
-    private Task RemoveUnusedModsAsync() => RemoveModsAsync(_allInstalled.Where(m => m.IsUnused).ToList());
+    private Task RemoveUnusedModsAsync() => InstalledFilterIndex == StaleFilter
+        ? RemoveModsAsync(_allInstalled.Where(m => m.IsStale).ToList())
+        : RemoveModsAsync(_allInstalled.Where(m => m.IsUnused).ToList());
+
+    /// <summary>
+    /// "Remove this server's mods": the selected server's downloaded mods that nothing else
+    /// uses (no other MM server, favorite, recent server or editor preset). Shared ones stay.
+    /// </summary>
+    [RelayCommand]
+    private async Task RemoveServerModsAsync()
+    {
+        if (SelectedServer is not { } server || IsSyncing) return;
+        DetectSteam();
+        if (_steam == null) { ShowResult(false, "Steam wasn't found", "Check the Steam folder in Settings."); return; }
+        var installed = server.Mods.Where(m => m.WorkshopId != 0 && _steam.Mods.ContainsKey(m.WorkshopId))
+                                   .GroupBy(m => m.WorkshopId).Select(g => g.First()).ToList();
+        if (installed.Count == 0) { ShowResult(true, "Nothing to remove", $"None of {server.Name}'s mods are downloaded."); return; }
+        var usedElsewhere = UsedByMap(except: server);
+        var onlyHere = installed.Where(m => !usedElsewhere.ContainsKey(m.WorkshopId)).ToList();
+        int kept = installed.Count - onlyHere.Count;
+        if (onlyHere.Count == 0)
+        {
+            ShowResult(true, "Nothing to remove", installed.Count == 1
+                ? $"{server.Name}'s one downloaded mod is also used by other servers or presets you have, so it's kept."
+                : $"All {installed.Count} of {server.Name}'s downloaded mods are also used by other servers or presets you have, so they're kept.");
+            return;
+        }
+        var toRemove = onlyHere.Select(m =>
+        {
+            var vm = new ModViewModel(new DayZServerMod(m.WorkshopId, m.Name, 0)) { Name = m.Name };
+            var size = _steam.Mods[m.WorkshopId].SizeBytes;
+            vm.SizeBytes = m.SizeBytes > 0 ? m.SizeBytes : size;
+            return vm;
+        }).ToList();
+        await RemoveModsAsync(toRemove,
+            title: $"Remove {server.Name}'s mods?",
+            note: kept > 0 ? $"{kept} other mod{(kept == 1 ? "" : "s")} it uses {(kept == 1 ? "is" : "are")} kept, because other servers or presets you have use {(kept == 1 ? "it" : "them")} too." : "");
+    }
 
     /// <summary>Unsubscribes (so Steam doesn't download them again) and deletes the files.</summary>
-    private async Task RemoveModsAsync(List<ModViewModel> mods)
+    private async Task RemoveModsAsync(List<ModViewModel> mods, string? title = null, string note = "")
     {
         if (mods.Count == 0 || IsSyncing) return;
         DetectSteam();
@@ -192,10 +279,11 @@ public partial class MainViewModel
         if (GameLauncher.DayZIsRunning()) { ShowResult(false, "DayZ is running", "Close DayZ before removing mods."); return; }
         var what = mods.Count == 1 ? mods[0].Name : $"{mods.Count} mods";
         var used = mods.Where(m => !m.IsUnused).ToList();
-        if (AskConfirm != null && !await AskConfirm($"Remove {what}?",
+        if (AskConfirm != null && !await AskConfirm(title ?? $"Remove {what}?",
                 $"This unsubscribes from {what} in Steam and deletes the files ({Format.Size(mods.Sum(m => m.SizeBytes))}). " +
                 "Steam briefly shows you as playing DayZ while it unsubscribes." +
-                (used.Count > 0 ? $"\n\n{used.Count} of them are used by a server or preset; they'll be downloaded again when you join or start it." : ""),
+                (used.Count > 0 ? $"\n\n{used.Count} of them are used by a server or preset; they'll be downloaded again when you join or start it." : "") +
+                (note.Length > 0 ? "\n\n" + note : ""),
                 "Remove"))
             return;
 
@@ -233,9 +321,11 @@ public partial class MainViewModel
         try { ModHealth.PurgeTrash(_steam); } catch { }
         if (_steam.DayZPath != null) { try { ModHealth.RemoveModLinks(_steam.DayZPath); } catch { } }
         Log.Info($"Removed {deleted} mod folder(s); {result.Message}");
+        ModUsage.Current.Forget(mods.Where(m => result.Failed.All(f => f.Id != m.WorkshopId)).Select(m => m.WorkshopId));
 
         await LoadInstalledModsAsync();
         foreach (var s in Servers) s.ApplyModDetails(_installedWorkshop, _steam);
+        if (SelectedServer is { } sel && !Servers.Contains(sel)) { sel.ApplyModDetails(_installedWorkshop, _steam); RaiseJoinState(); }
         if (!result.Success) ShowResult(false, "Some mods weren't removed", result.Message);
         else if (locked.Count > 0) ShowResult(false, $"Removed {deleted}, {locked.Count} in use", "Close anything using these, then try again: " + string.Join("; ", locked.Take(3)));
         else ShowResult(true, $"Removed {what}", $"Unsubscribed and deleted {deleted} mod folder(s).");
@@ -337,6 +427,8 @@ public partial class MainViewModel
         var done = await PrepareModListAsync($"Workshop: {row.Title}", list, askSteamAnyway: true);
         DetectSteam();
         foreach (var w in WorkshopResults) UpdateWorkshopState(w);
+        // Just downloaded on purpose: counts as fresh, so it isn't flagged as "not played" straight away.
+        if (done != null) ModUsage.Current.MarkUsed(list.Select(m => m.Id));
         if (done != null)
             ShowResult(true, $"Installed {row.Title}", row.Item.Requires.Count > 0
                 ? $"Downloaded with the {row.Item.Requires.Count} mod(s) it needs. Steam keeps them updated."

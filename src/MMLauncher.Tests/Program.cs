@@ -470,6 +470,44 @@ Console.WriteLine("== Server browser ==");
           .SequenceEqual(["5.6.7.8:2303", "1.2.3.4:27016"]), "sort by ping (unmeasured last)");
     Check(MMLauncher.Core.Browser.BrowserService.Maps(all).First() is ("chernarusplus", 2), "map list with counts");
 
+    // Player count, PvE and country filters
+    Check(B(all, new(PlayerCount: MMLauncher.Core.Browser.PlayerRange.NotEmpty), null).Count == 3
+          && B(all, new(PlayerCount: MMLauncher.Core.Browser.PlayerRange.Few), null).Single().Name == "EvilName"
+          && B(all, new(PlayerCount: MMLauncher.Core.Browser.PlayerRange.Medium), null).Single().Name == "Alpha PvE | 1PP"
+          && B(all, new(PlayerCount: MMLauncher.Core.Browser.PlayerRange.Busy), null).Single().Name == "Charlie Full", "player count ranges (has players, 1-14, 15-49, 50+)");
+    var GM = MMLauncher.Core.Browser.GameModes.Classify;
+    Check(GM("Alpha PvE | 1PP") == MMLauncher.Core.Browser.GameMode.PvE && GM("[PVE-ONLY] Deer Isle") == MMLauncher.Core.Browser.GameMode.PvE
+          && GM("PvPvE Namalsk") == MMLauncher.Core.Browser.GameMode.Mixed && GM("PvE/PvP zones") == MMLauncher.Core.Browser.GameMode.Mixed
+          && GM("Hardcore PVP") == MMLauncher.Core.Browser.GameMode.PvP && GM("Pvezone Livonia") == MMLauncher.Core.Browser.GameMode.Unlabeled
+          && GM("Chernarus Vanilla") == MMLauncher.Core.Browser.GameMode.Unlabeled, "PvE / PvP / PvPvE read from server names");
+    Check(B(all, new(Mode: MMLauncher.Core.Browser.ModeFilter.PvEOnly), null).Single().Name == "Alpha PvE | 1PP"
+          && B(all, new(Mode: MMLauncher.Core.Browser.ModeFilter.PvP), null).Count == 3, "PvE only / PvP filter");
+    all[0].Country = "DE"; all[1].Country = "US"; all[2].Country = "FR";
+    Check(B(all, new(Country: "US"), null).Single().Name == "Bravo Deer Isle" && B(all, new(Country: "@EU"), null).Count == 2
+          && B(all, new(Country: "@AS"), null).Count == 0, "country and continent filter (servers without a country only in Anywhere)");
+    var choices = MMLauncher.Core.Browser.BrowserService.CountryChoices(all);
+    Check(choices[0] is ("@EU", "Europe", 2) && choices.Any(c => c.Value == "@NA" && c.Count == 1) && choices.Any(c => c.Value == "DE" && c.Label == "Germany"),
+        "country list: continents first, then countries, with names and counts");
+    var roundC = MMLauncher.Core.Browser.BrowserFeed.FromGzip(new MMLauncher.Core.Browser.BrowserFeed { Servers =
+        [new() { Address = "1.2.3.4:1", Name = "a", Country = "DE" }, new() { Address = "1.2.3.5:1", Name = "b", Country = "<script>" }] }.ToGzip());
+    Check(roundC!.Servers[0].Country == "DE" && roundC.Servers[1].Country == "", "country survives the feed; junk countries dropped");
+    var tricky = MMLauncher.Core.Browser.BrowserFeed.FromGzip(new MMLauncher.Core.Browser.BrowserFeed { Servers =
+        [new() { Address = "1.2.3.4:1", Name = "Safe \u202Egnp.exe" }] }.ToGzip());
+    Check(tricky!.Servers[0].Name == "Safe gnp.exe", "hidden right-to-left characters removed from server names");
+
+    var geoCsv = "0.0.0.0,0.255.255.255,ZZ\n1.0.0.0,1.0.0.255,AU\n1.0.1.0,1.0.3.255,CN\n2001:200::,2001:200:ffff:ffff:ffff:ffff:ffff:ffff,JP\n8.8.8.0,8.8.8.255,US\n";
+    var geo = MMLauncher.Core.Browser.GeoIpDatabase.LoadCsv(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(geoCsv)));
+    Check(geo.Count == 3 && geo.Lookup("1.0.0.7") == "AU" && geo.Lookup("1.0.2.200") == "CN" && geo.Lookup("8.8.8.8") == "US"
+          && geo.Lookup("1.0.4.0") == "" && geo.Lookup("0.1.2.3") == "" && geo.Lookup("2001:200::1") == "" && geo.Lookup("nonsense") == "",
+        "country database: ranges looked up; unknown, IPv6 and ZZ give nothing");
+    var realGeo = Environment.GetEnvironmentVariable("MMTEST_GEOIP");
+    if (realGeo is { Length: > 0 } && File.Exists(realGeo))
+    {
+        using var gz = File.OpenRead(realGeo);
+        var big = MMLauncher.Core.Browser.GeoIpDatabase.LoadGzip(gz);
+        Check(big.Count > 100_000 && big.Lookup("8.8.8.8") == "US" && big.Lookup("193.99.144.80") == "DE", $"real DB-IP file reads ({big.Count:N0} ranges)");
+    }
+
     // Favorites and recent
     var lists = new ServerLists();
     Check(lists.ToggleFavorite("1.2.3.4", 27016, 2302, "Alpha") && lists.IsFavorite("1.2.3.4", 27016) && !lists.ToggleFavorite("1.2.3.4", 27016, 2302, "Alpha"),
@@ -479,6 +517,25 @@ Console.WriteLine("== Server browser ==");
     Check(lists.Recent.Count == ServerLists.MaxRecent && lists.Recent[0].Name == "S5" && lists.Recent.Count(r => r.Name == "S5") == 1,
           "recent list: newest first, no duplicates, capped");
     Check(File.ReadAllText(ServerLists.FilePath).StartsWith("// MM Launcher") && ServerLists.Load().Recent.Count == ServerLists.MaxRecent, "favorites.jsonc saved with comments");
+    Check(lists.RememberMods("10.0.0.5", 2303, [111, 222, 0, 111]) && !lists.RememberMods("10.0.0.5", 2303, [111, 222])
+          && !lists.RememberMods("99.9.9.9", 2303, [5]) && !lists.RememberMods("10.0.0.5", 2303, []),
+          "saved server remembers its mods (unchanged, unknown servers and empty lists ignored)");
+    lists.AddRecent("10.0.0.5", 2303, 2302, "S5 renamed");
+    Check(ServerLists.Load().Recent.First().ModIds.SequenceEqual(new ulong[] { 111, 222 }), "mod list kept when the server is played again, and saved");
+
+    // When mods were last played
+    if (File.Exists(ModUsage.FilePath)) File.Delete(ModUsage.FilePath);
+    var usage = ModUsage.Load();
+    var now = DateTimeOffset.Now;
+    Check(!usage.IsStale(42, now) && usage.IsStale(42, now.AddDays(31)), "never-played mods count from when tracking started (nothing old on day one)");
+    usage.MarkUsed([42], now.AddDays(20));
+    Check(!usage.IsStale(42, now.AddDays(45)) && usage.IsStale(42, now.AddDays(51)) && usage.IsStale(7, now.AddDays(45)), "30 days after last played = not played lately");
+    var reloaded = ModUsage.Load();
+    Check(reloaded.LastUsedOf(42) is { } t42 && Math.Abs((t42 - now.AddDays(20)).TotalSeconds) < 1 && File.ReadAllText(ModUsage.FilePath).StartsWith("// MM Launcher"),
+          "mod-usage.jsonc saved with comments and read back");
+    reloaded.Forget([42]);
+    Check(ModUsage.Load().LastUsedOf(42) == null && ModUsage.Describe(now.AddDays(-3), now) == "3 days ago" && ModUsage.Describe(now.AddHours(-2), now) == "today"
+          && ModUsage.Describe(now.AddDays(-90), now) == "3 months ago" && ModUsage.Describe(null, now) == null, "removed mods forgotten; ages described");
 
     // Agent fetches from (fake) Steam and serves it; launcher downloads it.
     using var fakeSteam = new HttpListener();
@@ -595,6 +652,114 @@ Console.WriteLine("== Server browser ==");
     lock (badLog) Check(badLog.Any(l => l.Contains("rejected the SteamWebApiKey")) && badLog.All(l => !l.Contains("wrongkey")), "a wrong Steam key is reported clearly, without showing it");
     fakeSteam.Stop();
     Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+}
+
+Console.WriteLine("== Mod search ==");
+{
+    // Building, compressing and checking the index.
+    var built = MMLauncher.Core.Browser.BrowserModIndex.Build(new Dictionary<string, IReadOnlyList<DayZServerMod>>
+    {
+        ["1.1.1.1:2303"] = [new(1559212036, "CF", 0), new(3359676785, "TerjeSkills", 0), new(2792982069, "DayZ-Expansion-AI", 0)],
+        ["2.2.2.2:2303"] = [new(1559212036, "CF", 0), new(1828439124, "VPPAdminTools", 0), new(1559212036, "CF", 0), new(0, "local mod", 0)],
+        ["3.3.3.3:2303"] = [new(5, "Bandits of Chernarus", 0)],
+        ["4.4.4.4:2303"] = [new(6, "Airdrop Upgraded", 0), new(7, "MainMenuMusic", 0)],
+    });
+    Check(built.Mods.Count == 7 && built.Servers["2.2.2.2:2303"].Count == 2, "mod index lists each mod once; duplicates and local mods dropped");
+    var idx = MMLauncher.Core.Browser.BrowserModIndex.FromGzip(built.ToGzip())!;
+    Check(idx.ModsOf("1.1.1.1:2303").Select(m => m.Name).SequenceEqual(["CF", "TerjeSkills", "DayZ-Expansion-AI"]) && idx.ModsOf("9.9.9.9:1").Count == 0,
+        "mod index survives compression");
+    Check(idx.RunsAi("1.1.1.1:2303") && idx.RunsAi("3.3.3.3:2303") && !idx.RunsAi("2.2.2.2:2303") && !idx.RunsAi("4.4.4.4:2303"),
+        "AI mods recognised (Expansion AI by ID, \"Bandits\" by name; \"Airdrop\"/\"MainMenu\" are not AI)");
+    Check(MMLauncher.Core.Browser.BrowserModIndex.NameSaysAi("Deer Isle PvE | AI | Traders") && MMLauncher.Core.Browser.BrowserModIndex.NameSaysAi("[eAI] Livonia")
+          && !MMLauncher.Core.Browser.BrowserModIndex.NameSaysAi("Main Chernarus") && !MMLauncher.Core.Browser.BrowserModIndex.NameSaysAi("Hardcore Raid"),
+        "AI in a server name (but not inside words)");
+
+    // A tampered index: positions out of range and junk are dropped instead of crashing.
+    var junk = new MMLauncher.Core.Browser.BrowserModIndex { Mods = [new() { Id = 1, Name = "Ok\u0007Mod" }], Servers = new() { ["5.5.5.5:1"] = [0, 7, -1, 0] } };
+    var cleaned = MMLauncher.Core.Browser.BrowserModIndex.FromGzip(junk.ToGzip());
+    Check(cleaned != null && cleaned.Servers["5.5.5.5:1"].SequenceEqual([0]) && cleaned.Mods[0].Name == "OkMod", "damaged mod index cleaned");
+    Check(MMLauncher.Core.Browser.BrowserModIndex.FromGzip([9, 9, 9]) == null, "unreadable mod index refused");
+
+    // Searching and filtering with it.
+    var entries = new List<MMLauncher.Core.Browser.BrowserEntry>
+    {
+        new() { Address = "1.1.1.1:2303", Name = "Alpha Survival", Map = "chernarusplus", Players = 30, MaxPlayers = 60, Keywords = "mod" },
+        new() { Address = "2.2.2.2:2303", Name = "Bravo Terje Fans", Map = "deerisle", Players = 20, MaxPlayers = 60, Keywords = "mod" },
+        new() { Address = "3.3.3.3:2303", Name = "Charlie", Map = "enoch", Players = 10, MaxPlayers = 60, Keywords = "mod" },
+        new() { Address = "6.6.6.6:2303", Name = "Delta AI PvE", Map = "enoch", Players = 5, MaxPlayers = 60, Keywords = "" },
+    };
+    var A = MMLauncher.Core.Browser.BrowserService.Apply;
+    Check(A(entries, new(Search: "terje"), null, idx).Select(e => e.Name).SequenceEqual(["Alpha Survival", "Bravo Terje Fans"])
+          && A(entries, new(Search: "terje"), null, null).Single().Name == "Bravo Terje Fans", "search finds servers by mod (and by name without an index)");
+    Check(A(entries, new(Search: "vpp deer"), null, idx).Single().Name == "Bravo Terje Fans", "every search word must match (mod or name)");
+    Check(A(entries, new(HasAi: true), null, idx).Select(e => e.Name).SequenceEqual(["Alpha Survival", "Charlie", "Delta AI PvE"])
+          && A(entries, new(HasAi: true), null, null).Single().Name == "Delta AI PvE", "Has AI: AI mods or AI in the name");
+    Check(idx.MatchingMods("1.1.1.1:2303", "terje").SequenceEqual(["TerjeSkills"]), "shows which mods matched");
+
+    // The agent collects mod lists from (fake) servers: two answer, one big one needs a split reply,
+    // one is dead, and vanilla servers aren't asked at all.
+    if (fake)
+    {
+        var listJson = """
+        {"response":{"servers":[
+          {"addr":"127.0.0.1:2305","gameport":2302,"name":"Deer","appid":221100,"map":"deerisle","players":37,"max_players":60,"gametype":"battleye,mod"},
+          {"addr":"127.0.0.1:2315","gameport":2312,"name":"Nasdara","appid":221100,"map":"nasdara","players":12,"max_players":50,"gametype":"battleye,mod"},
+          {"addr":"127.0.0.1:2325","gameport":2322,"name":"Sakhal","appid":221100,"map":"sakhal","players":0,"max_players":40,"gametype":"battleye,mod"},
+          {"addr":"127.0.0.1:2399","gameport":2398,"name":"Dead","appid":221100,"map":"enoch","players":0,"max_players":40,"gametype":"mod"},
+          {"addr":"127.0.0.1:2330","gameport":2329,"name":"Vanilla junk","appid":221100,"map":"enoch","players":0,"max_players":40,"gametype":"battleye"}
+        ]}}
+        """;
+        using var listSteam = new HttpListener();
+        listSteam.Prefixes.Add("http://127.0.0.1:8094/");
+        listSteam.Start();
+        _ = Task.Run(async () =>
+        {
+            while (listSteam.IsListening)
+            {
+                HttpListenerContext ctx;
+                try { ctx = await listSteam.GetContextAsync(); } catch { break; }
+                var bytes = System.Text.Encoding.UTF8.GetBytes(listJson);
+                await ctx.Response.OutputStream.WriteAsync(bytes);
+                ctx.Response.Close();
+            }
+        });
+        Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", "http://127.0.0.1:8094");
+        File.Delete(Path.Combine(AppContext.BaseDirectory, MMServerAgent.ServerListFeed.CacheFile));
+        File.Delete(Path.Combine(AppContext.BaseDirectory, MMServerAgent.ModListCrawler.CacheFile));
+        var crawlLog = new List<string>();
+        var crawlCfg = new MMServerAgent.AgentConfig { SteamWebApiKey = "good", CountryLookup = false };
+        var listFeed = new MMServerAgent.ServerListFeed(crawlCfg, m => { lock (crawlLog) crawlLog.Add(m); });
+        var crawler = new MMServerAgent.ModListCrawler(crawlCfg, listFeed, m => { lock (crawlLog) crawlLog.Add(m); });
+        using var crawlStop = new CancellationTokenSource();
+        var listRun = listFeed.RunAsync(crawlStop.Token);
+        var crawlRun = crawler.RunAsync(crawlStop.Token);
+        for (int i = 0; i < 200 && crawler.Gzip == null; i++) await Task.Delay(100);
+        var crawled = crawler.Gzip is { } cg ? MMLauncher.Core.Browser.BrowserModIndex.FromGzip(cg) : null;
+        Check(crawled != null && crawled.Servers.Count == 3 && crawled.ModsOf("127.0.0.1:2305").Count == 12
+              && crawled.ModsOf("127.0.0.1:2315").Count == 3 && crawled.ModsOf("127.0.0.1:2325").Count == 12 && !crawled.Has("127.0.0.1:2330"),
+            $"agent collects mod lists from modded servers (big split reply too; dead and vanilla skipped): {crawled?.Servers.Count} servers");
+        Check(crawled != null && crawled.RunsAi("127.0.0.1:2305") && !crawled.RunsAi("127.0.0.1:2315"), "collected lists know which servers run AI");
+        lock (crawlLog) Check(crawlLog.Any(l => l.Contains("Mod search: mod lists from 3 of 4 modded servers")), "agent logs the round");
+        Check(File.Exists(Path.Combine(AppContext.BaseDirectory, MMServerAgent.ModListCrawler.CacheFile)), "mod lists kept on disk for a quick restart");
+
+        // Served to launchers at /mm-agent/v1/browser-mods.
+        using var modCert = MMServerAgent.TlsIdentity.Load(MMServerAgent.TlsIdentity.Create());
+        using var stopModServer = new CancellationTokenSource();
+        _ = new MMServerAgent.MiniHttpServer(2983, 1 << 20, r => Task.FromResult(r.Path == MMLauncher.Core.Browser.BrowserModIndex.Path
+            ? new MMServerAgent.HttpReply(200, "application/json", "", crawler.Gzip, "gzip")
+            : new MMServerAgent.HttpReply(404, "text/plain", "no")), null, modCert).RunAsync(stopModServer.Token);
+        await Task.Delay(200);
+        var modTrustDir = Path.Combine(root, "trust-mods");
+        Directory.CreateDirectory(modTrustDir);
+        var modTrust = new AgentTrust(modTrustDir);
+        modTrust.Remember("127.0.0.1", 2983, AgentTrust.Fingerprint(modCert));
+        var gotMods = await new AgentClient(modTrust).GetBrowserModsAsync("127.0.0.1", 2983);
+        Check(gotMods?.ModsOf("127.0.0.1:2305").Count == 12, "launcher downloads the mod lists from the agent");
+        stopModServer.Cancel();
+        crawlStop.Cancel();
+        listSteam.Stop();
+        Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
+    }
 }
 
 Console.WriteLine("== Restart schedule ==");

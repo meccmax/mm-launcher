@@ -17,6 +17,8 @@ MM Launcher and MM Server Agent are MIT-licensed (see [LICENSE](LICENSE)). They 
 | Microsoft.Extensions.Hosting.WindowsServices | Running the agent as a Windows service | MIT | © Microsoft Corporation |
 | .NET runtime | Everything | MIT | © .NET Foundation and Contributors |
 
+The MM Server Agent downloads (it isn't included in any download) **DB-IP's IP to Country Lite** database to show which country each server is in: [IP Geolocation by DB-IP](https://db-ip.com), licensed under [Creative Commons Attribution 4.0](https://creativecommons.org/licenses/by/4.0/). The launcher credits it in the Country filter's tooltip.
+
 The Windows installer (`MMLauncher-Setup.exe`) is built with [Inno Setup](https://jrsoftware.org/isinfo.php) (© Jordan Russell and Martijn Laan; free for any use).
 
 The full license texts come with each package on [nuget.org](https://www.nuget.org/). This list was checked against each package's own license information on 1 November 2026.

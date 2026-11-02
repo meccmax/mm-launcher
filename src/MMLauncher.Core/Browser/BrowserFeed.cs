@@ -52,7 +52,19 @@ public sealed class BrowserFeed
             bounded.Position = 0;
             var feed = JsonSerializer.Deserialize<BrowserFeed>(bounded, Options);
             if (feed == null) return null;
+            feed.Servers = (feed.Servers ?? []).Where(s => s != null).ToList();
+            foreach (var s in feed.Servers)
+            {
+                s.Address ??= "";
+                s.Name = Clip(s.Name ?? "", 160);
+                s.Map = Clip(s.Map ?? "", 40);
+                s.Keywords = Clip(s.Keywords ?? "", 400);
+                s.Version = Clip(s.Version ?? "", 24);
+                s.Country ??= "";
+            }
             feed.Servers = feed.Servers.Where(s => s.Valid).ToList();
+            foreach (var s in feed.Servers)
+                if (s.Country.Length != 2 || !s.Country.All(char.IsAsciiLetter)) s.Country = "";
             return feed;
         }
         catch (Exception ex) when (ex is InvalidDataException or JsonException or IOException)
@@ -97,7 +109,8 @@ public sealed class BrowserFeed
 
     private static string Clip(string s, int max)
     {
-        var clean = new string(s.Where(c => !char.IsControl(c)).ToArray()).Trim();
+        // No control characters, and no invisible formatting ones (right-to-left overrides can make a name read differently).
+        var clean = new string(s.Where(c => !char.IsControl(c) && char.GetUnicodeCategory(c) != System.Globalization.UnicodeCategory.Format).ToArray()).Trim();
         return clean.Length <= max ? clean : clean[..max];
     }
 }
@@ -115,6 +128,8 @@ public sealed class BrowserEntry
     /// <summary>DayZ's keyword string: battleye, no3rd, lqs, etm, time, ...</summary>
     [JsonPropertyName("k")] public string Keywords { get; set; } = "";
     [JsonPropertyName("v")] public string Version { get; set; } = "";
+    /// <summary>Country the server's IP address is in ("US", "DE", …), added by the agent; "" if unknown.</summary>
+    [JsonPropertyName("c")] public string Country { get; set; } = "";
 
     [JsonIgnore]
     public bool Valid => TrySplit(out _, out _) && Name.Length > 0;

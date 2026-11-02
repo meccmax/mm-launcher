@@ -84,7 +84,7 @@
           <TextBlock Grid.Row="1" Classes="label" Text="FAVORITES" Margin="16,10,16,10" IsVisible="{Binding IsFavoritesTab}" />
           <TextBlock Grid.Row="1" Classes="label" Text="RECENTLY PLAYED" Margin="16,10,16,10" IsVisible="{Binding IsRecentTab}" />
           <StackPanel Grid.Row="1" IsVisible="{Binding IsAllTab}" Margin="12,8,12,8" Spacing="6">
-            <TextBox Watermark="Search name, map or IP address" Text="{Binding BrowserSearch}" />
+            <TextBox Watermark="{Binding BrowserSearchHint}" Text="{Binding BrowserSearch}" />
             <Grid ColumnDefinitions="*,6,*">
               <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding MapOptions}" SelectedItem="{Binding SelectedMap}"
                         ToolTip.Tip="Map">
@@ -92,8 +92,18 @@
                   <DataTemplate x:DataType="vm:FilterOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
                 </ComboBox.ItemTemplate>
               </ComboBox>
-              <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding SortChoices}" SelectedIndex="{Binding SortIndex}"
-                        ToolTip.Tip="Sort by" />
+              <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding CountryOptions}" SelectedItem="{Binding SelectedCountry}"
+                        ToolTip.Tip="{Binding CountryTip}" MaxDropDownHeight="420">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate x:DataType="vm:FilterOption"><TextBlock Text="{Binding Label}" /></DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+            </Grid>
+            <Grid ColumnDefinitions="*,6,*">
+              <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding PlayerCountChoices}" SelectedIndex="{Binding PlayerCountIndex}"
+                        ToolTip.Tip="How many players are on right now" />
+              <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding ModeChoices}" SelectedIndex="{Binding ModeIndex}"
+                        ToolTip.Tip="DayZ has no PvE setting, so this goes by what each server calls itself. &quot;PvE only&quot; = servers with PvE in their name (not PvPvE). &quot;PvP / PvPvE&quot; = all the rest." />
             </Grid>
             <Grid ColumnDefinitions="*,6,*">
               <ComboBox Grid.Column="0" HorizontalAlignment="Stretch" ItemsSource="{Binding PerspectiveChoices}" SelectedIndex="{Binding PerspectiveIndex}"
@@ -101,10 +111,14 @@
               <ComboBox Grid.Column="2" HorizontalAlignment="Stretch" ItemsSource="{Binding ModsChoices}" SelectedIndex="{Binding ModsIndex}"
                         ToolTip.Tip="Based on the tags each server reports" />
             </Grid>
-            <StackPanel Orientation="Horizontal" Spacing="16">
-              <CheckBox Content="Hide empty" IsChecked="{Binding HideEmpty}" FontSize="12" />
-              <CheckBox Content="Hide full" IsChecked="{Binding HideFull}" FontSize="12" />
-            </StackPanel>
+            <Grid ColumnDefinitions="*,Auto">
+              <StackPanel Orientation="Horizontal" Spacing="14" VerticalAlignment="Center">
+                <CheckBox Content="Hide full" IsChecked="{Binding HideFull}" FontSize="12" />
+                <CheckBox Content="Has AI" IsChecked="{Binding HasAi}" FontSize="12" ToolTip.Tip="{Binding HasAiTip}" />
+              </StackPanel>
+              <ComboBox Grid.Column="1" Width="150" ItemsSource="{Binding SortChoices}" SelectedIndex="{Binding SortIndex}"
+                        ToolTip.Tip="Sort by" />
+            </Grid>
             <DockPanel>
               <Button DockPanel.Dock="Right" Classes="link" Content="Refresh list" Command="{Binding RefreshBrowserCommand}"
                       IsEnabled="{Binding !BrowserLoading}" ToolTip.Tip="Get a fresh copy of the server list" />
@@ -160,16 +174,23 @@
                 <DataTemplate x:DataType="vm:BrowserRowViewModel">
                   <Grid ColumnDefinitions="4,*">
                     <Border Classes="accent" Grid.Column="0" Background="Transparent" CornerRadius="4,0,0,4" />
-                    <Grid Grid.Column="1" Margin="12,9" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto">
+                    <Grid Grid.Column="1" Margin="12,9" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
                       <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
                                  TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
                       <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding PingText}" FontSize="12" Margin="10,0,0,0"
                                  Classes="ping" Classes.good="{Binding PingGood}" Classes.ok="{Binding PingOk}" Classes.bad="{Binding PingBad}" />
-                      <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding MapLine}" FontSize="12" Classes="muted" Margin="0,3,0,0"
-                                 TextTrimming="CharacterEllipsis" />
+                      <DockPanel Grid.Row="1" Grid.Column="0" Margin="0,3,0,0">
+                        <Border DockPanel.Dock="Left" Classes="countrybadge" IsVisible="{Binding HasCountry}" ToolTip.Tip="{Binding CountryName}"
+                                Margin="0,0,6,0" VerticalAlignment="Center">
+                          <TextBlock Text="{Binding Country}" />
+                        </Border>
+                        <TextBlock Text="{Binding MapLine}" FontSize="12" Classes="muted" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                      </DockPanel>
                       <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding PlayersText}" FontSize="12" FontWeight="SemiBold"
                                  Foreground="{DynamicResource Silver}" Margin="10,3,0,0" HorizontalAlignment="Right" />
-                      <ProgressBar Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}" Margin="0,7,0,0" />
+                      <TextBlock Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Text="{Binding ModHint}" FontSize="11" Foreground="{DynamicResource Orange}"
+                                 Margin="0,3,0,0" TextTrimming="CharacterEllipsis" IsVisible="{Binding HasModHint}" ToolTip.Tip="{Binding ModHint}" />
+                      <ProgressBar Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Classes="players" Value="{Binding PlayerFill}" Margin="0,7,0,0" />
                     </Grid>
                   </Grid>
                 </DataTemplate>
@@ -397,10 +418,15 @@
                      Text="This server reported more mods than fit in its status reply, so this list may be incomplete. (Raise steamProtocolMaxDataSize in serverDZ.cfg, or run the MM Server Agent.)" />
           <TextBlock IsVisible="{Binding HasModNote}" Text="{Binding ModNote}" Foreground="{DynamicResource Warn}" FontSize="12" TextWrapping="Wrap" />
           <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,10,10,0">
-            <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
-            <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
-            <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
-            <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" />
+            <TextBlock Grid.Column="0" Classes="label" Text="STATUS" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="1" Classes="label" Text="MOD" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <TextBlock Grid.Column="3" Classes="label" Text="UPDATED" HorizontalAlignment="Right" VerticalAlignment="Center" />
+            <Button Grid.Column="4" Classes="link" Content="Remove its mods…" HorizontalAlignment="Right" Padding="0" FontSize="11"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveServerModsCommand}"
+                    IsVisible="{Binding HasDownloadedMods}"
+                    IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
+                    ToolTip.Tip="Done with this server? Unsubscribe from and delete the mods only it uses. Mods another server, favorite, recent server or editor preset needs are kept." />
           </Grid>
           </StackPanel>
         </StackPanel>
@@ -678,12 +704,18 @@
           <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="8">
             <Button Classes="primary" Content="Update all" Command="{Binding UpdateAllModsCommand}" IsEnabled="{Binding CanChangeMods}"
                     ToolTip.Tip="Download every mod that has a newer version on the Workshop" />
-            <Button Classes="ghost" Content="Remove unused…" Command="{Binding RemoveUnusedModsCommand}" IsEnabled="{Binding CanChangeMods}"
-                    ToolTip.Tip="Unsubscribe from and delete mods no MM server, favorite, recent server or editor preset uses" />
+            <Button Classes="ghost" Content="{Binding RemoveSetText}" Command="{Binding RemoveUnusedModsCommand}" IsEnabled="{Binding CanChangeMods}"
+                    ToolTip.Tip="{Binding RemoveSetTip}" />
             <Button Classes="ghost" Content="Reload" Command="{Binding ShowModsPageCommand}" ToolTip.Tip="Scan the downloaded mods again" />
           </StackPanel>
         </Grid>
         <TextBlock Text="{Binding InstalledSummary}" Foreground="{DynamicResource Silver}" FontSize="12" />
+        <Border Background="{DynamicResource WarnTint}" CornerRadius="4" Padding="12,7" IsVisible="{Binding HasStaleNotice}">
+          <DockPanel>
+            <Button DockPanel.Dock="Right" Classes="link" Content="Show them" Command="{Binding ShowStaleModsCommand}" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding StaleNotice}" FontSize="12" Foreground="{DynamicResource Text}" VerticalAlignment="Center" TextWrapping="Wrap" />
+          </DockPanel>
+        </Border>
         <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,4,10,0">
           <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
           <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
@@ -709,6 +741,8 @@
                       <TextBlock Text="{Binding IdText}" FontSize="11" Classes="muted" />
                       <TextBlock Text="{Binding UsedByShort}" FontSize="11" Classes="muted" IsVisible="{Binding !IsUnused}" />
                       <TextBlock Text="not used by anything" FontSize="11" Foreground="{DynamicResource Warn}" IsVisible="{Binding IsUnused}" />
+                      <TextBlock Text="{Binding LastUsedText}" FontSize="11" Classes="muted" IsVisible="{Binding !IsStale}" />
+                      <TextBlock Text="{Binding LastUsedText}" FontSize="11" Foreground="{DynamicResource Warn}" IsVisible="{Binding IsStale}" />
                     </StackPanel>
                   </StackPanel>
                   <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />

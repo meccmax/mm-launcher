@@ -11,6 +11,8 @@ public sealed class SavedServer
     public int? GamePort { get; set; }
     public string Name { get; set; } = "";
     public DateTimeOffset? LastPlayed { get; set; }
+    /// <summary>Workshop IDs of the mods it needed when last seen, so "Remove unused" never removes them.</summary>
+    public List<ulong> ModIds { get; set; } = [];
 
     [System.Text.Json.Serialization.JsonIgnore]
     public string Key => $"{Host}:{QueryPort}";
@@ -43,6 +45,7 @@ public sealed class ServerLists
             {
                 lists.Favorites = lists.Favorites.Where(s => s.Host.Length > 0 && s.QueryPort is > 0 and <= 65535).ToList();
                 lists.Recent = lists.Recent.Where(s => s.Host.Length > 0 && s.QueryPort is > 0 and <= 65535).Take(MaxRecent).ToList();
+                foreach (var s in lists.Favorites.Concat(lists.Recent)) s.ModIds ??= [];
                 return lists;
             }
         }
@@ -63,11 +66,31 @@ public sealed class ServerLists
         return existing < 0;
     }
 
+    /// <summary>
+    /// Remembers which mods a saved server (favorite or recent) needs. Returns true if anything
+    /// changed (and was saved). Servers that aren't saved are ignored.
+    /// </summary>
+    public bool RememberMods(string host, int queryPort, IEnumerable<ulong> ids)
+    {
+        var list = ids.Where(i => i != 0).Distinct().Take(500).ToList();
+        if (list.Count == 0) return false;
+        bool changed = false;
+        foreach (var s in Favorites.Concat(Recent))
+            if (s.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && s.QueryPort == queryPort && !s.ModIds.SequenceEqual(list))
+            {
+                s.ModIds = list;
+                changed = true;
+            }
+        if (changed) Save();
+        return changed;
+    }
+
     /// <summary>Puts a server at the top of the recent list.</summary>
     public void AddRecent(string host, int queryPort, int? gamePort, string name)
     {
+        var old = Recent.FirstOrDefault(r => r.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && r.QueryPort == queryPort);
         Recent.RemoveAll(r => r.Host.Equals(host, StringComparison.OrdinalIgnoreCase) && r.QueryPort == queryPort);
-        Recent.Insert(0, new SavedServer { Host = host, QueryPort = queryPort, GamePort = gamePort, Name = name, LastPlayed = DateTimeOffset.Now });
+        Recent.Insert(0, new SavedServer { Host = host, QueryPort = queryPort, GamePort = gamePort, Name = name, LastPlayed = DateTimeOffset.Now, ModIds = old?.ModIds ?? [] });
         if (Recent.Count > MaxRecent) Recent.RemoveRange(MaxRecent, Recent.Count - MaxRecent);
         Save();
     }
@@ -81,7 +104,8 @@ public sealed class ServerLists
             sb.AppendLine("// Managed by the launcher (the star button and JOIN SERVER). Safe to edit or delete.");
             sb.AppendLine("//   Favorites  servers you starred");
             sb.AppendLine($"//   Recent     the last {MaxRecent} servers you joined, newest first");
-            sb.AppendLine("// Each entry: Host (address), QueryPort, GamePort, Name (as last seen), LastPlayed.");
+            sb.AppendLine("// Each entry: Host (address), QueryPort, GamePort, Name (as last seen), LastPlayed, and ModIds");
+            sb.AppendLine("// (the Workshop mods it needed when last seen, so \"Remove unused\" on the Mods page keeps them).");
             sb.Append(JsonSerializer.Serialize(this, new JsonSerializerOptions
             {
                 WriteIndented = true,

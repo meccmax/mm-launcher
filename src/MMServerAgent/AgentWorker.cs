@@ -17,6 +17,7 @@ public sealed class AgentWorker : BackgroundService
     private DateTime _lastScan;
     private ReportReceiver? _reports;
     private ServerListFeed? _feed;
+    private ModListCrawler? _crawler;
     private EditorPresetFolder? _presets;
     private NewsFolder? _news;
     private PlayerHistoryRecorder? _history;
@@ -31,7 +32,7 @@ public sealed class AgentWorker : BackgroundService
         Log(!_config.AcceptReports ? "Problem reports: off"
             : _reports.DiscordConfigured ? "Problem reports: on, posting to Discord and saving to the reports folder"
             : "Problem reports: on, saving to the reports folder (no Discord webhook set)");
-        _feed = new ServerListFeed(_config, Log);
+        _feed = new ServerListFeed(_config, Log, new GeoIpUpdater(_config, Log));
         EditorPresetFolder.EnsureFolder();
         _presets = new EditorPresetFolder(Log);
         NewsFolder.EnsureFolder();
@@ -42,6 +43,8 @@ public sealed class AgentWorker : BackgroundService
         _friends = new FriendsService(_config, Log);
         _workshop = new WorkshopSearchService(_config, Log);
         var feedTask = _feed.RunAsync(stoppingToken);
+        _crawler = new ModListCrawler(_config, _feed, Log);
+        var crawlTask = _crawler.RunAsync(stoppingToken);
         Rescan();
         System.Security.Cryptography.X509Certificates.X509Certificate2? certificate = null;
         try
@@ -71,6 +74,7 @@ public sealed class AgentWorker : BackgroundService
         }
         await server;
         await feedTask;
+        await crawlTask;
     }
 
     private void Rescan()
@@ -152,6 +156,11 @@ public sealed class AgentWorker : BackgroundService
         if (path.Equals(EditorPresetFolder.Path, StringComparison.OrdinalIgnoreCase))
             return new HttpReply(200, "application/json", _presets?.Json ?? "[]");
 
+        if (path.Equals(MMLauncher.Core.Browser.BrowserModIndex.Path, StringComparison.OrdinalIgnoreCase))
+            return _crawler?.Gzip is { } modGz
+                ? new HttpReply(200, "application/json", "", modGz, "gzip")
+                : new HttpReply(503, "text/plain", _crawler?.Enabled == true ? "The mod lists aren't ready yet." : "This agent doesn't collect mod lists.");
+
         if (path.Equals(MMLauncher.Core.Browser.BrowserFeed.Path, StringComparison.OrdinalIgnoreCase))
             return _feed?.Gzip is { } gz
                 ? new HttpReply(200, "application/json", "", gz, "gzip")
@@ -168,6 +177,7 @@ public sealed class AgentWorker : BackgroundService
             sb.AppendLine($"Launcher data: {AgentClient.Path}");
             sb.AppendLine($"DayZ Editor presets: {_presets?.Count ?? 0}");
             sb.AppendLine($"Server browser feed: {(_feed?.Enabled != true ? "off" : $"{_feed.Count} servers")}");
+            sb.AppendLine($"Mod search: {(_crawler?.Enabled != true ? "off" : $"{_crawler.ServerCount} servers, {_crawler.ModCount} mods")}");
             sb.AppendLine($"Problem reports: {(!_config.AcceptReports ? "off" : _reports?.DiscordConfigured == true ? "on (Discord)" : "on (saved on server only)")}");
             return new HttpReply(200, "text/plain", sb.ToString());
         }

@@ -108,6 +108,19 @@
     <Setter Property="FontWeight" Value="Black" />
     <Setter Property="Foreground" Value="{DynamicResource OnAccent}" />
   </Style>
+  <!-- Country code in front of a server's map line (US, DE, …) -->
+  <Style Selector="Border.countrybadge">
+    <Setter Property="Background" Value="{DynamicResource Panel2}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource Line}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="3" />
+    <Setter Property="Padding" Value="4,0" />
+  </Style>
+  <Style Selector="Border.countrybadge TextBlock">
+    <Setter Property="FontSize" Value="10" />
+    <Setter Property="FontWeight" Value="Bold" />
+    <Setter Property="Foreground" Value="{DynamicResource Silver}" />
+  </Style>
   <Style Selector="Button.tab.active:pointerover /template/ ContentPresenter">
     <Setter Property="BorderBrush" Value="{DynamicResource Orange}" />
   </Style>

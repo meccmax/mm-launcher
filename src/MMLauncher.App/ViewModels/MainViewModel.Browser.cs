@@ -40,8 +40,12 @@ public partial class MainViewModel
     [ObservableProperty] private int _perspectiveIndex;
     [ObservableProperty] private int _modsIndex;
     [ObservableProperty] private int _sortIndex;
-    [ObservableProperty] private bool _hideEmpty = true;
     [ObservableProperty] private bool _hideFull;
+    [ObservableProperty] private IReadOnlyList<FilterOption> _countryOptions = [new("Anywhere", null)];
+    [ObservableProperty] private FilterOption? _selectedCountry;
+    [ObservableProperty] private int _playerCountIndex = (int)PlayerRange.NotEmpty;
+    [ObservableProperty] private int _modeIndex;
+    [ObservableProperty] private bool _hasAi;
 
     public ObservableCollection<ServerViewModel> FavoriteServers { get; } = [];
     public ObservableCollection<ServerViewModel> RecentServers { get; } = [];
@@ -49,6 +53,14 @@ public partial class MainViewModel
     public IReadOnlyList<string> PerspectiveChoices { get; } = ["1PP and 3PP", "1PP only", "3PP allowed"];
     public IReadOnlyList<string> ModsChoices { get; } = ["Modded and vanilla", "Modded only", "Vanilla only"];
     public IReadOnlyList<string> SortChoices { get; } = ["Most players", "Name", "Map", "Lowest ping"];
+    public IReadOnlyList<string> PlayerCountChoices { get; } = ["Any player count", "Has players", "1–14 players", "15–49 players", "50+ players"];
+    public IReadOnlyList<string> ModeChoices { get; } = ["PvE and PvP", "PvE only", "PvP / PvPvE"];
+    public string BrowserSearchHint => Browser.Mods != null ? "Search name, map, mod or IP address" : "Search name, map or IP address";
+    public string HasAiTip => Browser.Mods != null
+        ? "Servers running an AI mod (DayZ-Expansion-AI, the Expansion Bundle, or a mod with AI or Bandits in its name), or with AI in their name"
+        : "Servers with AI in their name. (The MM agent hasn't sent mod lists yet, so AI mods can't be checked.)";
+    public string CountryTip =>
+        "Where each server is hosted, from its IP address. Usually where its players are, but not always.\n" + GeoIpDatabase.Attribution;
 
     public bool IsMmTab => ListTab == "mm";
     public bool IsAllTab => ListTab == "all";
@@ -117,6 +129,7 @@ public partial class MainViewModel
                 catch (Exception ex) { Log.Warn("Workshop lookup failed: " + ex.Message); }
             }
             vm.ApplyModDetails(workshop, _steam);
+            _lists.RememberMods(vm.Cached.Host, vm.Cached.QueryPort, vm.Mods.Select(m => m.WorkshopId));
             if (ReferenceEquals(vm, SelectedServer)) RaiseJoinState();
         }
         catch (Exception ex)
@@ -135,6 +148,7 @@ public partial class MainViewModel
     {
         if (SelectedServer is not { } s) return;
         bool now = _lists.ToggleFavorite(s.Cached.Host, s.Cached.QueryPort, s.GamePort, s.Name);
+        if (now) _lists.RememberMods(s.Cached.Host, s.Cached.QueryPort, s.Mods.Select(m => m.WorkshopId));
         StatusMessage = now ? $"Added {s.Name} to favorites" : $"Removed {s.Name} from favorites";
         OnPropertyChanged(nameof(SelectedIsFavorite));
         OnPropertyChanged(nameof(FavoriteText));
@@ -144,6 +158,7 @@ public partial class MainViewModel
     private void RememberRecent(ServerViewModel s)
     {
         _lists.AddRecent(s.Cached.Host, s.Cached.QueryPort, s.GamePort, s.Name);
+        _lists.RememberMods(s.Cached.Host, s.Cached.QueryPort, s.Mods.Select(m => m.WorkshopId));
         if (IsRecentTab) _ = LoadSavedAsync(RecentServers, _lists.Recent);
     }
 
@@ -170,9 +185,11 @@ public partial class MainViewModel
             _browserLoaded = true;
             _searchDebounce.Tick += (_, _) => { _searchDebounce.Stop(); ApplyBrowserFilter(); };
             Browser.LoadCache();
+            RaiseModSearchState();
             if (Browser.Feed != null) RebuildRows();
         }
         if (Browser.IsStale) await RefreshBrowserAsync();
+        else if (Browser.ModsStale) _ = RefreshModListsAsync();
     }
 
     [RelayCommand]
@@ -185,11 +202,33 @@ public partial class MainViewModel
         {
             if (await Browser.RefreshAsync()) RebuildRows();
             else UpdateBrowserStatus(Browser.LastError);
+            if (Browser.ModsStale) _ = RefreshModListsAsync();
         }
         finally
         {
             BrowserLoading = false;
         }
+    }
+
+    /// <summary>Gets the mod lists (for mod search and the AI filter) in the background, then re-filters.</summary>
+    private async Task RefreshModListsAsync()
+    {
+        try
+        {
+            if (await Browser.RefreshModsAsync())
+            {
+                foreach (var row in _rows.Values) row.ApplyModIndex(Browser.Mods);
+                RaiseModSearchState();
+                ApplyBrowserFilter();
+            }
+        }
+        catch (Exception ex) { Log.Warn("Mod lists: " + ex.Message); }
+    }
+
+    private void RaiseModSearchState()
+    {
+        OnPropertyChanged(nameof(BrowserSearchHint));
+        OnPropertyChanged(nameof(HasAiTip));
     }
 
     private void RebuildRows()
@@ -201,12 +240,16 @@ public partial class MainViewModel
         foreach (var e in feed.Servers)
         {
             var row = new BrowserRowViewModel(e);
+            row.ApplyModIndex(Browser.Mods);
             if (old.TryGetValue(e.Address, out var prev) && prev.PingMs is { } ms) row.PingMs = ms;
             _rows[e.Address] = row;
         }
         var previous = SelectedMap?.Value;
         MapOptions = [new FilterOption("All maps", null), .. BrowserService.Maps(feed.Servers).Select(m => new FilterOption($"{Format.MapName(m.Map)}  ({m.Count})", m.Map))];
         SelectedMap = MapOptions.FirstOrDefault(m => m.Value == previous) ?? MapOptions[0];
+        var previousCountry = SelectedCountry?.Value;
+        CountryOptions = [new FilterOption("Anywhere", null), .. BrowserService.CountryChoices(feed.Servers).Select(c => new FilterOption($"{c.Label}  ({c.Count:N0})", c.Value))];
+        SelectedCountry = CountryOptions.FirstOrDefault(c => c.Value == previousCountry) ?? CountryOptions[0];
         ApplyBrowserFilter();
     }
 
@@ -215,24 +258,32 @@ public partial class MainViewModel
     partial void OnPerspectiveIndexChanged(int value) => ApplyBrowserFilter();
     partial void OnModsIndexChanged(int value) => ApplyBrowserFilter();
     partial void OnSortIndexChanged(int value) => ApplyBrowserFilter();
-    partial void OnHideEmptyChanged(bool value) => ApplyBrowserFilter();
     partial void OnHideFullChanged(bool value) => ApplyBrowserFilter();
+    partial void OnSelectedCountryChanged(FilterOption? value) => ApplyBrowserFilter();
+    partial void OnPlayerCountIndexChanged(int value) => ApplyBrowserFilter();
+    partial void OnModeIndexChanged(int value) => ApplyBrowserFilter();
+    partial void OnHasAiChanged(bool value) => ApplyBrowserFilter();
 
     private BrowserFilter CurrentFilter() => new(
         BrowserSearch,
         SelectedMap?.Value,
         (PerspectiveFilter)Math.Clamp(PerspectiveIndex, 0, 2),
-        HideEmpty,
+        false,
         HideFull,
         (ModFilter)Math.Clamp(ModsIndex, 0, 2),
-        (BrowserSort)Math.Clamp(SortIndex, 0, 3));
+        (BrowserSort)Math.Clamp(SortIndex, 0, 3),
+        (PlayerRange)Math.Clamp(PlayerCountIndex, 0, 4),
+        (ModeFilter)Math.Clamp(ModeIndex, 0, 2),
+        SelectedCountry?.Value,
+        HasAi);
 
     private void ApplyBrowserFilter()
     {
         if (Browser.Feed is not { } feed) return;
         var filter = CurrentFilter();
-        var list = BrowserService.Apply(feed.Servers, filter, e => _rows.TryGetValue(e.Address, out var r) ? r.PingMs : null);
+        var list = BrowserService.Apply(feed.Servers, filter, e => _rows.TryGetValue(e.Address, out var r) ? r.PingMs : null, Browser.Mods);
         BrowserRows = list.Select(e => _rows[e.Address]).ToList();
+        ShowModMatches(BrowserRows, filter.Search);
         UpdateBrowserStatus(null);
 
         // Ping what's near the top of the list (all of it, up to a limit, when sorting by ping).
@@ -250,9 +301,32 @@ public partial class MainViewModel
             Dispatcher.UIThread.Post(() =>
             {
                 if (Browser.Feed is not { } feed || CurrentFilter().Sort != BrowserSort.Ping) return;
-                var list = BrowserService.Apply(feed.Servers, CurrentFilter(), e => _rows.TryGetValue(e.Address, out var r) ? r.PingMs : null);
+                var list = BrowserService.Apply(feed.Servers, CurrentFilter(), e => _rows.TryGetValue(e.Address, out var r) ? r.PingMs : null, Browser.Mods);
                 BrowserRows = list.Select(e => _rows[e.Address]).ToList();
             });
+    }
+
+    /// <summary>
+    /// For servers found by a mod (not by their name), shows which of their mods matched,
+    /// e.g. "runs TerjeCore, TerjeMedicine +2".
+    /// </summary>
+    private void ShowModMatches(IReadOnlyList<BrowserRowViewModel> rows, string search)
+    {
+        var words = search.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var row in rows)
+        {
+            string hint = "";
+            if (words.Length > 0 && Browser.Mods is { } mods)
+            {
+                var matched = words.Where(w => !row.Entry.Name.Contains(w, StringComparison.OrdinalIgnoreCase)
+                                            && !row.Entry.Map.Contains(w, StringComparison.OrdinalIgnoreCase)
+                                            && !row.Entry.Address.StartsWith(w, StringComparison.OrdinalIgnoreCase))
+                                   .SelectMany(w => mods.MatchingMods(row.Entry.Address, w)).Distinct().ToList();
+                if (matched.Count > 0)
+                    hint = "runs " + string.Join(", ", matched.Take(3)) + (matched.Count > 3 ? $" +{matched.Count - 3}" : "");
+            }
+            row.ModHint = hint;
+        }
     }
 
     private void UpdateBrowserStatus(string? error)

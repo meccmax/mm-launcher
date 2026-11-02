@@ -175,6 +175,19 @@ DayZ, and where) and its Workshop search on the MODS page. Friends lookups are
 cached for a minute, Workshop searches for 5 minutes, and both are limited per
 address.
 
+Countries and mod search (v0.14 and newer). With the key set, the agent also:
+  * Adds each server's country (players can filter by country or continent). It
+    uses DB-IP's free country database (db-ip.com, CC BY 4.0), downloaded once a
+    month into the "geoip" folder (about 5 MB). Lookups happen on this machine;
+    no address is sent anywhere. Off: "CountryLookup": false.
+  * Collects every modded server's mod list, so players can search the browser
+    by mod ("Terje", "Expansion") and tick "Has AI". It sends each modded server
+    the standard status query any server browser sends, at most 40 a second
+    (roughly 2-3 Mbit/s for a few minutes), and repeats every 30 minutes
+    ("ModListRefreshMinutes"). The game servers on this machine won't notice.
+    agent.log shows "Mod search: mod lists from N of M modded servers".
+    Off: "ModSearch": false.
+
 
 ENCRYPTION (v0.5 and newer)
 ---------------------------
@@ -217,6 +230,8 @@ FILES
   agent.jsonc          settings (every option explained inside)
   agent-tls.pfx        the agent's encryption key (made on first start; keep it)
   server-list-cache.json.gz  last list of all DayZ servers (only with a Steam key)
+  mod-index-cache.json.gz    last mod lists of modded servers (only with a Steam key)
+  geoip\               DB-IP's country database (downloaded monthly, only with a Steam key)
   editor-presets\       DayZ Editor presets shared with every launcher (.html / .txt)
   news\                server news for the launcher's NEWS tab (all.txt, <port>.txt)
   player-history.jsonc  7 days of player counts for the PLAYERS chart

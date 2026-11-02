@@ -33,6 +33,7 @@
 | Starting DayZ | `DayZ_BE.exe -exe DayZ_x64.exe` (BattlEye's launcher), the form Bohemia staff give for shortcuts | BattlEye / Bohemia |
 | Mod folders passed to DayZ | Short links in `DayZ\!MMWorkshop\@<id>`, our own name. It follows the same idea as the **official DayZ launcher's** `!Workshop` folder. | Bohemia's official launcher |
 | Friends, Workshop search, news, player history, problem reports, encryption | Our own MM Server Agent and its own endpoints (`/mm-agent/v1/...`) | Our own design |
+| Search by mod, "Has AI", server countries (v0.14) | Our agent asks each modded server for its mod list with the standard A2S_RULES query and our own parser; countries from DB-IP's public country database, looked up on the agent | Valve's server queries; [DB-IP](https://db-ip.com) (CC BY 4.0) |
 
 Server browsers, automatic mod downloads and one-click joining are common to every DayZ launcher: DZSA, the official launcher, and the open-source ones listed below. Having those features in common is not copying.
 

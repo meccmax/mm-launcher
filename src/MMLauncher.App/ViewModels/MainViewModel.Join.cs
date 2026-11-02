@@ -2,6 +2,7 @@ using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using MMLauncher.App.Steam;
+using MMLauncher.Core.Config;
 using MMLauncher.Core.Launch;
 using MMLauncher.Core.Logging;
 using MMLauncher.Core.Steam;
@@ -142,6 +143,7 @@ public partial class MainViewModel
                 StatusMessage = "DayZ launched";
                 StartRejoinWatch(server, password);
                 RememberRecent(server);
+                ModUsage.Current.MarkUsed(mods.Select(m => m.Id));
             }
             else
             {

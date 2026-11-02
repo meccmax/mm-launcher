@@ -24,6 +24,9 @@ public sealed class AgentConfig
     public bool AllowPlainHttp { get; set; } = true;
     public string SteamWebApiKey { get; set; } = "";
     public int ServerListRefreshMinutes { get; set; } = 5;
+    public bool CountryLookup { get; set; } = true;
+    public bool ModSearch { get; set; } = true;
+    public int ModListRefreshMinutes { get; set; } = 30;
     public double RestartEveryHours { get; set; }
     public List<string> RestartTimes { get; set; } = [];
     public List<string> ProcessNames { get; set; } = ["DayZServer_x64", "DayZServer"];
@@ -79,7 +82,8 @@ public sealed class AgentConfig
                     cfg.RestartEveryHours = Math.Clamp(cfg.RestartEveryHours, 0, 168);
                     cfg.RestartTimes ??= [];
                     cfg.KeepUsageDays = Math.Clamp(cfg.KeepUsageDays, 7, 3650);
-                    if (!text.Contains("\"AcceptUsageStats\"", StringComparison.OrdinalIgnoreCase))
+                    cfg.ModListRefreshMinutes = Math.Clamp(cfg.ModListRefreshMinutes, 10, 1440);
+                    if (!text.Contains("\"ModListRefreshMinutes\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -134,6 +138,20 @@ public sealed class AgentConfig
         sb.AppendLine();
         sb.AppendLine("  // How often (minutes, 2 or more) to fetch a fresh list from Steam.");
         sb.AppendLine($"  \"ServerListRefreshMinutes\": {ServerListRefreshMinutes},");
+        sb.AppendLine();
+        sb.AppendLine("  // true = show which country each server is in (and let players filter by country or");
+        sb.AppendLine("  // continent). Uses DB-IP's free country database (db-ip.com, CC BY 4.0), downloaded");
+        sb.AppendLine("  // once a month into the \"geoip\" folder (about 5 MB). Lookups happen on this machine;");
+        sb.AppendLine("  // no address is sent anywhere. false = no countries.");
+        sb.AppendLine($"  \"CountryLookup\": {J(CountryLookup)},");
+        sb.AppendLine();
+        sb.AppendLine("  // true = also collect each modded server's mod list, so players can search the browser by");
+        sb.AppendLine("  // mod (\"Terje\", \"Expansion\") and filter for servers with AI. The agent asks every modded");
+        sb.AppendLine("  // server for its mod list (the same standard query any server browser sends), a few dozen");
+        sb.AppendLine("  // at a time. false = search by server name only.");
+        sb.AppendLine($"  \"ModSearch\": {J(ModSearch)},");
+        sb.AppendLine("  // How often (minutes, 10-1440) to collect the mod lists again. Each round takes a few minutes.");
+        sb.AppendLine($"  \"ModListRefreshMinutes\": {ModListRefreshMinutes},");
         sb.AppendLine();
         sb.AppendLine("  // ---------------- Restart schedule (shown in the launcher as \"Next restart\") ----------------");
         sb.AppendLine("  // Use ONE of these. Each server can override them in \"Servers\" below.");
