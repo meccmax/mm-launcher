@@ -1,0 +1,21 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="MMLauncher.App.Views.NameDialog"
+        Title="MM Launcher"
+        Width="470" SizeToContent="Height" CanResize="False"
+        WindowStartupLocation="CenterOwner"
+        Icon="avares://MMLauncher/Assets/mm.ico"
+        Background="{DynamicResource Panel}">
+  <StackPanel Margin="22" Spacing="12">
+    <TextBlock Text="What's your in-game name?" FontSize="16" FontWeight="SemiBold" />
+    <TextBlock x:Name="MessageText" Foreground="{DynamicResource Silver}" FontSize="13" TextWrapping="Wrap" />
+    <TextBox x:Name="NameBox" Watermark="Your name in DayZ" MaxLength="32" />
+    <TextBlock x:Name="ProblemText" Foreground="{DynamicResource Warn}" FontSize="12" TextWrapping="Wrap" IsVisible="False" />
+    <TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap"
+               Text="You can change it any time in Settings &gt; In-game name." />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,0">
+      <Button x:Name="LaterButton" Classes="ghost" Content="Later" Click="OnLater" />
+      <Button x:Name="OkButton" Classes="primary" Content="Save name" Click="OnOk" IsDefault="True" />
+    </StackPanel>
+  </StackPanel>
+</Window>

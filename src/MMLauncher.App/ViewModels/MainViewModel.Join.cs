@@ -109,6 +109,8 @@ public partial class MainViewModel
             if (password == null) { ShowResult(false, "Join cancelled", "No password entered."); return; }
         }
 
+        if (!auto) await EnsurePlayerNameAsync(joining: true);
+
         try
         {
             if (GameLauncher.DayZIsRunning())

@@ -50,6 +50,8 @@ public partial class MainWindow : Window
                 await new PasswordDialog(serverName).ShowDialog<string?>(this);
             vm.AskConfirm = async (title, message, ok) =>
                 await new ConfirmDialog(title, message, ok).ShowDialog<bool>(this);
+            vm.AskName = async (message, suggested, ok, later) =>
+                await new NameDialog(message, suggested, ok, later).ShowDialog<string?>(this);
             vm.AskUpdate = async (title, message, notes, url) =>
                 await new UpdateDialog(title, message, notes, url).ShowDialog<bool>(this);
             vm.AskYesNo = async (title, message, yes, no) =>

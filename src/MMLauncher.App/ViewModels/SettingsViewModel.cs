@@ -233,7 +233,7 @@ public partial class SettingsViewModel : ObservableObject
         s.DayZPathOverride = DayZPath.Trim();
         s.WorkshopPathOverride = WorkshopPath.Trim();
         s.LaunchMethod = LaunchMethodIndex == 0 ? "Direct" : "Steam";
-        s.PlayerName = PlayerName.Trim();
+        s.PlayerName = Core.Launch.PlayerNames.Clean(PlayerName);
         s.ExtraLaunchParameters = ExtraParameters.Trim();
         s.AutoRefreshSeconds = (int)Math.Clamp(AutoRefreshSeconds ?? 30, 0, 3600);
         if (s.AutoRefreshSeconds is > 0 and < 10) s.AutoRefreshSeconds = 10;

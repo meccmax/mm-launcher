@@ -89,7 +89,7 @@ public static class GameLauncher
             gameArgs.Add($"-port={request.GamePort}");
         }
         if (modEntries.Count > 0) gameArgs.Add("-mod=" + string.Join(";", modEntries));
-        if (!string.IsNullOrWhiteSpace(settings.PlayerName)) gameArgs.Add($"-name={settings.PlayerName}");
+        if (PlayerNames.Clean(settings.PlayerName) is { Length: > 0 } name) gameArgs.Add($"-name={name}");
         if (!string.IsNullOrEmpty(request.Password)) gameArgs.Add($"-password={request.Password}");
         gameArgs.AddRange(settings.ExtraLaunchParameters.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
 

@@ -869,6 +869,19 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
+Console.WriteLine("== In-game name ==");
+{
+    Check(PlayerNames.Clean("  Max   \"The\" \u202EMerc\u0007  ") == "Max The Merc" && PlayerNames.Clean(new string('x', 50)).Length == 32,
+          "names cleaned: quotes, control and right-to-left characters removed, spaces tidied, 32 characters max");
+    Check(!PlayerNames.IsUsable("") && !PlayerNames.IsUsable("survivor") && !PlayerNames.IsUsable("x") && PlayerNames.IsUsable("Valeyria"),
+          "empty, one-letter and DayZ's \"Survivor\" don't count as a name");
+    var nameDir = Path.Combine(root, "steam-name", "config");
+    Directory.CreateDirectory(nameDir);
+    File.WriteAllText(Path.Combine(nameDir, "loginusers.vdf"), "\"users\"\n{\n\t\"76561198012345678\"\n\t{\n\t\t\"PersonaName\"\t\t\"Valeyria TTV\"\n\t\t\"MostRecent\"\t\t\"1\"\n\t}\n}\n");
+    if (!OperatingSystem.IsWindows())
+        Check(MMLauncher.Core.Friends.SteamAccount.PersonaName(Path.Combine(root, "steam-name")) == "Valeyria TTV", "Steam name suggested from loginusers.vdf");
+}
+
 Console.WriteLine("== Release notes in the update window ==");
 {
     var notesDir = new DirectoryInfo(AppContext.BaseDirectory);

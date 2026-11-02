@@ -195,7 +195,8 @@ public sealed class LauncherSettings
         sb.AppendLine("  //   \"Absolute\" full paths to Steam's workshop folders");
         sb.AppendLine($"  \"ModFolderMode\": {J(ModFolderMode)},");
         sb.AppendLine();
-        sb.AppendLine("  // In-game profile name passed as -name=. Empty = DayZ's own profile name.");
+        sb.AppendLine("  // Your in-game name, passed to DayZ as -name=. DayZ only gets a name from its own launcher,");
+        sb.AppendLine("  // so empty = you show up as \"Survivor\" (the launcher asks for one until it's set).");
         sb.AppendLine($"  \"PlayerName\": {J(PlayerName)},");
         sb.AppendLine();
         sb.AppendLine("  // Extra DayZ start parameters added to every launch.");

@@ -67,6 +67,20 @@ public static class SteamAccount
         catch { return null; }
     }
 
+    /// <summary>The Steam display name of the signed-in account (from loginusers.vdf), or null.</summary>
+    public static string? PersonaName(string? steamPath)
+    {
+        try
+        {
+            if (steamPath == null || Current(steamPath) is not { } me) return null;
+            var path = Path.Combine(steamPath, "config", "loginusers.vdf");
+            if (!File.Exists(path)) return null;
+            var user = VdfNode.Parse(File.ReadAllText(path))["users"]?[me.ToString()];
+            return user?["PersonaName"]?.Value is { Length: > 0 } n ? n : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>A real individual-account Steam ID (7656119...).</summary>
     public static bool IsValid(ulong id) => id > Base && id < Base + 0x1_0000_0000UL;
 }

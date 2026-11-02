@@ -92,6 +92,7 @@ public partial class MainViewModel : ObservableObject
             await RefreshAsync();
         }
         ConfigureAutoRefresh();
+        await EnsurePlayerNameAsync(joining: false);
         await AskAboutUsageStatsAsync();
         TrackUsage(new() { Type = "start" });
     }

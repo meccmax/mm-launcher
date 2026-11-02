@@ -99,9 +99,9 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
-              <TextBlock Classes="field" Text="Profile name" />
-              <TextBox Text="{Binding PlayerName}" Watermark="Use DayZ's own profile name" />
-              <TextBlock Classes="help" Text="The name other players see. Leave empty to keep the one set in DayZ." />
+              <TextBlock Classes="field" Text="In-game name" />
+              <TextBox Text="{Binding PlayerName}" Watermark="Your name in DayZ" MaxLength="32" />
+              <TextBlock Classes="help" Text="The name other players see. Without one, DayZ calls you &quot;Survivor&quot; when MM Launcher starts it." />
             </StackPanel>
 
             <StackPanel Spacing="6">
