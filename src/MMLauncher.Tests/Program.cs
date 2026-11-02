@@ -869,6 +869,23 @@ Console.WriteLine("== Steam permissions (\"Unable to locate a running instance o
     Check(SteamPermissions.Check() == SteamPermissions.Problem.None || OperatingSystem.IsWindows(), "check never throws");
 }
 
+Console.WriteLine("== Join checks the mods' real version ==");
+{
+    var lib = Path.Combine(root, "version-check", "steamapps", "workshop");
+    var vcContent = Path.Combine(lib, "content", "221100");
+    Directory.CreateDirectory(Path.Combine(vcContent, "1559212036", "addons"));
+    File.WriteAllText(Path.Combine(vcContent, "1559212036", "addons", "cf.pbo"), "x");
+    File.WriteAllText(Path.Combine(lib, "appworkshop_221100.acf"),
+        "\"AppWorkshop\" { \"WorkshopItemsInstalled\" { \"1559212036\" { \"size\" \"1\" \"timeupdated\" \"1700000000\" } } }");
+    Check(LocalSteam.InstalledVersion(vcContent, 1559212036) == DateTimeOffset.FromUnixTimeSeconds(1700000000) && LocalSteam.InstalledVersion(vcContent, 42) == null,
+          "the version Steam installed is read from its records");
+    var have = new InstalledMod(1559212036, Path.Combine(vcContent, "1559212036"), LocalSteam.InstalledVersion(vcContent, 1559212036), 1);
+    var newerWs = new WorkshopItem(1559212036, true, "CF", 1, DateTimeOffset.FromUnixTimeSeconds(1700000000 + 3600), null);
+    var sameWs = new WorkshopItem(1559212036, true, "CF", 1, DateTimeOffset.FromUnixTimeSeconds(1700000000), null);
+    Check(ModStatus.Evaluate(have, newerWs, true, 1559212036) == ModState.UpdateAvailable && ModStatus.Evaluate(have, sameWs, true, 1559212036) == ModState.Installed,
+          "a mod older than the Workshop's version counts as out of date, whatever Steam's own flag says");
+}
+
 Console.WriteLine("== In-game name ==");
 {
     Check(PlayerNames.Clean("  Max   \"The\" \u202EMerc\u0007  ") == "Max The Merc" && PlayerNames.Clean(new string('x', 50)).Length == 32,

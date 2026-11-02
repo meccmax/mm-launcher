@@ -99,7 +99,8 @@ public sealed class SteamworksDownloader : IModDownloader
                 string title = $"Downloading {i + 1} of {queue.Count}";
                 bool isRepair = repair != null && repair.Ids.Contains(mod.Id);
                 if (isRepair) title = $"Repairing {i + 1} of {queue.Count}";
-                bool ok = await DownloadOneAsync(mod, FolderOf(repair, mod.Id), isRepair, ct, (done, total) =>
+                long? mustReach = repair?.MustReach?.TryGetValue(mod.Id, out var v) == true ? v : null;
+                bool ok = await DownloadOneAsync(mod, FolderOf(repair, mod.Id), isRepair, mustReach, repair?.WorkshopPath, ct, (done, total) =>
                 {
                     long current = total > 0 ? Math.Min(done, total) : 0;
                     double fraction = (finishedBytes + (size > 0 && total > 0 ? (double)current / total * size : 0)) / totalBytes;
@@ -174,8 +175,24 @@ public sealed class SteamworksDownloader : IModDownloader
     private static bool OnDisk(string? folder) =>
         folder == null || (Directory.Exists(folder) && LocalSteam.HasAnyFile(folder));
 
-    private static async Task<bool> DownloadOneAsync(RequiredMod mod, string? folder, bool isRepair, CancellationToken ct, Action<long, long> report)
+    private static async Task<bool> DownloadOneAsync(RequiredMod mod, string? folder, bool isRepair, long? mustReach, string? contentDir,
+        CancellationToken ct, Action<long, long> report)
     {
+        // The Workshop has a newer version than this PC (mustReach). Steam's "needs update" flag
+        // can still say no for a while after an upload, so check the version Steam actually
+        // installed (its acf records), read at most every 2 seconds.
+        DateTime lastVersionRead = DateTime.MinValue;
+        bool fresh = mustReach == null;
+        bool Fresh()
+        {
+            if (fresh) return true;
+            if (contentDir == null) return true;
+            if (DateTime.UtcNow - lastVersionRead < TimeSpan.FromSeconds(2)) return false;
+            lastVersionRead = DateTime.UtcNow;
+            fresh = LocalSteam.InstalledVersion(contentDir, mod.Id) is { } have && have.ToUnixTimeSeconds() >= mustReach!.Value - 60;
+            return fresh;
+        }
+
         // Steam can believe a mod is installed when its folder was deleted behind its back
         // (a repair, or files removed by hand / by a cleanup tool). So "done" always also
         // means the folder is really on disk. For a repair, Steam's flags are ignored entirely.
@@ -183,10 +200,12 @@ public sealed class SteamworksDownloader : IModDownloader
         // means the author's upload itself is broken, and downloading again won't fix it.)
         bool Done(Item it) =>
             !it.IsDownloading && !it.IsDownloadPending && OnDisk(folder) &&
-            (isRepair || (it.IsInstalled && !it.NeedsUpdate));
+            (isRepair || (it.IsInstalled && !it.NeedsUpdate)) && Fresh();
 
         var item = new Item(mod.Id);
         if (Done(item)) { report(1, 1); return true; }
+        if (mustReach != null)
+            Log.Info($"{mod.Id} {mod.Name}: the Workshop has a newer version (Steam says needsUpdate={item.NeedsUpdate}); asking Steam to fetch it.");
         bool resubscribed = false;
         var started = DateTime.UtcNow;
 
@@ -227,14 +246,17 @@ public sealed class SteamworksDownloader : IModDownloader
                 continue;
             }
 
-            // Fallback for a deleted folder: if Steam hasn't started downloading after a while,
-            // it still thinks the mod is installed. Unsubscribing and subscribing again makes
-            // Steam fetch it fresh.
-            if (!OnDisk(folder) && !resubscribed && !item.IsDownloading &&
+            // Fallback for a deleted folder, or a new version Steam hasn't noticed: if Steam hasn't
+            // started downloading after a while, it still thinks the mod is current. Unsubscribing
+            // and subscribing again makes Steam fetch it fresh.
+            bool stale = !Fresh();
+            if ((!OnDisk(folder) || stale) && !resubscribed && !item.IsDownloading && !item.IsDownloadPending &&
                 DateTime.UtcNow - started > RepairNudgeAfter)
             {
                 resubscribed = true;
-                Log.Warn($"{mod.Id} {mod.Name}: folder is missing but Steam isn't downloading it; unsubscribing and subscribing again.");
+                Log.Warn(stale
+                    ? $"{mod.Id} {mod.Name}: the Workshop has a newer version but Steam isn't downloading it; unsubscribing and subscribing again."
+                    : $"{mod.Id} {mod.Name}: folder is missing but Steam isn't downloading it; unsubscribing and subscribing again.");
                 await item.Unsubscribe();
                 await Task.Delay(TimeSpan.FromSeconds(3), ct);
                 await new Item(mod.Id).Subscribe();
@@ -245,10 +267,12 @@ public sealed class SteamworksDownloader : IModDownloader
 
             // Steam says done/installed but the folder still isn't there after the nudge:
             // don't wait the full stall timer on a download that will never move.
-            if (!OnDisk(folder) && resubscribed && !item.IsDownloading && !item.IsDownloadPending &&
+            if ((!OnDisk(folder) || stale) && resubscribed && !item.IsDownloading && !item.IsDownloadPending &&
                 item.IsInstalled && DateTime.UtcNow - lastChange > StaleGiveUp)
             {
-                Log.Error($"{mod.Id} {mod.Name}: Steam reports it installed, but its folder is missing and Steam won't re-download it ({item.Directory}).");
+                Log.Error(stale
+                    ? $"{mod.Id} {mod.Name}: the Workshop has a newer version, but Steam keeps the old one and won't download it."
+                    : $"{mod.Id} {mod.Name}: Steam reports it installed, but its folder is missing and Steam won't re-download it ({item.Directory}).");
                 return false;
             }
 

@@ -25,14 +25,16 @@ public sealed class WorkshopClient(HttpClient http)
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(10);
     private readonly ConcurrentDictionary<ulong, (WorkshopItem Item, DateTime At)> _cache = new();
 
+    /// <param name="fresh">true = ask Steam now instead of using answers from the last few minutes
+    /// (used right before joining, so a mod updated a moment ago is noticed).</param>
     public async Task<IReadOnlyDictionary<ulong, WorkshopItem>> GetDetailsAsync(
-        IEnumerable<ulong> ids, CancellationToken ct = default)
+        IEnumerable<ulong> ids, CancellationToken ct = default, bool fresh = false)
     {
         var result = new Dictionary<ulong, WorkshopItem>();
         var needed = new List<ulong>();
         foreach (var id in ids.Distinct())
         {
-            if (_cache.TryGetValue(id, out var c) && DateTime.UtcNow - c.At < CacheFor)
+            if (!fresh && _cache.TryGetValue(id, out var c) && DateTime.UtcNow - c.At < CacheFor)
                 result[id] = c.Item;
             else
                 needed.Add(id);

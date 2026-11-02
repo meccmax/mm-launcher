@@ -47,7 +47,10 @@ public sealed class FakeDownloader : IModDownloader
                         (finished + done) / (double)total));
                 }
                 finished += size;
-                Install(content, mod.Id, mod.Name);
+                // MMLAUNCHER_FAKE_STALE=1: act like Steam that hasn't noticed a new upload (an
+                // installed mod is left at its old version), to test what the launcher does then.
+                bool stale = Environment.GetEnvironmentVariable("MMLAUNCHER_FAKE_STALE") == "1" && LocalSteam.HasAnyFile(Path.Combine(content, mod.Id.ToString()));
+                if (!stale) Install(content, mod.Id, mod.Name);
                 Log.Info($"(fake) Downloaded {mod.Id} {mod.Name}");
             }
             return new SyncResult(true, $"Downloaded {toDownload.Count} mod(s). (simulated)", []);

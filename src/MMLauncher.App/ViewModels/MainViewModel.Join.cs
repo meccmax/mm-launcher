@@ -14,6 +14,10 @@ public partial class MainViewModel
     private readonly IModDownloader _downloader = ModDownloader.Create();
     private CancellationTokenSource? _syncCts;
     private bool _skipHealthCheckOnce;
+    /// <summary>Mods still outdated after Steam was asked to update them (set by PrepareModListAsync).</summary>
+    private HashSet<ulong> _outdatedAfterSync = [];
+    /// <summary>The player chose "Join anyway" with these outdated mods.</summary>
+    private HashSet<ulong> _acceptOutdatedOnce = [];
 
     /// <summary>Set by the window: asks for a server password, null if cancelled.</summary>
     public Func<string, Task<string?>>? AskPassword { get; set; }
@@ -82,7 +86,7 @@ public partial class MainViewModel
         Log.Info($"{(auto ? "Auto-rejoin" : "Join requested")}: {server.Name} ({server.ConnectText})");
 
         var mods = await PrepareModsAsync(server, askSteamAnyway: false);
-        if (mods == null) return;
+        if (mods == null) { OfferOutdatedRepair(server, joinAfter: true); return; }
 
         // Quick local file check before launching: a damaged mod usually means a kick or crash.
         if (!_skipHealthCheckOnce)
@@ -166,6 +170,8 @@ public partial class MainViewModel
         var mods = await PrepareModsAsync(server, askSteamAnyway: true);
         if (mods != null)
             ShowResult(true, "Mods ready", $"All {mods.Count} mods for {server.Name} are downloaded and up to date.");
+        else
+            OfferOutdatedRepair(server, joinAfter: false);
     }
 
     // ------------------------------------------------------------------ Verify + Repair
@@ -412,7 +418,9 @@ public partial class MainViewModel
         // DistinctBy: a mod listed twice must only be downloaded and loaded once.
         var required = mods.DistinctBy(m => m.Id).ToList();
         IReadOnlyDictionary<ulong, WorkshopItem> workshop = new Dictionary<ulong, WorkshopItem>();
-        try { workshop = await _service.Workshop.GetDetailsAsync(required.Where(m => m.Id != 0).Select(m => m.Id)); }
+        // Fresh from the Workshop (not the last few minutes' answers): a mod updated a moment ago
+        // before a server restart has to be noticed now.
+        try { workshop = await _service.Workshop.GetDetailsAsync(required.Where(m => m.Id != 0).Select(m => m.Id), fresh: true); }
         catch (Exception ex) { Log.Warn("Workshop lookup failed before sync: " + ex.Message); }
 
         var plan = ModPlan.Build(required, _steam, workshop);
@@ -425,8 +433,17 @@ public partial class MainViewModel
             return null;
         }
 
+        _outdatedAfterSync = [];
         if (plan.ToDownload.Count == 0 && !askSteamAnyway)
             return required;
+        // "Join anyway" after Steam wouldn't update some mods: don't try those again this time.
+        if (_acceptOutdatedOnce.Count > 0 && plan.ToDownload.All(m => _acceptOutdatedOnce.Contains(m.Id)) && !askSteamAnyway)
+        {
+            Log.Info($"Joining with {plan.ToDownload.Count} outdated mod(s) the player chose to accept.");
+            _acceptOutdatedOnce = [];
+            return required;
+        }
+        _acceptOutdatedOnce = [];
 
         if (GameLauncher.DayZIsRunning())
         {
@@ -462,7 +479,12 @@ public partial class MainViewModel
         {
             // Always tell the downloader where mods live, so it checks folders on disk and
             // never trusts Steam's "installed" flag alone (it goes stale if folders are deleted).
-            var spec = repair ?? new RepairSpec(_steam.WorkshopPath ?? "", []);
+            // Mods the Workshop says are outdated must end up at least at that version, whatever
+            // Steam's own "needs update" flag says (it can lag behind a fresh upload).
+            var mustReach = plan.ToDownload
+                .Where(m => _steam.Mods.ContainsKey(m.Id) && workshop.GetValueOrDefault(m.Id)?.Updated is not null)
+                .ToDictionary(m => m.Id, m => workshop[m.Id].Updated!.Value.ToUnixTimeSeconds());
+            var spec = (repair ?? new RepairSpec(_steam.WorkshopPath ?? "", [])) with { MustReach = mustReach };
             result = await _downloader.SyncAsync(required, plan.ToDownload, sizes, spec, progress, _syncCts.Token);
         }
         catch (Exception ex)
@@ -501,7 +523,29 @@ public partial class MainViewModel
                 $"Steam finished, but {missing.Count} mod folder(s) aren't on disk yet: {string.Join(", ", missing.Take(5).Select(m => m.Name))}. Wait a moment and try again.");
             return null;
         }
+
+        // ...and that each one really is the Workshop's current version now.
+        var after = ModPlan.Build(required, _steam!, workshop);
+        if (after.ToDownload.Count > 0)
+        {
+            _outdatedAfterSync = after.ToDownload.Select(m => m.Id).ToHashSet();
+            ShowResult(false, $"{after.ToDownload.Count} mod(s) are still out of date",
+                $"Steam didn't download the new version of {string.Join(", ", after.ToDownload.Take(5).Select(m => m.Name))}{(after.ToDownload.Count > 5 ? $" and {after.ToDownload.Count - 5} more" : "")}. Repair downloads them fresh; joining with an old version usually gets you kicked.");
+            return null;
+        }
         return required;
+    }
+
+    /// <summary>After Steam left mods on an old version: offer Repair (fresh download) and, when joining, Join anyway.</summary>
+    private void OfferOutdatedRepair(ServerViewModel server, bool joinAfter)
+    {
+        if (_outdatedAfterSync.Count == 0) return;
+        var stale = server.Mods.Where(m => _outdatedAfterSync.Contains(m.WorkshopId)).ToList();
+        if (stale.Count == 0) return;
+        var ids = _outdatedAfterSync.ToHashSet();
+        SetPanelActions(
+            ($"Repair {stale.Count} mod(s)", () => RepairModsAsync(server, stale, confirm: false, joinAfter: joinAfter)),
+            joinAfter ? ("Join anyway", () => { _acceptOutdatedOnce = ids; return JoinAsync(); }) : null);
     }
 
     private void ShowResult(bool ok, string title, string detail)

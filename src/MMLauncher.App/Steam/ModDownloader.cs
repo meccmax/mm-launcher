@@ -14,7 +14,10 @@ public sealed record SyncResult(bool Success, string Message, IReadOnlyList<Requ
 /// Mods being repaired: their folders were deleted, so Steam's own "installed" flag can't be
 /// trusted. They count as done only once their folder is back on disk and passes the file check.
 /// </summary>
-public sealed record RepairSpec(string WorkshopPath, IReadOnlyList<ulong> Ids);
+/// <param name="MustReach">Mods the Workshop says are outdated → the Workshop version (Unix time) the
+/// download has to bring. Steam's own "needs update" flag can lag behind a fresh upload, so a mod in
+/// here only counts as done once Steam's records show at least that version.</param>
+public sealed record RepairSpec(string WorkshopPath, IReadOnlyList<ulong> Ids, IReadOnlyDictionary<ulong, long>? MustReach = null);
 
 /// <summary>Gets a server's mods onto this PC through the player's Steam client.</summary>
 public interface IModDownloader

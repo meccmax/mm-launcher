@@ -119,6 +119,24 @@ public sealed class LocalSteam
         };
     }
 
+    /// <summary>
+    /// When Steam last updated one mod on this PC (appworkshop_221100.acf "timeupdated", the Workshop
+    /// version it has), from the mods folder ...\workshop\content\221100. Null if unknown.
+    /// </summary>
+    public static DateTimeOffset? InstalledVersion(string contentDir, ulong id)
+    {
+        try
+        {
+            var workshopDir = Directory.GetParent(contentDir)?.Parent?.FullName;
+            if (workshopDir == null) return null;
+            var acf = Path.Combine(workshopDir, $"appworkshop_{DayZAppId}.acf");
+            if (!File.Exists(acf)) return null;
+            var node = VdfNode.Parse(File.ReadAllText(acf))["AppWorkshop"]?["WorkshopItemsInstalled"]?[id.ToString()];
+            return long.TryParse(node?["timeupdated"]?.Value, out var t) && t > 0 ? DateTimeOffset.FromUnixTimeSeconds(t) : null;
+        }
+        catch { return null; }
+    }
+
     /// <summary>True when the folder (or any subfolder) contains at least one file.</summary>
     public static bool HasAnyFile(string dir)
     {
