@@ -132,6 +132,8 @@ The **DAYZ EDITOR** page starts DayZ offline (main menu, no server) with Communi
 
 **Update mods** does steps 1–3 without launching. Passworded servers ask for the password; it is never written to the log.
 
+**Saved passwords (v0.15).** The password prompt has **Show** (to check what you typed) and **Remember this password on this PC**. A remembered password is used by JOIN SERVER without asking. The server panel shows "Password saved on this PC" with **Show**, **Change** and **Forget** (or **Save password…** for a passworded server with none saved). Passwords are stored in `saved-passwords.jsonc`, encrypted with Windows' own per-user protection (DPAPI), so only that Windows account on that PC can read them back. They're never logged, never put in problem reports and never sent anywhere except to DayZ when joining.
+
 Every step is logged to `%APPDATA%\MMLauncher\launcher.log`. The panel's **Open log** link opens it.
 
 These launch options in `settings.jsonc` are each explained inside the file:

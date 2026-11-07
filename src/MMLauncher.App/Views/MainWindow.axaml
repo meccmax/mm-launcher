@@ -338,6 +338,26 @@
                     IsChecked="{Binding $parent[Window].((vm:MainViewModel)DataContext).AutoRejoin}"
                     ToolTip.Tip="If DayZ crashes, the launcher updates mods and rejoins the server you were on (waiting for it if it's restarting). Quitting DayZ normally never rejoins. You can cancel the countdown." />
 
+          <!-- Saved server password: show / change / forget -->
+          <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,8,0,0"
+                      IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowPasswordLine}">
+            <TextBlock Text="{Binding $parent[Window].((vm:MainViewModel)DataContext).PasswordLineText}" FontSize="12"
+                       Foreground="{DynamicResource Silver}" VerticalAlignment="Center" />
+            <SelectableTextBlock Text="{Binding $parent[Window].((vm:MainViewModel)DataContext).SavedPasswordValue}" FontSize="12" FontWeight="SemiBold"
+                                 Foreground="{DynamicResource Text}" VerticalAlignment="Center"
+                                 IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).SavedPasswordShown}" />
+            <Button Classes="link" FontSize="12" Padding="0" Content="{Binding $parent[Window].((vm:MainViewModel)DataContext).ShowPasswordText}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ToggleSavedPasswordCommand}"
+                    IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasSavedPassword}" />
+            <Button Classes="link" FontSize="12" Padding="0" Content="{Binding $parent[Window].((vm:MainViewModel)DataContext).ChangePasswordText}"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ChangeSavedPasswordCommand}"
+                    ToolTip.Tip="Save this server's password on this PC (encrypted for your Windows account), so JOIN SERVER doesn't ask" />
+            <Button Classes="link" FontSize="12" Padding="0" Content="Forget"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ForgetSavedPasswordCommand}"
+                    IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).HasSavedPassword}"
+                    ToolTip.Tip="Delete the saved password. JOIN SERVER will ask for it again." />
+          </StackPanel>
+
           <Border Background="{DynamicResource WarnTint}" BorderBrush="{DynamicResource Warn}" BorderThickness="3,0,0,0" CornerRadius="3" Padding="12,8" Margin="0,10,0,0"
                   IsVisible="{Binding RestartSoon}">
             <TextBlock Text="{Binding RestartWarning}" Foreground="{DynamicResource Warn}" TextWrapping="Wrap" FontSize="12" />

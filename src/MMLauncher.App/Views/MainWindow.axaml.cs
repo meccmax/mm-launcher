@@ -46,8 +46,8 @@ public partial class MainWindow : Window
                 });
                 return file?.TryGetLocalPath();
             };
-            vm.AskPassword = async serverName =>
-                await new PasswordDialog(serverName).ShowDialog<string?>(this);
+            vm.AskPassword = async (serverName, saved, okText, heading) =>
+                await new PasswordDialog(serverName, saved, Core.Config.SavedPasswords.CanSave, okText, heading).ShowDialog<PasswordAnswer?>(this);
             vm.AskConfirm = async (title, message, ok) =>
                 await new ConfirmDialog(title, message, ok).ShowDialog<bool>(this);
             vm.AskName = async (message, suggested, ok, later) =>

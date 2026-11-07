@@ -126,6 +126,10 @@ Covers everything added since the first audit: Friends, Mods page and Workshop s
 
 **R3 (code signing):** the SignPath Foundation application was declined (not enough public use yet). R3 stays open; reapply once more people use the launcher. Until then, every download is checked against `SHA256SUMS.txt` by the launcher's updater and `update-agent.bat`.
 
+## Review: 7 November 2026 (v0.15.0)
+
+**Saved server passwords.** Saved only when the player ticks "Remember" (or uses "Save password…"). Each one is encrypted with Windows DPAPI for the current user, with a launcher-specific extra key, so `saved-passwords.jsonc` can't be read on another PC or by another Windows account. Passwords are never logged (the launch line already shows `-password=***`), never included in problem reports (only `launcher.log` is collected from the launcher's folder) and never sent anywhere except to DayZ on the command line, as before. A password that can't be decrypted counts as not saved. Where Windows encryption isn't available, nothing is saved. "Forget" deletes it from the file. Self-checks cover saving, reading back, forgetting, and that the file never holds the password in plain text.
+
 ## Review: 2 November 2026 (v0.14.0)
 
 Covers the browser's new country, PvE, player-count, mod search and "Has AI" filters, and the Mods page's cleanup tools. No new packages.

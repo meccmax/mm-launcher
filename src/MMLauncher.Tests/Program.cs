@@ -523,6 +523,29 @@ Console.WriteLine("== Server browser ==");
     lists.AddRecent("10.0.0.5", 2303, 2302, "S5 renamed");
     Check(ServerLists.Load().Recent.First().ModIds.SequenceEqual(new ulong[] { 111, 222 }), "mod list kept when the server is played again, and saved");
 
+    // Saved server passwords (Windows encryption replaced by a stand-in here)
+    if (File.Exists(SavedPasswords.FilePath)) File.Delete(SavedPasswords.FilePath);
+    var realProtect = SavedPasswords.Protect;
+    var realUnprotect = SavedPasswords.Unprotect;
+    SavedPasswords.Protect = b => [0x4D, .. b.Select(x => (byte)(x ^ 0x5A))];
+    SavedPasswords.Unprotect = b => b.Length > 0 && b[0] == 0x4D ? b.Skip(1).Select(x => (byte)(x ^ 0x5A)).ToArray() : throw new InvalidOperationException("not ours");
+    var pw = SavedPasswords.Load();
+    Check(pw.Set("Game.Example.com", 2603, "s3cret pässword") && pw.Get("game.example.com", 2603) == "s3cret pässword" && pw.Has("GAME.example.com", 2603),
+        "password saved and read back (address case doesn't matter)");
+    var pwFile = File.ReadAllText(SavedPasswords.FilePath);
+    Check(pwFile.StartsWith("// MM Launcher") && !pwFile.Contains("s3cret"), "saved-passwords.jsonc has comments and never the password in plain text");
+    Check(SavedPasswords.Load().Get("game.example.com", 2603) == "s3cret pässword", "saved password survives a restart");
+    Check(!pw.Set("game.example.com", 2604, "") && !pw.Set("game.example.com", 2604, new string('x', 129)) && pw.Get("game.example.com", 2604) == null,
+        "empty or over-long passwords aren't saved");
+    pw.Servers["other:1"] = "bm90LW91cnM="; // e.g. a file copied from another PC: can't be decrypted
+    Check(pw.Get("other", 1) == null, "a password that can't be decrypted counts as not saved");
+    Check(pw.Remove("game.example.com", 2603) && SavedPasswords.Load().Get("game.example.com", 2603) == null && !pw.Remove("game.example.com", 2603),
+        "forgetting a password removes it from the file");
+    SavedPasswords.Protect = null;
+    Check(!SavedPasswords.CanSave && !pw.Set("a", 1, "x"), "where Windows encryption isn't available, nothing is saved");
+    SavedPasswords.Protect = realProtect;
+    SavedPasswords.Unprotect = realUnprotect;
+
     // When mods were last played
     if (File.Exists(ModUsage.FilePath)) File.Delete(ModUsage.FilePath);
     var usage = ModUsage.Load();

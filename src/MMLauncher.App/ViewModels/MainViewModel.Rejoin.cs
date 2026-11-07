@@ -105,7 +105,7 @@ public partial class MainViewModel
         string? password = null;
         if (server.Passworded)
         {
-            password = AskPassword == null ? null : await AskPassword(server.Name);
+            password = await GetJoinPasswordAsync(server);
             if (password == null) return;
         }
         _rejoinCts?.Cancel();

@@ -21,7 +21,6 @@ public partial class MainViewModel
     private HashSet<ulong> _acceptOutdatedOnce = [];
 
     /// <summary>Set by the window: asks for a server password, null if cancelled.</summary>
-    public Func<string, Task<string?>>? AskPassword { get; set; }
 
     /// <summary>Set by the window: (title, message, ok button text) → true if confirmed.</summary>
     public Func<string, string, string, Task<bool>>? AskConfirm { get; set; }
@@ -110,7 +109,7 @@ public partial class MainViewModel
         {
             password = auto && _rejoinServerKey == server.Key && _rejoinPassword != null
                 ? _rejoinPassword
-                : AskPassword == null ? null : await AskPassword(server.Name);
+                : await GetJoinPasswordAsync(server);
             if (password == null) { ShowResult(false, "Join cancelled", "No password entered."); return; }
         }
 

@@ -57,6 +57,7 @@ public partial class MainViewModel
     private void SelectedServerPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName is nameof(ServerViewModel.HasHistory)) RaiseDetailTabs();
+        if (e.PropertyName is nameof(ServerViewModel.Passworded)) RaisePasswordState();
         if (e.PropertyName is nameof(ServerViewModel.HasNews) or nameof(ServerViewModel.UnseenNews))
         {
             RaiseDetailTabs();

@@ -65,6 +65,8 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(FavoriteText));
         OnPropertyChanged(nameof(FriendsOnSelected));
         OnPropertyChanged(nameof(HasFriendsOnSelected));
+        SavedPasswordShown = false;
+        RaisePasswordState();
         if (!IsSyncing) ClearPanel();
         RaiseJoinState();
     }
