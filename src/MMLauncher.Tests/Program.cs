@@ -1185,7 +1185,9 @@ Console.WriteLine("== Hostile preset file ==");
 Console.WriteLine("== Player history ==");
 {
     var store = new MMLauncher.Core.History.PlayerHistoryStore();
-    var t0 = new DateTimeOffset(2026, 11, 1, 0, 0, 0, TimeSpan.Zero);
+    // Starts 7 days before today (UTC midnight): Load() drops readings older than 7 days by the real
+    // clock, so a fixed start date made this test fail once that date was more than a week old.
+    var t0 = new DateTimeOffset(DateTime.UtcNow.Date, TimeSpan.Zero).AddDays(-7);
     for (int i = 0; i < 8 * 288; i++)            // 8 days, every 5 minutes
         store.Record(2302, t0.AddMinutes(5 * i), i % 48 == 0 ? null : 10 + (i % 288) / 12, 60);
     var now = t0.AddMinutes(5 * (8 * 288 - 1));
