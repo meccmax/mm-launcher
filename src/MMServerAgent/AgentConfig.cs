@@ -40,6 +40,8 @@ public sealed class AgentConfig
     // Anonymous launcher usage stats
     public bool AcceptUsageStats { get; set; } = true;
     public int KeepUsageDays { get; set; } = 90;
+    // MM BlackBox stats for the website leaderboards
+    public string BlackBoxStatsToken { get; set; } = "";
 
     public Dictionary<string, ServerExtras> Servers { get; set; } = new()
     {
@@ -83,7 +85,8 @@ public sealed class AgentConfig
                     cfg.RestartTimes ??= [];
                     cfg.KeepUsageDays = Math.Clamp(cfg.KeepUsageDays, 7, 3650);
                     cfg.ModListRefreshMinutes = Math.Clamp(cfg.ModListRefreshMinutes, 10, 1440);
-                    if (!text.Contains("\"ModListRefreshMinutes\"", StringComparison.OrdinalIgnoreCase))
+                    cfg.BlackBoxStatsToken = (cfg.BlackBoxStatsToken ?? "").Trim();
+                    if (!text.Contains("\"BlackBoxStatsToken\"", StringComparison.OrdinalIgnoreCase))
                         cfg.Save();
                     return cfg;
                 }
@@ -195,6 +198,15 @@ public sealed class AgentConfig
         sb.AppendLine($"  \"AcceptUsageStats\": {J(AcceptUsageStats)},");
         sb.AppendLine("  // Days of usage stats to keep (7-3650). Older day files are deleted.");
         sb.AppendLine($"  \"KeepUsageDays\": {KeepUsageDays},");
+        sb.AppendLine();
+        sb.AppendLine("  // ---------------- MM BlackBox stats for the website ----------------");
+        sb.AppendLine("  // Password the MM website's stats job uses to download each DayZ server's MM BlackBox");
+        sb.AppendLine("  // stats file (<profiles>\\MM_BlackBox\\Stats\\public_stats.json) for the leaderboards on");
+        sb.AppendLine("  // misfitmercenaries.com. Only those stats files can be fetched, only over an encrypted");
+        sb.AppendLine("  // connection, and only with this password. \"\" = off.");
+        sb.AppendLine("  // Make one by running stats-token.bat as administrator. Keep it secret: the same password");
+        sb.AppendLine("  // goes in the website repo's BLACKBOX_TOKEN secret (GitHub > Settings > Secrets > Actions).");
+        sb.AppendLine($"  \"BlackBoxStatsToken\": {J(BlackBoxStatsToken)},");
         sb.AppendLine();
         sb.AppendLine("  // Optional per-server extras, keyed by the server's GAME port (-port=).");
         sb.AppendLine("  //   DisplayName  name shown in the launcher instead of the cfg hostname");

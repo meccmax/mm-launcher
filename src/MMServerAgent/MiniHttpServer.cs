@@ -7,8 +7,8 @@ using System.Text;
 
 namespace MMServerAgent;
 
-/// <summary>A request as the agent's handlers see it.</summary>
-public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false, string Query = "");
+/// <summary>A request as the agent's handlers see it. Authorization is the raw header, used only by the website stats share.</summary>
+public sealed record HttpRequestInfo(string Method, string Path, IPAddress RemoteAddress, byte[] Body, string ContentType, bool Encrypted = false, string Query = "", string Authorization = "");
 
 /// <summary>A response from a handler.</summary>
 public sealed record HttpReply(int Status, string ContentType, string Body, byte[]? Bytes = null, string? ContentEncoding = null);
@@ -215,7 +215,8 @@ public sealed class MiniHttpServer(
         }
 
         headers.TryGetValue("Content-Type", out var contentType);
-        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? "", encrypted, query));
+        headers.TryGetValue("Authorization", out var authorization);
+        var reply = await handler(new HttpRequestInfo(method, path, remote, body, contentType ?? "", encrypted, query, authorization ?? ""));
         await WriteAsync(stream, reply, ct);
     }
 

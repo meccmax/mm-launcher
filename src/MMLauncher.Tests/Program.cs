@@ -1261,6 +1261,68 @@ Console.WriteLine("== Server news ==");
     Directory.Delete(newsDir, true);
 }
 
+Console.WriteLine("== Agent: MM BlackBox stats share for the website ==");
+{
+    var bbRoot = Path.Combine(Path.GetTempPath(), "mm-bb-test-" + Guid.NewGuid().ToString("N")[..8]);
+    var serverDir = Path.Combine(bbRoot, "server");
+    var statsDir = Path.Combine(serverDir, "profiles", "MM_BlackBox", "Stats");
+    Directory.CreateDirectory(statsDir);
+    File.WriteAllText(Path.Combine(statsDir, "public_stats.json"), "{\"server_id\":\"nasdara\",\"players\":[]}");
+    File.WriteAllText(Path.Combine(statsDir, "public_stats_season_season-1.json"), "{\"season_id\":\"season-1\"}");
+    File.WriteAllText(Path.Combine(serverDir, "profiles", "secret.json"), "{\"nope\":true}");
+    File.WriteAllText(Path.Combine(statsDir, "other.json"), "{}");
+
+    var proc = new MMServerAgent.ServerProcess(1, Path.Combine(serverDir, "DayZServer_x64.exe"), ["-port=2402", "-profiles=profiles"], null);
+    Check(MMServerAgent.ServerDetector.ProfilesFolder(proc) == Path.Combine(serverDir, "profiles"), "profiles folder read from -profiles= (relative to the server folder)");
+    Check(MMServerAgent.ServerDetector.ProfilesFolder(proc with { Args = ["-port=2402"] }) == null, "no -profiles= means no stats folder");
+
+    var token = MMServerAgent.BlackBoxStatsShare.NewToken();
+    Check(token.Length >= MMServerAgent.BlackBoxStatsShare.MinTokenLength && token != MMServerAgent.BlackBoxStatsShare.NewToken(), "stats-token makes long, different passwords");
+    var bbLog = new List<string>();
+    var share = new MMServerAgent.BlackBoxStatsShare(new MMServerAgent.AgentConfig { BlackBoxStatsToken = token }, m => { lock (bbLog) bbLog.Add(m); });
+    share.Remember(new Dictionary<int, string> { [2402] = Path.Combine(serverDir, "profiles") });
+    MMServerAgent.HttpReply Ask(string path, string auth = "", bool enc = true, string ip = "10.0.0.1") =>
+        share.Handle(new MMServerAgent.HttpRequestInfo("GET", MMServerAgent.BlackBoxStatsShare.PathPrefix + path, IPAddress.Parse(ip), [], "", enc, "", auth));
+    string Unzip(byte[] b) { using var z = new System.IO.Compression.GZipStream(new MemoryStream(b), System.IO.Compression.CompressionMode.Decompress); using var r = new StreamReader(z); return r.ReadToEnd(); }
+
+    var off = new MMServerAgent.BlackBoxStatsShare(new MMServerAgent.AgentConfig(), _ => { });
+    off.Remember(new Dictionary<int, string> { [2402] = Path.Combine(serverDir, "profiles") });
+    Check(off.Handle(new MMServerAgent.HttpRequestInfo("GET", MMServerAgent.BlackBoxStatsShare.PathPrefix + "2402/public_stats.json", IPAddress.Loopback, [], "", true, "", "Bearer ")).Status == 404, "off when no password is set");
+    Check(!new MMServerAgent.BlackBoxStatsShare(new MMServerAgent.AgentConfig { BlackBoxStatsToken = "short" }, _ => { }).Enabled, "a too-short password counts as off");
+
+    var good = Ask("2402/public_stats.json", "Bearer " + token);
+    Check(good.Status == 200 && good.ContentEncoding == "gzip" && Unzip(good.Bytes!).Contains("nasdara"), "right password + encrypted: stats file served (gzipped)");
+    Check(Ask("2402/public_stats_season_season-1.json", "Bearer " + token).Status == 200, "season final file served");
+    Check(Ask("2402/public_stats.json", "Bearer " + token, enc: false).Status == 403, "unencrypted connection refused");
+    Check(Ask("2402/public_stats.json", "").Status == 403 && Ask("2402/public_stats.json", "Bearer " + token + "x").Status == 403, "missing or wrong password refused");
+    Check(bbLog.Any(l => l.Contains("wrong or missing password")) && bbLog.All(l => !l.Contains(token)), "wrong passwords logged, the password never is");
+    foreach (var bad in new[] { "2402/other.json", "2402/../secret.json", "2402/..%2Fsecret.json", "2402/public_stats.json/x", "2402", "abc/public_stats.json", "2402/public_stats_season_../x.json" })
+        Check(Ask(bad, "Bearer " + token).Status == 404, $"refused: {bad}");
+    Check(Ask("2302/public_stats.json", "Bearer " + token).Status == 404, "unknown server port refused");
+    File.Delete(Path.Combine(statsDir, "public_stats_season_season-1.json"));
+    Check(Ask("2402/public_stats_season_season-1.json", "Bearer " + token).Status == 404, "missing file: 404");
+
+    for (int i = 0; i < 10; i++) Ask("2402/public_stats.json", "Bearer wrong", ip: "10.0.0.9");
+    Check(Ask("2402/public_stats.json", "Bearer " + token, ip: "10.0.0.9").Status == 429, "10 wrong passwords block that address, even with the right one");
+    Check(Ask("2402/public_stats.json", "Bearer " + token, ip: "10.0.0.2").Status == 200, "other addresses unaffected");
+
+    // Through the real agent web server over TLS: the password header reaches the handler.
+    using var bbCert = MMServerAgent.TlsIdentity.Load(MMServerAgent.TlsIdentity.Create());
+    using var stopBb = new CancellationTokenSource();
+    _ = new MMServerAgent.MiniHttpServer(2983, 1 << 20, r => Task.FromResult(r.Path.StartsWith(MMServerAgent.BlackBoxStatsShare.PathPrefix) ? share.Handle(r) : new MMServerAgent.HttpReply(404, "text/plain", "no")),
+        null, bbCert, allowPlain: true).RunAsync(stopBb.Token);
+    await Task.Delay(300);
+    using var bbHttp = new HttpClient(new HttpClientHandler { ServerCertificateCustomValidationCallback = (_, _, _, _) => true, AutomaticDecompression = DecompressionMethods.GZip });
+    var bbReq = new HttpRequestMessage(HttpMethod.Get, $"https://127.0.0.1:2983{MMServerAgent.BlackBoxStatsShare.PathPrefix}2402/public_stats.json");
+    bbReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+    var bbResp = await bbHttp.SendAsync(bbReq);
+    Check(bbResp.StatusCode == HttpStatusCode.OK && (await bbResp.Content.ReadAsStringAsync()).Contains("nasdara"), "end to end over HTTPS with the password header");
+    var plainResp = await new HttpClient().GetAsync($"http://127.0.0.1:2983{MMServerAgent.BlackBoxStatsShare.PathPrefix}2402/public_stats.json");
+    Check(plainResp.StatusCode == HttpStatusCode.Forbidden, "plain HTTP to the same port refused");
+    stopBb.Cancel();
+    Directory.Delete(bbRoot, true);
+}
+
 Console.WriteLine("== Agent over HTTP (if one is running on localhost:2999) ==");
 var agentReply = await new AgentClient(new AgentTrust(Path.Combine(root, "trust-live"))).QueryAsync("localhost", 2999);
 if (agentReply == null) Console.WriteLine("   (no agent running; skipped)");

@@ -14,6 +14,9 @@ using MMServerAgent;
 // MMServerAgent.exe uninstall  stop + remove the service and firewall rule (admin)
 // MMServerAgent.exe update     download the newest agent from GitHub, verify it, swap it in (admin)
 //                              The agent never updates itself; this only runs when you run it.
+// MMServerAgent.exe stats-token  make the password the MM website uses to fetch MM BlackBox
+//                              stats, save it in agent.jsonc and restart the service (admin)
+//                              Shows the existing one if set; add --new to replace it.
 
 const string ServiceName = "MMServerAgent";
 const string DisplayName = "MM Server Agent";
@@ -29,8 +32,10 @@ switch (command)
         return Uninstall();
     case "update":
         return await UpdateAsync();
+    case "stats-token":
+        return StatsToken();
     case "help" or "?" or "h":
-        Console.WriteLine("Usage: MMServerAgent.exe [check | install | uninstall | update]");
+        Console.WriteLine("Usage: MMServerAgent.exe [check | install | uninstall | update | stats-token]");
         return 0;
 }
 
@@ -62,8 +67,11 @@ int Check()
     {
         Console.WriteLine($"Encryption key: couldn't read {TlsIdentity.FileName} ({ex.Message})");
     }
+    var share = new BlackBoxStatsShare(config, _ => { });
+    Console.WriteLine(share.Describe());
     Console.WriteLine();
     var d = ServerDetector.Detect(config);
+    share.Remember(d.Profiles);
     if (d.Servers.Count == 0) Console.WriteLine("No running DayZ servers found.");
     foreach (var s in d.Servers)
     {
@@ -71,6 +79,11 @@ int Check()
         Console.WriteLine($"  game port {s.GamePort}  ·  query port {s.QueryPort}  ·  max {s.MaxPlayers}  ·  map {s.Map}  ·  up {Uptime(s.UptimeSeconds)}");
         if (s.DisplayName != null) Console.WriteLine($"  display name: {s.DisplayName}");
         if (s.Message != null) Console.WriteLine($"  message: {s.Message}");
+        var statsFolder = share.StatsFolder(s.GamePort);
+        var statsFile = statsFolder == null ? null : Path.Combine(statsFolder, "public_stats.json");
+        Console.WriteLine(statsFile == null ? "  MM BlackBox stats: no -profiles= folder on the startup line, so the website can't get them"
+            : File.Exists(statsFile) ? $"  MM BlackBox stats: {statsFile} (written {Math.Max(0, (int)(DateTime.Now - File.GetLastWriteTime(statsFile)).TotalMinutes)} min ago)"
+            : $"  MM BlackBox stats: not written yet ({statsFile})");
         Console.WriteLine($"  {s.Mods.Count} client mods:");
         foreach (var m in s.Mods)
             Console.WriteLine($"    {(m.Id == 0 ? "(no id)" : m.Id.ToString()),-12} {m.Name}  [{m.Folder}]");
@@ -94,6 +107,47 @@ int Check()
         Console.ReadKey(true);
     }
     return 0;
+}
+
+int StatsToken()
+{
+    var config = AgentConfig.Load();
+    bool replace = args.Any(a => a.Equals("--new", StringComparison.OrdinalIgnoreCase));
+    bool made = false;
+    if (config.BlackBoxStatsToken.Length < BlackBoxStatsShare.MinTokenLength || replace)
+    {
+        config.BlackBoxStatsToken = BlackBoxStatsShare.NewToken();
+        try { config.Save(); made = true; }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Couldn't save agent.jsonc ({ex.Message}). Right-click stats-token.bat and choose \"Run as administrator\".");
+            Pause();
+            return 1;
+        }
+    }
+    Console.WriteLine(made ? "New website stats password saved in agent.jsonc:" : "The website stats password already set in agent.jsonc (run with --new to replace it):");
+    Console.WriteLine();
+    Console.WriteLine("    " + config.BlackBoxStatsToken);
+    Console.WriteLine();
+    Console.WriteLine("Copy it into GitHub: the misfitmercenaries-site repo > Settings > Secrets and variables >");
+    Console.WriteLine("Actions > New repository secret. Name: BLACKBOX_TOKEN  Secret: the password above.");
+    Console.WriteLine("Keep it secret. Anyone with it can read the public leaderboard stats files, nothing else.");
+    if (made && OperatingSystem.IsWindows() && Run("sc.exe", $"query {ServiceName}", quiet: true) == 0)
+    {
+        Console.Write("\nRestarting the MM Server Agent service so it takes effect... ");
+        Run("sc.exe", $"stop {ServiceName}", quiet: true);
+        for (int i = 0; i < 30 && !ServiceStopped(); i++) Thread.Sleep(1000);
+        Console.WriteLine(Run("sc.exe", $"start {ServiceName}", quiet: true) == 0 ? "done" : "couldn't start it; check services.msc");
+    }
+    Pause();
+    return 0;
+}
+
+void Pause()
+{
+    if (!OperatingSystem.IsWindows() || args.Any(a => a == "--no-pause")) return;
+    Console.WriteLine("Press any key to close.");
+    Console.ReadKey(true);
 }
 
 static Version CurrentVersion() =>

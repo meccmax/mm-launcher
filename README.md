@@ -92,6 +92,13 @@ Each MM server's details have a **PLAYERS** tab: a chart of its player count ove
 - **How it works:** every 5 minutes the agent asks each DayZ server on its machine for its player count (the normal status query, on 127.0.0.1) and keeps 7 days in `player-history.jsonc` next to it. The history builds up even when nobody has the launcher open. Launchers fetch it from `/mm-agent/v1/history?port=<game port>` only when the tab is opened.
 - **Limits:** the launcher accepts at most about two weeks of 5-minute readings and clamps every value.
 
+### MM BlackBox stats for the website (v0.16)
+
+The leaderboards on misfitmercenaries.com come from each DayZ server's MM BlackBox stats file (`<profiles>\MM_BlackBox\Stats\public_stats.json`). The website's stats job downloads it from the agent every 30 minutes at `/mm-agent/v1/blackbox-stats/<game port>/public_stats.json`.
+
+- **Off until set up:** run `stats-token.bat` as administrator to make the password (saved as `BlackBoxStatsToken` in `agent.jsonc`), then store the same password as the website repo's `BLACKBOX_TOKEN` secret.
+- **Locked down:** encrypted connections only, password required, only the stats files (no other path works), 10 wrong passwords an hour block an address. The website checks the agent's key fingerprint, like the launcher does.
+
 ### Server news (v0.10)
 
 Each MM server's details have a **NEWS** tab next to REQUIRED MODS, for wipes, events and changes. Admins write posts as plain text in the agent's `news` folder: `all.txt` for every server, `<game port>.txt` for one server (shown first). A post starts with `# ` (an optional `yyyy-mm-dd` date, then the title), followed by its text and an optional `link: https://…` line; `#!` highlights it. The agent creates a commented `all.txt` explaining this.

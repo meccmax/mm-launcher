@@ -67,6 +67,24 @@ the webhook in Discord and make a new one.
 To switch reports off: "AcceptReports": false.
 
 
+MM BLACKBOX STATS -> WEBSITE LEADERBOARDS (v0.16 and newer)
+------------------------------------------------------------
+The leaderboards on misfitmercenaries.com (AI kills, travel, longest shot ...)
+come from each DayZ server's MM BlackBox stats file:
+  <server's -profiles= folder>\MM_BlackBox\Stats\public_stats.json
+The website downloads it from this agent every 30 minutes. It's off until you
+set a password:
+  1. Right-click stats-token.bat > Run as administrator. It makes a password,
+     saves it in agent.jsonc and restarts the service.
+  2. Copy the password it shows into GitHub: the misfitmercenaries-site repo >
+     Settings > Secrets and variables > Actions > New repository secret.
+     Name: BLACKBOX_TOKEN   Secret: the password.
+  3. check-agent.bat shows, per server, whether its stats file was found.
+Only those stats files can be fetched (nothing else on this machine), only
+over an encrypted connection, and only with the password. 10 wrong passwords
+in an hour block that address for the hour. To switch it off, set
+"BlackBoxStatsToken": "" in agent.jsonc and restart the service.
+
 OPTIONAL: names and messages
 ----------------------------
 In agent.jsonc, under "Servers", add an entry per GAME port (-port=):

@@ -24,6 +24,7 @@ public sealed class AgentWorker : BackgroundService
     private UsageReceiver? _usage;
     private FriendsService? _friends;
     private WorkshopSearchService? _workshop;
+    private BlackBoxStatsShare? _bbStats;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -42,6 +43,8 @@ public sealed class AgentWorker : BackgroundService
         Log(_config.AcceptUsageStats ? "Usage stats: on (anonymous; saved in the usage folder, see usage\\summary.txt)" : "Usage stats: off");
         _friends = new FriendsService(_config, Log);
         _workshop = new WorkshopSearchService(_config, Log);
+        _bbStats = new BlackBoxStatsShare(_config, Log);
+        Log(_bbStats.Describe());
         var feedTask = _feed.RunAsync(stoppingToken);
         _crawler = new ModListCrawler(_config, _feed, Log);
         var crawlTask = _crawler.RunAsync(stoppingToken);
@@ -90,6 +93,7 @@ public sealed class AgentWorker : BackgroundService
             }
             _last = detection;
             _lastScan = DateTime.Now;
+            _bbStats?.Remember(detection.Profiles);
             _json = JsonSerializer.Serialize(new AgentResponse
             {
                 Version = Version,
@@ -153,6 +157,9 @@ public sealed class AgentWorker : BackgroundService
         if (path.Equals(MMLauncher.Core.Friends.FriendsReply.Path, StringComparison.OrdinalIgnoreCase) && _friends != null)
             return await _friends.HandleAsync(request.Query, request.RemoteAddress);
 
+        if (path.StartsWith(BlackBoxStatsShare.PathPrefix, StringComparison.OrdinalIgnoreCase) && _bbStats != null)
+            return _bbStats.Handle(request);
+
         if (path.Equals(EditorPresetFolder.Path, StringComparison.OrdinalIgnoreCase))
             return new HttpReply(200, "application/json", _presets?.Json ?? "[]");
 
@@ -179,6 +186,7 @@ public sealed class AgentWorker : BackgroundService
             sb.AppendLine($"Server browser feed: {(_feed?.Enabled != true ? "off" : $"{_feed.Count} servers")}");
             sb.AppendLine($"Mod search: {(_crawler?.Enabled != true ? "off" : $"{_crawler.ServerCount} servers, {_crawler.ModCount} mods")}");
             sb.AppendLine($"Problem reports: {(!_config.AcceptReports ? "off" : _reports?.DiscordConfigured == true ? "on (Discord)" : "on (saved on server only)")}");
+            sb.AppendLine($"Website stats share: {(_bbStats?.Enabled == true ? "on" : "off")}");
             return new HttpReply(200, "text/plain", sb.ToString());
         }
         return new HttpReply(404, "text/plain", "Not found.");

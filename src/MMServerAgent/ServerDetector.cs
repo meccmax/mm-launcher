@@ -16,12 +16,14 @@ public sealed record ServerProcess(int Pid, string ExePath, IReadOnlyList<string
 public static partial class ServerDetector
 {
     /// <summary>Problems worth showing in "check" output (e.g. couldn't read a startup line).</summary>
-    public sealed record Detection(List<AgentServerInfo> Servers, List<string> Warnings);
+    /// <summary>Profiles maps each server's game port to its -profiles= folder (kept inside the agent; never sent to launchers).</summary>
+    public sealed record Detection(List<AgentServerInfo> Servers, List<string> Warnings, Dictionary<int, string>? Profiles = null);
 
     public static Detection Detect(AgentConfig config)
     {
         var warnings = new List<string>();
         var servers = new List<AgentServerInfo>();
+        var profiles = new Dictionary<int, string>();
         var names = config.ProcessNames.Select(n => n.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? n[..^4] : n)
                                        .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -35,14 +37,16 @@ public static partial class ServerDetector
             }
             try
             {
-                servers.Add(Describe(p, config, warnings));
+                var info = Describe(p, config, warnings);
+                servers.Add(info);
+                if (ProfilesFolder(p) is { } profile) profiles[info.GamePort] = profile;
             }
             catch (Exception ex)
             {
                 warnings.Add($"PID {p.Pid}: {ex.Message}");
             }
         }
-        return new Detection(servers.OrderBy(s => s.GamePort).ToList(), warnings);
+        return new Detection(servers.OrderBy(s => s.GamePort).ToList(), warnings, profiles);
     }
 
     public static AgentServerInfo Describe(ServerProcess p, AgentConfig config, List<string> warnings)
@@ -96,6 +100,15 @@ public static partial class ServerDetector
             RestartApproximate = restart?.Approximate ?? false,
             Mods = mods,
         };
+    }
+
+    /// <summary>The server's profiles folder from its startup line (-profiles=), or null if it doesn't set one.</summary>
+    public static string? ProfilesFolder(ServerProcess p)
+    {
+        if (p.Args == null) return null;
+        var value = ParseOptions(p.Args).GetValueOrDefault("profiles");
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        return Resolve(Path.GetDirectoryName(p.ExePath) ?? ".", value);
     }
 
     // ---------------------------------------------------------------- startup line
