@@ -421,6 +421,9 @@
                       ToolTip.Tip="How busy this server has been over the last day and week" />
             </StackPanel>
             <DockPanel IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsModsDetails}" VerticalAlignment="Center">
+            <Button DockPanel.Dock="Right" Classes="link" FontSize="11" Padding="0" Margin="12,0,0,0" Content="Export list…" VerticalAlignment="Center"
+                    Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).ExportServerModsCommand}" IsVisible="{Binding HasMods}"
+                    ToolTip.Tip="Save this server's mod list (in load order) as a preset file the DayZ launcher and MM Launcher can import" />
             <Border DockPanel.Dock="Right" Background="{DynamicResource GoodTint}" CornerRadius="10" Padding="9,2" IsVisible="{Binding ModsFromAgent}"
                     ToolTip.Tip="This list comes from the MM Server Agent, which reads the server's own startup line. It is complete.">
               <TextBlock Text="VERIFIED BY MM AGENT" FontSize="10" FontWeight="Bold" LetterSpacing="0.5" Foreground="{DynamicResource Good}" />
@@ -611,6 +614,11 @@
                          IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="6" MinHeight="6" />
             <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                        IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0" IsVisible="{Binding HasPanelAction}">
+              <Button Classes="primary" Padding="14,5" FontSize="12" Content="{Binding PanelActionText}" Command="{Binding PanelAction}" />
+              <Button Classes="ghost" Padding="14,5" FontSize="12" Content="{Binding PanelAction2Text}" Command="{Binding PanelAction2}"
+                      IsVisible="{Binding HasPanelAction2}" />
+            </StackPanel>
           </StackPanel>
         </Border>
 
@@ -713,6 +721,11 @@
                        IsIndeterminate="{Binding SyncIndeterminate}" Foreground="{DynamicResource Orange}" Background="{DynamicResource Line}" Height="6" MinHeight="6" />
           <TextBlock Text="{Binding SyncDetail}" FontSize="12" Foreground="{DynamicResource Silver}" TextWrapping="Wrap"
                      IsVisible="{Binding SyncDetail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+          <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,2,0,0" IsVisible="{Binding HasPanelAction}">
+            <Button Classes="primary" Padding="14,5" FontSize="12" Content="{Binding PanelActionText}" Command="{Binding PanelAction}" />
+            <Button Classes="ghost" Padding="14,5" FontSize="12" Content="{Binding PanelAction2Text}" Command="{Binding PanelAction2}"
+                    IsVisible="{Binding HasPanelAction2}" />
+          </StackPanel>
         </StackPanel>
       </Border>
 
@@ -729,14 +742,24 @@
             <Button Classes="ghost" Content="Reload" Command="{Binding ShowModsPageCommand}" ToolTip.Tip="Scan the downloaded mods again" />
           </StackPanel>
         </Grid>
-        <TextBlock Text="{Binding InstalledSummary}" Foreground="{DynamicResource Silver}" FontSize="12" />
+        <DockPanel>
+          <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+            <Button Classes="link" FontSize="12" Padding="0" Content="Check files" Command="{Binding CheckInstalledFilesCommand}" IsEnabled="{Binding CanChangeMods}"
+                    ToolTip.Tip="Check every downloaded mod for missing or broken files (.pbo files, signatures). Nothing is changed; damaged ones can then be repaired." />
+            <Button Classes="link" FontSize="12" Padding="0" Content="Import list…" Command="{Binding ImportModListCommand}" IsEnabled="{Binding CanChangeMods}"
+                    ToolTip.Tip="Import a mod list: a preset exported from the DayZ launcher or MM Launcher (.html), or a text file of Workshop links or IDs. Its mods are downloaded and kept." />
+            <Button Classes="link" FontSize="12" Padding="0" Content="Export shown…" Command="{Binding ExportShownModsCommand}"
+                    ToolTip.Tip="Save the mods shown below (after search and filter) as a preset file the DayZ launcher and MM Launcher can import" />
+          </StackPanel>
+          <TextBlock Text="{Binding InstalledSummary}" Foreground="{DynamicResource Silver}" FontSize="12" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+        </DockPanel>
         <Border Background="{DynamicResource WarnTint}" CornerRadius="4" Padding="12,7" IsVisible="{Binding HasStaleNotice}">
           <DockPanel>
             <Button DockPanel.Dock="Right" Classes="link" Content="Show them" Command="{Binding ShowStaleModsCommand}" VerticalAlignment="Center" />
             <TextBlock Text="{Binding StaleNotice}" FontSize="12" Foreground="{DynamicResource Text}" VerticalAlignment="Center" TextWrapping="Wrap" />
           </DockPanel>
         </Border>
-        <Grid ColumnDefinitions="112,*,90,120,150" Margin="10,4,10,0">
+        <Grid ColumnDefinitions="112,*,90,120,210" Margin="10,4,10,0">
           <TextBlock Grid.Column="0" Classes="label" Text="STATUS" />
           <TextBlock Grid.Column="1" Classes="label" Text="MOD" />
           <TextBlock Grid.Column="2" Classes="label" Text="SIZE" HorizontalAlignment="Right" />
@@ -750,7 +773,7 @@
           <ListBox Classes="mods" ItemsSource="{Binding InstalledMods}">
             <ListBox.ItemTemplate>
               <DataTemplate x:DataType="vm:ModViewModel">
-                <Grid ColumnDefinitions="112,*,90,120,150" ToolTip.Tip="{Binding UsedByText}">
+                <Grid ColumnDefinitions="112,*,90,120,210" ToolTip.Tip="{Binding UsedByText}">
                   <Border Grid.Column="0" Classes="pill" Classes.installed="{Binding IsInstalled}" Classes.update="{Binding IsUpdate}"
                           Classes.missing="{Binding IsMissing}" VerticalAlignment="Center">
                     <TextBlock Text="{Binding StateText}" />
@@ -768,6 +791,10 @@
                   <TextBlock Grid.Column="2" Text="{Binding SizeText}" FontSize="12" Foreground="{DynamicResource Silver}" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <TextBlock Grid.Column="3" Text="{Binding UpdatedText}" FontSize="12" Classes="muted" HorizontalAlignment="Right" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Button Classes="link" Content="Repair" IsVisible="{Binding CanRepair}"
+                            IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
+                            Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RepairInstalledModCommand}" CommandParameter="{Binding}"
+                            ToolTip.Tip="Delete this mod's files and download it fresh through Steam" />
                     <Button Classes="link" Content="Remove"
                             IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).CanChangeMods}"
                             Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).RemoveInstalledModCommand}" CommandParameter="{Binding}"

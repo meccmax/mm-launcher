@@ -105,6 +105,18 @@
             </StackPanel>
 
             <StackPanel Spacing="6">
+              <TextBlock Classes="field" Text="Game display" />
+              <ComboBox ItemsSource="{Binding DisplayModes}" SelectedIndex="{Binding DisplayModeIndex}" HorizontalAlignment="Stretch" />
+              <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsWindowedChoice}">
+                <NumericUpDown Value="{Binding WindowWidth}" Minimum="640" Maximum="7680" Increment="10" FormatString="0" Width="120" ToolTip.Tip="Window width in pixels" />
+                <TextBlock Text="×" VerticalAlignment="Center" />
+                <NumericUpDown Value="{Binding WindowHeight}" Minimum="360" Maximum="4320" Increment="10" FormatString="0" Width="120" ToolTip.Tip="Window height in pixels" />
+                <ComboBox ItemsSource="{Binding WindowSizes}" SelectedIndex="{Binding WindowSizeIndex}" PlaceholderText="Common sizes" MinWidth="150" />
+              </StackPanel>
+              <TextBlock Classes="help" Text="{Binding DisplayHelp}" />
+            </StackPanel>
+
+            <StackPanel Spacing="6">
               <TextBlock Classes="field" Text="Extra start parameters" />
               <TextBox Text="{Binding ExtraParameters}" FontFamily="Consolas,Menlo,monospace" />
               <TextBlock Classes="help" Text="Added to every launch. Default: -nolauncher -world=empty (skip DayZ's own launcher window and load faster). Leave as is unless you know you need something." />

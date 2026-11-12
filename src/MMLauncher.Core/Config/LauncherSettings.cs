@@ -23,6 +23,10 @@ public sealed class LauncherSettings
     public string ModFolderMode { get; set; } = "Junction";
     public string PlayerName { get; set; } = "";
     public string ExtraLaunchParameters { get; set; } = "-nolauncher -world=empty";
+    /// <summary>"dayz" (DayZ's own setting), "fullscreen" or "windowed". See Launch.GameDisplay.</summary>
+    public string DisplayMode { get; set; } = "dayz";
+    public int WindowWidth { get; set; }
+    public int WindowHeight { get; set; }
     public string ReportName { get; set; } = "";
     public bool CheckForUpdates { get; set; } = true;
     public bool AutoRejoin { get; set; }
@@ -34,7 +38,7 @@ public sealed class LauncherSettings
     public int SettingsVersion { get; set; } = CurrentVersion;
 
     /// <summary>Bump when a default changes in a way existing files should pick up.</summary>
-    private const int CurrentVersion = 4;
+    private const int CurrentVersion = 5;
 
     public bool LaunchDirect => LaunchMethod.Equals("Direct", StringComparison.OrdinalIgnoreCase);
     public bool UseJunctions => !ModFolderMode.Equals("Absolute", StringComparison.OrdinalIgnoreCase);
@@ -119,6 +123,9 @@ public sealed class LauncherSettings
         DayZPathOverride = (DayZPathOverride ?? "").Trim();
         WorkshopPathOverride = (WorkshopPathOverride ?? "").Trim();
         ExtraLaunchParameters ??= "";
+        DisplayMode = (DisplayMode ?? "").Trim().ToLowerInvariant() is "fullscreen" or "windowed" ? DisplayMode!.Trim().ToLowerInvariant() : "dayz";
+        WindowWidth = WindowWidth <= 0 ? 0 : Math.Clamp(WindowWidth, 640, 7680);
+        WindowHeight = WindowHeight <= 0 ? 0 : Math.Clamp(WindowHeight, 640 * 9 / 16, 4320);
         AgentPorts = (AgentPorts ?? []).Where(p => p is > 0 and <= 65535).Distinct().ToList();
         Theme = string.IsNullOrWhiteSpace(Theme) ? "mm-orange" : Theme.Trim();
         UsageStats = (UsageStats ?? "").Trim().ToLowerInvariant() is "on" or "off" ? UsageStats!.Trim().ToLowerInvariant() : "ask";
@@ -203,6 +210,16 @@ public sealed class LauncherSettings
         sb.AppendLine("  //   -nolauncher   skip the official DayZ launcher window");
         sb.AppendLine("  //   -world=empty  load faster by not loading a menu world first");
         sb.AppendLine($"  \"ExtraLaunchParameters\": {J(ExtraLaunchParameters)},");
+        sb.AppendLine();
+        sb.AppendLine("  // How DayZ's window opens (Settings > Game display). Set in Documents\\DayZ\\DayZ.cfg just before");
+        sb.AppendLine("  // each launch; every other DayZ setting is left alone. A copy of the original file is kept as");
+        sb.AppendLine("  // DayZ.cfg.mmlauncher-backup.");
+        sb.AppendLine("  //   \"dayz\"        leave it to DayZ's own setting (default; nothing is changed)");
+        sb.AppendLine("  //   \"fullscreen\"  fullscreen, at your desktop resolution");
+        sb.AppendLine("  //   \"windowed\"    in a window of WindowWidth x WindowHeight pixels (0 = DayZ's last size)");
+        sb.AppendLine($"  \"DisplayMode\": {J(DisplayMode)},");
+        sb.AppendLine($"  \"WindowWidth\": {WindowWidth},");
+        sb.AppendLine($"  \"WindowHeight\": {WindowHeight},");
         sb.AppendLine();
         sb.AppendLine("  // Name put on problem reports so staff know who sent them (Discord or in-game name).");
         sb.AppendLine("  // Remembered from the last report you sent.");

@@ -35,11 +35,25 @@ public partial class MainWindow : Window
                 });
                 return files.Count > 0 ? files[0].TryGetLocalPath() : null;
             };
+            vm.PickModListFile = async title =>
+            {
+                var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+                {
+                    Title = title,
+                    AllowMultiple = false,
+                    FileTypeFilter =
+                    [
+                        new("Mod lists (*.html, *.txt)") { Patterns = ["*.html", "*.htm", "*.txt"] },
+                        new("All files") { Patterns = ["*"] },
+                    ],
+                });
+                return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+            };
             vm.PickExportFile = async suggested =>
             {
                 var file = await StorageProvider.SaveFilePickerAsync(new Avalonia.Platform.Storage.FilePickerSaveOptions
                 {
-                    Title = "Export preset",
+                    Title = "Export mod list",
                     SuggestedFileName = suggested,
                     DefaultExtension = "html",
                     FileTypeChoices = [new("DayZ launcher preset (*.html)") { Patterns = ["*.html"] }],

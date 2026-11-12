@@ -123,6 +123,7 @@ public partial class MainViewModel
             if (!GameLauncher.SteamIsRunning())
                 throw new LaunchException("Steam isn't running. Start Steam, then click JOIN SERVER again.");
             if (!auto && !await SteamPermissionsOkAsync()) return;
+            Log.Info(GameDisplay.Apply(_service.Settings));
             GameLauncher.Start(command);
 
             // Don't assume it worked: wait for the DayZ process to actually appear.
@@ -236,8 +237,23 @@ public partial class MainViewModel
         return RepairModsAsync(server, server.Mods.Where(m => m.CanRepair).ToList(), confirm: true, joinAfter: false);
     }
 
-    /// <summary>Deletes the given mods' folders and has Steam download them fresh.</summary>
-    private async Task RepairModsAsync(ServerViewModel server, IReadOnlyList<ModViewModel> mods, bool confirm, bool joinAfter)
+    /// <summary>Deletes the given mods' folders and has Steam download them fresh (a server's mods).</summary>
+    private Task RepairModsAsync(ServerViewModel server, IReadOnlyList<ModViewModel> mods, bool confirm, bool joinAfter) =>
+        RepairCoreAsync(server.Name, mods, confirm,
+            prepare: spec => PrepareModsAsync(server, askSteamAnyway: true, spec),
+            refresh: async () => { var w = await SafeWorkshopAsync(server); foreach (var s in Servers) s.ApplyModDetails(w, _steam); },
+            recheck: ids => CheckHealth(server).Where(m => ids.Contains(m.WorkshopId)).ToList(),
+            then: joinAfter ? JoinAsync : null,
+            retry: left => RepairModsAsync(server, left, confirm: false, joinAfter: false));
+
+    /// <summary>
+    /// The repair itself, shared by a server's mod list and the Mods page: move each folder aside,
+    /// have Steam download it fresh (<paramref name="prepare"/>), put old copies back for anything
+    /// that didn't come back, then check the new files.
+    /// </summary>
+    private async Task RepairCoreAsync(string who, IReadOnlyList<ModViewModel> mods, bool confirm,
+        Func<RepairSpec, Task<List<RequiredMod>?>> prepare, Func<Task> refresh, Func<IReadOnlyCollection<ulong>, List<ModViewModel>> recheck,
+        Func<Task>? then, Func<IReadOnlyList<ModViewModel>, Task> retry)
     {
         if (IsSyncing || mods.Count == 0) return;
         ClearPanel();
@@ -256,7 +272,7 @@ public partial class MainViewModel
         if (_steam?.WorkshopPath == null) { ShowResult(false, "Can't repair", "The workshop folder wasn't found. Check Settings."); return; }
         if (GameLauncher.DayZIsRunning()) { ShowResult(false, "DayZ is running", "Close DayZ before repairing mods."); return; }
 
-        Log.Info($"Repair requested for {server.Name}: {string.Join(", ", mods.Select(m => $"{m.WorkshopId} {m.Name}"))}");
+        Log.Info($"Repair requested for {who}: {string.Join(", ", mods.Select(m => $"{m.WorkshopId} {m.Name}"))}");
 
         // 1) Move each mod's folder aside. Each move is all-or-nothing, so a locked file
         //    leaves that one mod untouched; the rest carry on.
@@ -283,7 +299,7 @@ public partial class MainViewModel
 
         // 2) Steam downloads fresh copies.
         var ids = moved.Keys.ToList();
-        var result = await PrepareModsAsync(server, askSteamAnyway: true, new RepairSpec(_steam.WorkshopPath, ids));
+        var result = await prepare(new RepairSpec(_steam.WorkshopPath, ids));
 
         // 3) Anything that didn't come back gets its old copy restored, so a failed or
         //    cancelled repair never leaves you with less than you had. Then clear the trash.
@@ -295,7 +311,7 @@ public partial class MainViewModel
                 if (oldCopy != null && ModHealth.RestoreIfMissing(_steam, id, oldCopy)) restored++;
             ModHealth.PurgeTrash(_steam);
             DetectSteam();
-            foreach (var s in Servers) s.ApplyModDetails(await SafeWorkshopAsync(server), _steam);
+            await refresh();
         }
 
         string skippedNote = blocked.Count == 0 ? "" :
@@ -309,7 +325,7 @@ public partial class MainViewModel
         }
 
         // Re-check what we repaired: still bad after a fresh download = the upload itself.
-        var stillBad = CheckHealth(server).Where(m => ids.Contains(m.WorkshopId)).ToList();
+        var stillBad = recheck(ids);
         if (stillBad.Count > 0)
         {
             ShowResult(false, "Downloaded again, but still has problems",
@@ -321,11 +337,11 @@ public partial class MainViewModel
         {
             ShowResult(false, $"Repaired {ids.Count} mod(s), skipped {blocked.Count}",
                 $"Skipped because a file was open in another program: {string.Join("; ", blocked.Take(3).Select(b => b.Why))}");
-            SetPanelActions(($"Try the {blocked.Count} skipped again", () => RepairModsAsync(server, blocked.Select(b => b.Mod).ToList(), confirm: false, joinAfter: false)), null);
+            SetPanelActions(($"Try the {blocked.Count} skipped again", () => retry(blocked.Select(b => b.Mod).ToList())), null);
             return;
         }
 
-        if (joinAfter) { await JoinAsync(); return; }
+        if (then != null) { await then(); return; }
         ShowResult(true, "Repair complete", $"{(ids.Count == 1 ? mods[0].Name : $"{ids.Count} mods")} downloaded fresh and checked.");
     }
 

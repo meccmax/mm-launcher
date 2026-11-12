@@ -43,19 +43,28 @@ public partial class MainViewModel
     public ObservableCollection<ModViewModel> InstalledMods { get; } = [];
     public ObservableCollection<WorkshopRowViewModel> WorkshopResults { get; } = [];
 
-    public IReadOnlyList<string> InstalledFilterChoices { get; } = ["All mods", "Need an update", "Not used by anything", $"Not played in {ModUsage.StaleDays}+ days"];
+    /// <summary>The fixed filters, then one "List: …" entry per imported mod list.</summary>
+    [ObservableProperty] private IReadOnlyList<string> _installedFilterChoices = BaseFilters;
+    private static readonly IReadOnlyList<string> BaseFilters =
+        ["All mods", "Need an update", "Not used by anything", $"Not played in {ModUsage.StaleDays}+ days", "Damaged files"];
     private const int StaleFilter = 3;
+    private const int DamagedFilter = 4;
+    /// <summary>The imported list picked in the filter, or null.</summary>
+    private ModList? FilterList => InstalledFilterIndex >= BaseFilters.Count && InstalledFilterIndex - BaseFilters.Count < ModLists.Current.Lists.Count
+        ? ModLists.Current.Lists[InstalledFilterIndex - BaseFilters.Count] : null;
 
     public bool HasStaleNotice => StaleNotice.Length > 0;
     partial void OnStaleNoticeChanged(string value) => OnPropertyChanged(nameof(HasStaleNotice));
 
     /// <summary>The toolbar's remove button: "Remove unused…", or "Remove these N…" when showing mods not played lately.</summary>
-    public string RemoveSetText => InstalledFilterIndex == StaleFilter
-        ? $"Remove these {_allInstalled.Count(m => m.IsStale)}…"
+    public string RemoveSetText => FilterList != null ? "Forget this list…"
+        : InstalledFilterIndex == StaleFilter ? $"Remove these {_allInstalled.Count(m => m.IsStale)}…"
         : "Remove unused…";
-    public string RemoveSetTip => InstalledFilterIndex == StaleFilter
+    public string RemoveSetTip => FilterList != null
+        ? "Forget this imported list. Its mods stay downloaded; ones nothing else uses then show as \"not used by anything\"."
+        : InstalledFilterIndex == StaleFilter
         ? $"Unsubscribe from and delete every mod you haven't played with in {ModUsage.StaleDays}+ days. Ones a server still uses are downloaded again when you join it."
-        : "Unsubscribe from and delete mods no MM server, favorite, recent server or editor preset uses";
+        : "Unsubscribe from and delete mods no MM server, favorite, recent server, imported list or editor preset uses";
     public IReadOnlyList<string> WorkshopSortChoices { get; } = WorkshopSearchReply.Sorts.Select(s => s.Label).ToList();
 
     public bool IsModsPage => Page == "mods";
@@ -110,13 +119,20 @@ public partial class MainViewModel
                     vm.UsedBy = string.Join(", ", users.Take(8)) + (users.Count > 8 ? $" and {users.Count - 8} more" : "");
                     bool editor = users.Contains("the DayZ Editor");
                     int presets = users.Count(u => u.StartsWith("editor: ", StringComparison.Ordinal));
-                    int servers = users.Count - presets - (editor ? 1 : 0);
+                    int lists = users.Count(u => u.StartsWith("list: ", StringComparison.Ordinal));
+                    int servers = users.Count - presets - lists - (editor ? 1 : 0);
                     vm.UsedByShort = "used by " + string.Join(", ", new[]
                     {
                         servers > 0 ? $"{servers} server{(servers == 1 ? "" : "s")}" : "",
+                        lists > 0 ? $"{lists} mod list{(lists == 1 ? "" : "s")}" : "",
                         presets > 0 ? $"{presets} editor preset{(presets == 1 ? "" : "s")}" : "",
                         editor ? "the DayZ Editor" : "",
                     }.Where(x => x.Length > 0));
+                }
+                if (_damagedInstalled.ContainsKey(id))
+                {
+                    if (ModHealth.Check(id, local) is { Ok: false } still) vm.HealthProblems = still.Summary;
+                    else _damagedInstalled.Remove(id);
                 }
                 return vm;
             }).OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -158,6 +174,8 @@ public partial class MainViewModel
         // The DayZ Editor's own mods count as used by the DAYZ EDITOR page, so "Remove unused"
         // never takes the Editor away.
         foreach (var m in DayZEditor.Required) Add(m.Id, "the DayZ Editor");
+        foreach (var list in ModLists.Current.Lists)
+            foreach (var m in list.Mods) Add(m.Id, "list: " + list.Name);
         foreach (var p in _presetStore.Presets.Concat(_sharedPresets))
             foreach (var m in DayZEditor.LoadOrder(p).Where(m => DayZEditor.Required.All(r => r.Id != m.Id)))
                 Add(m.Id, "editor: " + p.Name);
@@ -182,6 +200,7 @@ public partial class MainViewModel
     partial void OnInstalledSearchChanged(string value) => ApplyInstalledFilter();
     partial void OnInstalledFilterIndexChanged(int value)
     {
+        if (value < 0) return; // the choices list is being replaced
         ApplyInstalledFilter();
         OnPropertyChanged(nameof(RemoveSetText));
         OnPropertyChanged(nameof(RemoveSetTip));
@@ -194,10 +213,13 @@ public partial class MainViewModel
         var words = InstalledSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
         var list = _allInstalled.Where(m =>
             words.All(w => m.Name.Contains(w, StringComparison.OrdinalIgnoreCase) || m.WorkshopId.ToString().StartsWith(w)) &&
-            InstalledFilterIndex switch { 1 => m.IsUpdate, 2 => m.IsUnused, StaleFilter => m.IsStale, _ => true }).ToList();
+            (FilterList is { } fl ? fl.Mods.Any(x => x.Id == m.WorkshopId)
+                : InstalledFilterIndex switch { 1 => m.IsUpdate, 2 => m.IsUnused, StaleFilter => m.IsStale, DamagedFilter => m.IsDamaged, _ => true })).ToList();
         InstalledMods.Clear();
         foreach (var m in list) InstalledMods.Add(m);
-        InstalledEmptyText = list.Count > 0 ? "" : _allInstalled.Count == 0 ? "No DayZ mods downloaded yet." : "No mods match.";
+        InstalledEmptyText = list.Count > 0 ? "" : _allInstalled.Count == 0 ? "No DayZ mods downloaded yet."
+            : InstalledFilterIndex == DamagedFilter ? "No damaged mods found. Click Check files to look again."
+            : FilterList != null ? "None of this list's mods are downloaded yet." : "No mods match.";
 
         long total = _allInstalled.Sum(m => m.SizeBytes);
         var unused = _allInstalled.Where(m => m.IsUnused).ToList();
@@ -231,7 +253,8 @@ public partial class MainViewModel
         mod == null ? Task.CompletedTask : RemoveModsAsync([mod]);
 
     [RelayCommand]
-    private Task RemoveUnusedModsAsync() => InstalledFilterIndex == StaleFilter
+    private Task RemoveUnusedModsAsync() => FilterList is { } list ? ForgetModListAsync(list)
+        : InstalledFilterIndex == StaleFilter
         ? RemoveModsAsync(_allInstalled.Where(m => m.IsStale).ToList())
         : RemoveModsAsync(_allInstalled.Where(m => m.IsUnused).ToList());
 

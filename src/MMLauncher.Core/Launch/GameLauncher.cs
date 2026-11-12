@@ -92,6 +92,8 @@ public static class GameLauncher
         if (PlayerNames.Clean(settings.PlayerName) is { Length: > 0 } name) gameArgs.Add($"-name={name}");
         if (!string.IsNullOrEmpty(request.Password)) gameArgs.Add($"-password={request.Password}");
         gameArgs.AddRange(settings.ExtraLaunchParameters.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        foreach (var a in GameDisplay.Arguments(settings))
+            if (!gameArgs.Contains(a, StringComparer.OrdinalIgnoreCase)) gameArgs.Add(a);
 
         if (settings.LaunchDirect)
         {

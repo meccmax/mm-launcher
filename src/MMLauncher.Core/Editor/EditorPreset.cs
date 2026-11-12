@@ -110,7 +110,13 @@ public static partial class PresetFormat
     /// Parses an exported preset (HTML), or text with Workshop links or IDs (one per line,
     /// or separated by ; or ,). Never throws; returns an empty preset if nothing is found.
     /// </summary>
-    public static EditorPreset Parse(string text, string fallbackName)
+    public static EditorPreset Parse(string text, string fallbackName) => DayZEditor.Normalize(ParseList(text, fallbackName));
+
+    /// <summary>
+    /// Like <see cref="Parse"/>, but keeps every mod (including CF, Dabs Framework and the
+    /// DayZ Editor), for general mod lists rather than Editor presets.
+    /// </summary>
+    public static EditorPreset ParseList(string text, string fallbackName)
     {
         // A deliberately awkward file could make the HTML patterns slow; give up on it instead.
         try { return ParseUnchecked(text, fallbackName); }
@@ -143,7 +149,7 @@ public static partial class PresetFormat
                 else
                     preset.SkippedLocal++; // a local mod (no Workshop link)
             }
-            return DayZEditor.Normalize(preset);
+            return preset;
         }
 
         // Not a launcher export: take Workshop links in order, else bare IDs.
@@ -152,12 +158,12 @@ public static partial class PresetFormat
         {
             foreach (Match l in links)
                 if (ulong.TryParse(l.Groups["id"].Value, out var id)) Add(id, "");
-            return DayZEditor.Normalize(preset);
+            return preset;
         }
         foreach (var part in text.Split(['\n', '\r', ';', ','], StringSplitOptions.RemoveEmptyEntries))
             if (IdLineRx().Match(part) is { Success: true } m && ulong.TryParse(m.Groups["id"].Value, out var id))
                 Add(id, "");
-        return DayZEditor.Normalize(preset);
+        return preset;
     }
 
     /// <summary>Writes a preset in the DayZ launcher's HTML format (it can import it back).</summary>
@@ -166,7 +172,7 @@ public static partial class PresetFormat
         var sb = new StringBuilder();
         sb.AppendLine("<?xml version=\"1.0\" encoding=\"utf-8\"?>");
         sb.AppendLine("<html>");
-        sb.AppendLine("  <!--Created by MM Launcher. Import it in the MM Launcher's DayZ Editor tab, or in the DayZ launcher (Mods > Presets > Import).-->");
+        sb.AppendLine("  <!--Created by MM Launcher. Import it in MM Launcher (MODS > Import list, or the DAYZ EDITOR tab), or in the DayZ launcher (Mods > Presets > Import).-->");
         sb.AppendLine("  <head>");
         sb.AppendLine("    <meta name=\"arma:Type\" content=\"list\" />");
         sb.AppendLine($"    <meta name=\"arma:PresetName\" content=\"{WebUtility.HtmlEncode(preset.Name)}\" />");

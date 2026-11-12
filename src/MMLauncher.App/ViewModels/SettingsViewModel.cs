@@ -26,6 +26,12 @@ public partial class SettingsViewModel : ObservableObject
         _launchMethodIndex = settings.LaunchDirect ? 0 : 1;
         _playerName = settings.PlayerName;
         _extraParameters = settings.ExtraLaunchParameters;
+        _displayModeIndex = settings.DisplayMode switch { Core.Launch.GameDisplay.Fullscreen => 1, Core.Launch.GameDisplay.Windowed => 2, _ => 0 };
+        var dayz = Core.Launch.GameDisplay.Read();
+        _dayZWindowNow = dayz.Width > 0 && dayz.Height > 0 ? $"{dayz.Width} × {dayz.Height}" : "";
+        _dayZModeNow = dayz.Windowed switch { true => "windowed", false => "fullscreen", null => "" };
+        _windowWidth = settings.WindowWidth > 0 ? settings.WindowWidth : dayz.Width > 0 ? dayz.Width : 1920;
+        _windowHeight = settings.WindowHeight > 0 ? settings.WindowHeight : dayz.Height > 0 ? dayz.Height : 1080;
         _autoRefreshSeconds = settings.AutoRefreshSeconds;
         _checkForUpdates = settings.CheckForUpdates;
         _originalTheme = Themes.AppTheme.Find(settings.Theme);
@@ -51,6 +57,36 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _launchMethodIndex; // 0 = Direct, 1 = Steam
     [ObservableProperty] private string _playerName;
     [ObservableProperty] private string _extraParameters;
+    [ObservableProperty] private int _displayModeIndex; // 0 = DayZ's own, 1 = fullscreen, 2 = windowed
+    [ObservableProperty] private decimal? _windowWidth;
+    [ObservableProperty] private decimal? _windowHeight;
+    [ObservableProperty] private int _windowSizeIndex = -1;
+    private readonly string _dayZWindowNow;
+    private readonly string _dayZModeNow;
+
+    public string[] DisplayModes { get; } = ["Use DayZ's own setting", "Fullscreen", "Windowed"];
+    public static readonly (int W, int H)[] CommonSizes = [(1280, 720), (1600, 900), (1920, 1080), (2560, 1080), (2560, 1440), (3440, 1440), (3840, 2160)];
+    public string[] WindowSizes { get; } = CommonSizes.Select(s => $"{s.W} × {s.H}").ToArray();
+    public bool IsWindowedChoice => DisplayModeIndex == 2;
+    public string DisplayHelp => DisplayModeIndex switch
+    {
+        1 => "DayZ opens fullscreen, at your desktop resolution (DayZ always uses that in fullscreen; its own \"rendering resolution\" option scales it).",
+        2 => "DayZ opens in a window of this size." + (_dayZWindowNow.Length > 0 ? $" Its window is {_dayZWindowNow} now." : ""),
+        _ => "Nothing is changed: DayZ opens the way you last left it" + (_dayZModeNow.Length > 0 ? $" ({_dayZModeNow}" + (_dayZModeNow == "windowed" && _dayZWindowNow.Length > 0 ? $", {_dayZWindowNow})." : ").") : "."),
+    } + (DisplayModeIndex == 0 ? "" : " Set in DayZ's own settings file (Documents\\DayZ\\DayZ.cfg) each time the launcher starts DayZ, so it wins over a change made in-game. Only these keys are touched, and the original file is kept as DayZ.cfg.mmlauncher-backup.");
+
+    partial void OnDisplayModeIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsWindowedChoice));
+        OnPropertyChanged(nameof(DisplayHelp));
+    }
+
+    partial void OnWindowSizeIndexChanged(int value)
+    {
+        if (value < 0 || value >= CommonSizes.Length) return;
+        WindowWidth = CommonSizes[value].W;
+        WindowHeight = CommonSizes[value].H;
+    }
     [ObservableProperty] private decimal? _autoRefreshSeconds;
     [ObservableProperty] private bool _checkForUpdates;
     [ObservableProperty] private string _updateStatus = "";
@@ -235,6 +271,9 @@ public partial class SettingsViewModel : ObservableObject
         s.LaunchMethod = LaunchMethodIndex == 0 ? "Direct" : "Steam";
         s.PlayerName = Core.Launch.PlayerNames.Clean(PlayerName);
         s.ExtraLaunchParameters = ExtraParameters.Trim();
+        s.DisplayMode = DisplayModeIndex switch { 1 => Core.Launch.GameDisplay.Fullscreen, 2 => Core.Launch.GameDisplay.Windowed, _ => Core.Launch.GameDisplay.Keep };
+        s.WindowWidth = (int)Math.Clamp(WindowWidth ?? 1920, 640, 7680);
+        s.WindowHeight = (int)Math.Clamp(WindowHeight ?? 1080, 360, 4320);
         s.AutoRefreshSeconds = (int)Math.Clamp(AutoRefreshSeconds ?? 30, 0, 3600);
         if (s.AutoRefreshSeconds is > 0 and < 10) s.AutoRefreshSeconds = 10;
         s.CheckForUpdates = CheckForUpdates;
@@ -257,6 +296,7 @@ public partial class SettingsViewModel : ObservableObject
         LaunchMethodIndex = d.LaunchDirect ? 0 : 1;
         PlayerName = d.PlayerName;
         ExtraParameters = d.ExtraLaunchParameters;
+        DisplayModeIndex = 0;
         AutoRefreshSeconds = d.AutoRefreshSeconds;
     }
 }

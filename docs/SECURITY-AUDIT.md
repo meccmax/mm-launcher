@@ -127,6 +127,10 @@ Covers everything added since the first audit: Friends, Mods page and Workshop s
 
 **R3 (code signing):** the SignPath Foundation application was declined (not enough public use yet). R3 stays open; reapply once more people use the launcher. Until then, every download is checked against `SHA256SUMS.txt` by the launcher's updater and `update-agent.bat`.
 
+## Review: 11 November 2026 (v0.17.0)
+
+**Mod lists.** Imported files go through the same preset reader as DayZ Editor presets: at most 1 MB and 500 mods, HTML patterns that give up after 2 seconds, names stripped of tags and control characters. Only Workshop IDs are taken from a file; nothing in it is run or opened. Downloads still go through the player's own Steam client, after a confirmation that names how many mods and roughly how big. **Repair on the MODS page** uses the same move-aside, download, restore-on-failure steps as a server's Repair. **Game display** edits only three keys (`Windowed`, `WindowWidth`, `WindowHeight`) in the player's own `Documents\DayZ\DayZ.cfg`, only when the player chose fullscreen or windowed, writes through a temporary file, and keeps the first original as a backup. Self-checks cover each of these.
+
 ## Review: 7 November 2026 (v0.15.0)
 
 **Saved server passwords.** Saved only when the player ticks "Remember" (or uses "Save password…"). Each one is encrypted with Windows DPAPI for the current user, with a launcher-specific extra key, so `saved-passwords.jsonc` can't be read on another PC or by another Windows account. Passwords are never logged (the launch line already shows `-password=***`), never included in problem reports (only `launcher.log` is collected from the launcher's folder) and never sent anywhere except to DayZ on the command line, as before. A password that can't be decrypted counts as not saved. Where Windows encryption isn't available, nothing is saved. "Forget" deletes it from the file. Self-checks cover saving, reading back, forgetting, and that the file never holds the password in plain text.

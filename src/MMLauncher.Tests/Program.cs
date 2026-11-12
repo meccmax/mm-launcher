@@ -165,7 +165,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     // Old settings file (no SettingsVersion, LaunchMethod Steam) is moved to Direct.
     File.WriteAllText(LauncherSettings.FilePath, "{ \"LaunchMethod\": \"Steam\", \"Hosts\": [\"x\"] }");
     var migrated = LauncherSettings.Load();
-    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 4"), "old settings migrated to Direct launch");
+    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 5"), "old settings migrated to Direct launch");
     File.WriteAllText(LauncherSettings.FilePath, File.ReadAllText(LauncherSettings.FilePath).Replace("\"LaunchMethod\": \"Direct\"", "\"LaunchMethod\": \"Steam\""));
     Check(LauncherSettings.Load().LaunchMethod == "Steam", "a deliberate Steam choice in a new file is kept");
     // v0.4.x file (version 2): rewritten so the new AutoRejoin option and its comment appear; choices kept.
@@ -173,7 +173,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     var v2 = LauncherSettings.Load();
     var v2text = File.ReadAllText(LauncherSettings.FilePath);
     Check(v2.LaunchMethod == "Steam" && !v2.AutoRejoin && v2text.Contains("\"AutoRejoin\": false") && v2text.Contains("// Rejoin automatically")
-          && v2text.Contains("\"SettingsVersion\": 4") && v2text.Contains("\"UsageStats\": \"ask\"") && v2text.Contains("\"Theme\": \"mm-orange\""), "older settings gain AutoRejoin (off), Theme and UsageStats (ask) and keep choices");
+          && v2text.Contains("\"SettingsVersion\": 5") && v2text.Contains("\"DisplayMode\": \"dayz\"") && v2text.Contains("\"UsageStats\": \"ask\"") && v2text.Contains("\"Theme\": \"mm-orange\""), "older settings gain AutoRejoin (off), Theme and UsageStats (ask) and keep choices");
     v2.AutoRejoin = true; v2.Save();
     Check(LauncherSettings.Load().AutoRejoin, "AutoRejoin choice is saved");
 }
@@ -783,6 +783,59 @@ Console.WriteLine("== Mod search ==");
         listSteam.Stop();
         Environment.SetEnvironmentVariable("MMAGENT_STEAM_API", null);
     }
+}
+
+Console.WriteLine("== Mod lists and game display ==");
+{
+    // General mod lists keep every mod (Editor presets drop CF / Dabs / the Editor itself).
+    var listText = "1559212036\n2545327648\nhttps://steamcommunity.com/sharedfiles/filedetails/?id=2116157322";
+    var asList = MMLauncher.Core.Editor.PresetFormat.ParseList("1559212036\n2545327648\n2116157322", "Mine");
+    Check(asList.Mods.Select(m => m.Id).SequenceEqual(new ulong[] { 1559212036, 2545327648, 2116157322 })
+          && MMLauncher.Core.Editor.PresetFormat.Parse("1559212036\n2545327648\n2116157322", "Mine").Mods.Single().Id == 2116157322,
+        "mod lists keep CF and Dabs (Editor presets still leave them out)");
+    var exported = MMLauncher.Core.Editor.PresetFormat.ToHtml(new MMLauncher.Core.Editor.EditorPreset { Name = "MM Deer Isle", Mods = asList.Mods });
+    var back = MMLauncher.Core.Editor.PresetFormat.ParseList(exported, "file");
+    Check(back.Name == "MM Deer Isle" && back.Mods.Select(m => m.Id).SequenceEqual(asList.Mods.Select(m => m.Id)) && exported.Contains("arma:Type"),
+        "exported list reads back in the same order, in the DayZ launcher's format");
+    _ = listText;
+
+    if (File.Exists(ModLists.FilePath)) File.Delete(ModLists.FilePath);
+    var lists = ModLists.Load();
+    var first = lists.Add("Deer Isle", asList.Mods);
+    var second = lists.Add("deer isle", [new() { Id = 5, Name = "x" }, new() { Id = 5, Name = "dup" }, new() { Id = 0, Name = "local" }]);
+    Check(first?.Name == "Deer Isle" && second?.Name == "deer isle (2)" && second.Mods.Count == 1 && lists.Add("empty", []) == null
+          && ReferenceEquals(lists.Add("Deer Isle", asList.Mods), first) && lists.Lists.Count == 2,
+        "imported lists: names kept unique, duplicates and local mods dropped, empty lists refused, same list again reused");
+    Check(ModLists.Load().Lists.Count == 2 && File.ReadAllText(ModLists.FilePath).StartsWith("// MM Launcher") && lists.Remove("Deer Isle")
+          && ModLists.Load().Lists.Single().Name == "deer isle (2)", "mod-lists.jsonc saved with comments; forgetting a list removes it");
+
+    // DayZ.cfg as DayZ writes it (CRLF), the way it looked on a real PC.
+    var cfgDir = Path.Combine(root, "dayzcfg");
+    Directory.CreateDirectory(cfgDir);
+    var dzCfg = Path.Combine(cfgDir, "DayZ.cfg");
+    const string realCfg = "language=\"English\";\r\nadapter=-1;\r\n3D_Performance=48387;\r\nResolution_Bpp=32;\r\nWinX=-4;\r\nWinY=593;\r\nWindowWidth=2560;\r\nWindowHeight=1440;\r\nWindowed=1;\r\nMSAA=8;\r\nPostFX=2;\r\n";
+    File.WriteAllText(dzCfg, realCfg);
+    foreach (var f in Directory.GetFiles(cfgDir, "*.mmlauncher-*")) File.Delete(f);
+    Check(GameDisplay.Read(dzCfg) == (true, 2560, 1440), "reads windowed mode and window size from DayZ.cfg");
+    var keep = new LauncherSettings { DisplayMode = "dayz" };
+    GameDisplay.Apply(keep, dzCfg);
+    Check(File.ReadAllText(dzCfg) == realCfg && !File.Exists(GameDisplay.BackupPath(dzCfg)) && !GameDisplay.Arguments(keep).Any(),
+        "\"use DayZ's own setting\" changes nothing");
+    var full = new LauncherSettings { DisplayMode = "fullscreen" };
+    GameDisplay.Apply(full, dzCfg);
+    var afterFull = File.ReadAllText(dzCfg);
+    Check(afterFull == realCfg.Replace("Windowed=1;", "Windowed=0;") && File.ReadAllText(GameDisplay.BackupPath(dzCfg)) == realCfg,
+        "fullscreen: only Windowed changes (line endings and every other setting kept), original backed up");
+    var win = new LauncherSettings { DisplayMode = "windowed", WindowWidth = 1600, WindowHeight = 900 };
+    GameDisplay.Apply(win, dzCfg);
+    Check(File.ReadAllText(dzCfg) == realCfg.Replace("WindowWidth=2560;", "WindowWidth=1600;").Replace("WindowHeight=1440;", "WindowHeight=900;")
+          && File.ReadAllText(GameDisplay.BackupPath(dzCfg)) == realCfg && GameDisplay.Arguments(win).SequenceEqual(["-window"]),
+        "windowed: Windowed=1 and the size set; the first backup is never overwritten; -window added");
+    File.WriteAllText(dzCfg, "language=\"English\";\nMSAA=8;");
+    GameDisplay.Apply(win, dzCfg);
+    Check(File.ReadAllText(dzCfg) == "language=\"English\";\nMSAA=8;\nWindowed=1;\nWindowWidth=1600;\nWindowHeight=900;\n", "missing keys are added at the end");
+    Check(GameDisplay.Apply(win, Path.Combine(cfgDir, "nope.cfg")).Contains("not found") && !File.Exists(Path.Combine(cfgDir, "nope.cfg")),
+        "no DayZ.cfg yet: nothing is created");
 }
 
 Console.WriteLine("== Restart schedule ==");
