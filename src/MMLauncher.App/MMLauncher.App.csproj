@@ -38,7 +38,7 @@
     <!-- Steam Workshop subscribe/download (talks to the player's own Steam client). -->
     <PackageReference Include="Facepunch.Steamworks" Version="2.3.3" />
     <!-- Reads graphics card name + driver for problem reports. -->
-    <PackageReference Include="System.Management" Version="10.0.14" />
+    <PackageReference Include="System.Management" Version="11.0.0" />
   </ItemGroup>
 
   <ItemGroup>
