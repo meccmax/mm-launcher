@@ -77,6 +77,7 @@ public partial class MainViewModel : ObservableObject
     public async Task InitializeAsync()
     {
         StartUpdateChecks();
+        _ = StartDiscordAsync();
         DetectSteam();
         // Old copies left behind by an interrupted repair (e.g. a file was still locked).
         if (_steam != null)
@@ -265,6 +266,7 @@ public partial class MainViewModel : ObservableObject
         _service.ReloadSettings();
         ConfigureAutoRefresh();
         DetectSteam();
+        await ApplyDiscordSettingAsync();
         StatusMessage = "Settings saved";
         if (!IsBusy && !IsSyncing) await RefreshAsync();
     }

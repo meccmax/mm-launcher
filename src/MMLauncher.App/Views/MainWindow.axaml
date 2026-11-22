@@ -17,7 +17,7 @@
     <Border Grid.Row="0" Background="{DynamicResource Chrome}" BorderBrush="{DynamicResource Orange}" BorderThickness="0,0,0,2" Padding="18,12">
       <DockPanel>
         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="12" VerticalAlignment="Center">
-          <Image Source="avares://MMLauncher/Assets/mm.png" Width="40" Height="40" />
+          <Image Source="avares://MMLauncher/Assets/mm-logo.png" Height="64" Margin="0,-12,2,-12" RenderOptions.BitmapInterpolationMode="HighQuality" />
           <StackPanel VerticalAlignment="Center">
             <TextBlock Text="MISFIT MERCENARIES" FontSize="19" FontWeight="Black" LetterSpacing="1.5" Foreground="{DynamicResource Orange}" />
             <TextBlock Text="SERVER LAUNCHER" FontSize="11" FontWeight="SemiBold" LetterSpacing="4" Foreground="{DynamicResource Silver}" />

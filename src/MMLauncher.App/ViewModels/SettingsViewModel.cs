@@ -26,6 +26,7 @@ public partial class SettingsViewModel : ObservableObject
         _launchMethodIndex = settings.LaunchDirect ? 0 : 1;
         _playerName = settings.PlayerName;
         _extraParameters = settings.ExtraLaunchParameters;
+        _discordStatus = settings.DiscordStatus;
         _displayModeIndex = settings.DisplayMode switch { Core.Launch.GameDisplay.Fullscreen => 1, Core.Launch.GameDisplay.Windowed => 2, _ => 0 };
         var dayz = Core.Launch.GameDisplay.Read();
         _dayZWindowNow = dayz.Width > 0 && dayz.Height > 0 ? $"{dayz.Width} × {dayz.Height}" : "";
@@ -57,6 +58,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _launchMethodIndex; // 0 = Direct, 1 = Steam
     [ObservableProperty] private string _playerName;
     [ObservableProperty] private string _extraParameters;
+    [ObservableProperty] private bool _discordStatus;
     [ObservableProperty] private int _displayModeIndex; // 0 = DayZ's own, 1 = fullscreen, 2 = windowed
     [ObservableProperty] private decimal? _windowWidth;
     [ObservableProperty] private decimal? _windowHeight;
@@ -271,6 +273,7 @@ public partial class SettingsViewModel : ObservableObject
         s.LaunchMethod = LaunchMethodIndex == 0 ? "Direct" : "Steam";
         s.PlayerName = Core.Launch.PlayerNames.Clean(PlayerName);
         s.ExtraLaunchParameters = ExtraParameters.Trim();
+        s.DiscordStatus = DiscordStatus;
         s.DisplayMode = DisplayModeIndex switch { 1 => Core.Launch.GameDisplay.Fullscreen, 2 => Core.Launch.GameDisplay.Windowed, _ => Core.Launch.GameDisplay.Keep };
         s.WindowWidth = (int)Math.Clamp(WindowWidth ?? 1920, 640, 7680);
         s.WindowHeight = (int)Math.Clamp(WindowHeight ?? 1080, 360, 4320);

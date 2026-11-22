@@ -146,6 +146,7 @@ public partial class MainViewModel
 
             var ranFor = DateTime.UtcNow - launchedAt;
             bool crashed = GameExit.LooksLikeCrash(exitCode, launchedAt);
+            _ = ShowBrowsingStatusAsync();
             Log.Info($"DayZ closed after {ranFor.TotalMinutes:0.0} min (exit code {(exitCode?.ToString("X") ?? "unknown")}, {(crashed ? "crashed" : "normal quit")}).");
             bool mm = IsMmServer(watched);
             TrackUsage(new() { Type = "play", Mm = mm, Server = mm ? name : "", Seconds = (int)ranFor.TotalSeconds, Ok = !crashed });

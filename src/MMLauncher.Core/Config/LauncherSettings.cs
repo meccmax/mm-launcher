@@ -27,6 +27,8 @@ public sealed class LauncherSettings
     public string DisplayMode { get; set; } = "dayz";
     public int WindowWidth { get; set; }
     public int WindowHeight { get; set; }
+    /// <summary>Show "Playing MM Launcher" (and the MM server you're on) on your Discord profile.</summary>
+    public bool DiscordStatus { get; set; } = true;
     public string ReportName { get; set; } = "";
     public bool CheckForUpdates { get; set; } = true;
     public bool AutoRejoin { get; set; }
@@ -38,7 +40,7 @@ public sealed class LauncherSettings
     public int SettingsVersion { get; set; } = CurrentVersion;
 
     /// <summary>Bump when a default changes in a way existing files should pick up.</summary>
-    private const int CurrentVersion = 5;
+    private const int CurrentVersion = 6;
 
     public bool LaunchDirect => LaunchMethod.Equals("Direct", StringComparison.OrdinalIgnoreCase);
     public bool UseJunctions => !ModFolderMode.Equals("Absolute", StringComparison.OrdinalIgnoreCase);
@@ -220,6 +222,11 @@ public sealed class LauncherSettings
         sb.AppendLine($"  \"DisplayMode\": {J(DisplayMode)},");
         sb.AppendLine($"  \"WindowWidth\": {WindowWidth},");
         sb.AppendLine($"  \"WindowHeight\": {WindowHeight},");
+        sb.AppendLine();
+        sb.AppendLine("  // Show \"Playing MM Launcher\" on your Discord profile, with what you're doing: browsing servers,");
+        sb.AppendLine("  // the MM server you're on (other servers only show \"a community server\"), or the DayZ Editor.");
+        sb.AppendLine("  // Only the Discord app on this PC is told. false = nothing is shown.");
+        sb.AppendLine($"  \"DiscordStatus\": {J(DiscordStatus)},");
         sb.AppendLine();
         sb.AppendLine("  // Name put on problem reports so staff know who sent them (Discord or in-game name).");
         sb.AppendLine("  // Remembered from the last report you sent.");

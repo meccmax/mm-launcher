@@ -165,7 +165,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     // Old settings file (no SettingsVersion, LaunchMethod Steam) is moved to Direct.
     File.WriteAllText(LauncherSettings.FilePath, "{ \"LaunchMethod\": \"Steam\", \"Hosts\": [\"x\"] }");
     var migrated = LauncherSettings.Load();
-    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 5"), "old settings migrated to Direct launch");
+    Check(migrated.LaunchMethod == "Direct" && File.ReadAllText(LauncherSettings.FilePath).Contains("\"SettingsVersion\": 6"), "old settings migrated to Direct launch");
     File.WriteAllText(LauncherSettings.FilePath, File.ReadAllText(LauncherSettings.FilePath).Replace("\"LaunchMethod\": \"Direct\"", "\"LaunchMethod\": \"Steam\""));
     Check(LauncherSettings.Load().LaunchMethod == "Steam", "a deliberate Steam choice in a new file is kept");
     // v0.4.x file (version 2): rewritten so the new AutoRejoin option and its comment appear; choices kept.
@@ -173,7 +173,7 @@ foreach (var raw in new[] { "-mod=!MMWorkshop\\@1;!MMWorkshop\\@2", "-password=p
     var v2 = LauncherSettings.Load();
     var v2text = File.ReadAllText(LauncherSettings.FilePath);
     Check(v2.LaunchMethod == "Steam" && !v2.AutoRejoin && v2text.Contains("\"AutoRejoin\": false") && v2text.Contains("// Rejoin automatically")
-          && v2text.Contains("\"SettingsVersion\": 5") && v2text.Contains("\"DisplayMode\": \"dayz\"") && v2text.Contains("\"UsageStats\": \"ask\"") && v2text.Contains("\"Theme\": \"mm-orange\""), "older settings gain AutoRejoin (off), Theme and UsageStats (ask) and keep choices");
+          && v2text.Contains("\"SettingsVersion\": 6") && v2text.Contains("\"DisplayMode\": \"dayz\"") && v2text.Contains("\"UsageStats\": \"ask\"") && v2text.Contains("\"Theme\": \"mm-orange\""), "older settings gain AutoRejoin (off), Theme and UsageStats (ask) and keep choices");
     v2.AutoRejoin = true; v2.Save();
     Check(LauncherSettings.Load().AutoRejoin, "AutoRejoin choice is saved");
 }
@@ -836,6 +836,77 @@ Console.WriteLine("== Mod lists and game display ==");
     Check(File.ReadAllText(dzCfg) == "language=\"English\";\nMSAA=8;\nWindowed=1;\nWindowWidth=1600;\nWindowHeight=900;\n", "missing keys are added at the end");
     Check(GameDisplay.Apply(win, Path.Combine(cfgDir, "nope.cfg")).Contains("not found") && !File.Exists(Path.Combine(cfgDir, "nope.cfg")),
         "no DayZ.cfg yet: nothing is created");
+}
+
+Console.WriteLine("== Discord status and DayZ settings files ==");
+{
+    // What's sent to Discord.
+    var act = MMLauncher.Core.Discord.DiscordPresence.Activity(new("Playing on MM Deer Isle | PvE", "Deer Isle", DateTimeOffset.FromUnixTimeSeconds(1700000000)));
+    var a = act["args"]!["activity"]!;
+    Check(act["cmd"]!.GetValue<string>() == "SET_ACTIVITY" && a["details"]!.GetValue<string>() == "Playing on MM Deer Isle | PvE"
+          && a["timestamps"]!["start"]!.GetValue<long>() == 1700000000 && a["assets"]!["large_image"]!.GetValue<string>() == "mm_logo"
+          && a["buttons"]!.AsArray().Count == 2, "Discord status: details, map, timer, MM logo and two buttons");
+    var longName = MMLauncher.Core.Discord.DiscordPresence.Activity(new(new string('x', 300) + "\u0007"))["args"]!["activity"]!;
+    Check(longName["details"]!.GetValue<string>().Length == 128 && longName["state"] == null && longName["timestamps"] == null,
+        "Discord status: long text clipped to Discord's 128 characters, empty parts left out");
+
+    // A fake Discord on a local pipe: handshake, then the status.
+    Environment.SetEnvironmentVariable("MMLAUNCHER_DISCORD_PIPE", "mml-test-discord-");
+    var received = new List<(int Op, string Json)>();
+    using var fakeDiscord = new System.IO.Pipes.NamedPipeServerStream("mml-test-discord-0", System.IO.Pipes.PipeDirection.InOut, 1,
+        System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous);
+    var serverTask = Task.Run(async () =>
+    {
+        await fakeDiscord.WaitForConnectionAsync();
+        async Task<(int, string)> Read()
+        {
+            var head = new byte[8];
+            await fakeDiscord.ReadExactlyAsync(head);
+            int len = BitConverter.ToInt32(head, 4);
+            var body = new byte[len];
+            await fakeDiscord.ReadExactlyAsync(body);
+            return (BitConverter.ToInt32(head, 0), System.Text.Encoding.UTF8.GetString(body));
+        }
+        async Task Write(int op, string json)
+        {
+            var b = System.Text.Encoding.UTF8.GetBytes(json);
+            await fakeDiscord.WriteAsync(BitConverter.GetBytes(op).Concat(BitConverter.GetBytes(b.Length)).Concat(b).ToArray());
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            var msg = await Read();
+            lock (received) received.Add(msg);
+            await Write(1, msg.Item1 == 0 ? "{\"cmd\":\"DISPATCH\",\"evt\":\"READY\"}" : "{\"cmd\":\"SET_ACTIVITY\",\"evt\":null}");
+        }
+    });
+    using var presence = new MMLauncher.Core.Discord.DiscordPresence();
+    await presence.SetAsync(new("Browsing servers"));
+    Check(!presence.Connected, "Discord status: nothing sent while the setting is off");
+    await presence.SetEnabledAsync(true);
+    await presence.SetAsync(new("Browsing servers")); // same status again: not resent
+    await presence.SetAsync(new("Playing on MM Nasdara", "Nasdara"));
+    await Task.WhenAny(serverTask, Task.Delay(5000));
+    lock (received)
+        Check(received.Count == 3 && received[0].Op == 0 && received[0].Json.Contains(MMLauncher.Core.Discord.DiscordPresence.ApplicationId)
+              && received[1].Json.Contains("Browsing servers") && received[2].Json.Contains("Playing on MM Nasdara"),
+            "Discord status: handshake with the MM Launcher app, then each change sent once");
+    Environment.SetEnvironmentVariable("MMLAUNCHER_DISCORD_PIPE", null);
+
+    // DayZ's own settings files.
+    var dzDir = Path.Combine(root, "dayz-settings");
+    if (Directory.Exists(dzDir)) Directory.Delete(dzDir, true);
+    Directory.CreateDirectory(dzDir);
+    File.WriteAllText(Path.Combine(dzDir, "Max_settings.DayZProfile"), "version=1;\r\nblood=1;\r\nplayerName=\"{MM} Mäx\";\r\n");
+    File.WriteAllText(Path.Combine(dzDir, "DayZ.cfg"), "language=\"English\";\r\nWindowed=1;\r\n");
+    File.WriteAllText(Path.Combine(dzDir, "chars.DayZProfile"), "\0\0binary is fine here\0");
+    Check(MMLauncher.Core.Launch.DayZSettingsCheck.FindDamaged(dzDir).Count == 0, "healthy DayZ settings files pass (other profile files aren't judged)");
+    var bad = Path.Combine(dzDir, "drago_settings.DayZProfile");
+    File.WriteAllBytes(bad, [0x2E, 0x58, 0x00, 0x00, 0x00, 0x00, (byte)'b', (byte)'=', (byte)'1', (byte)';']);
+    File.WriteAllText(Path.Combine(dzDir, "Junk_settings.DayZProfile"), "\u00ff\u00fe garbage without any setting");
+    var damagedFound = MMLauncher.Core.Launch.DayZSettingsCheck.FindDamaged(dzDir).Select(Path.GetFileName).OrderBy(n => n, StringComparer.Ordinal).ToList();
+    Check(damagedFound.SequenceEqual(["Junk_settings.DayZProfile", "drago_settings.DayZProfile"]), "damaged settings files found (zero bytes, or no settings at all)");
+    Check(MMLauncher.Core.Launch.DayZSettingsCheck.SetAside(bad) == null && !File.Exists(bad)
+          && Directory.GetFiles(dzDir, "drago_settings.DayZProfile.damaged-*").Length == 1, "a damaged file is renamed aside, not deleted");
 }
 
 Console.WriteLine("== Restart schedule ==");

@@ -12,7 +12,7 @@
 - **Written for this project.** Every line was written from scratch for Misfit Mercenaries by Claude (Anthropic's AI, in Claude Code), directed by the maintainer ([meccmax](https://github.com/meccmax)). No code was pasted in from other launchers, tutorials or decompiled programs.
 - **Complete public history.** The full history is in this repository, starting with the first commit on 30 October 2026 (`2f4a746`). Every commit is dated and marked with its authors (`meccmax` and Claude). The repository is original (not a fork of anything) and MIT-licensed. Anyone can see when and how each file appeared with `git log -p`.
 - **Libraries are credited.** Everything not written here comes from published open-source packages, listed with their licenses in [THIRD-PARTY-NOTICES.md](../THIRD-PARTY-NOTICES.md).
-- **Images are MM's own.** The only picture files are MM's own logo (`mm.png`, `mm.ico`).
+- **Images are MM's own.** The only picture files are Misfit Mercenaries' official logo, in the sizes the launcher, its icon and the installer need (`mm-logo.png`, `mm.png`, `mm.ico`, `installer/wizard-*.bmp`).
 
 ## 2. DZSA Launcher
 

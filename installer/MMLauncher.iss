@@ -36,6 +36,9 @@ PrivilegesRequired=lowest
 OutputDir=..\release
 OutputBaseFilename=MMLauncher-Setup
 SetupIconFile=..\src\MMLauncher.App\Assets\mm.ico
+; The MM logo on the setup wizard (Inno Setup picks the size that fits the screen scaling).
+WizardImageFile=wizard-100.bmp,wizard-150.bmp,wizard-200.bmp
+WizardSmallImageFile=wizard-small-100.bmp,wizard-small-150.bmp,wizard-small-200.bmp
 UninstallDisplayIcon={app}\MMLauncher.exe
 UninstallDisplayName=MM Launcher
 Compression=lzma2/max

@@ -127,6 +127,10 @@ Covers everything added since the first audit: Friends, Mods page and Workshop s
 
 **R3 (code signing):** the SignPath Foundation application was declined (not enough public use yet). R3 stays open; reapply once more people use the launcher. Until then, every download is checked against `SHA256SUMS.txt` by the launcher's updater and `update-agent.bat`.
 
+## Review: 22 November 2026 (v0.18.0)
+
+**Discord status.** Uses only the local pipe of the Discord app on the same PC (`\\.\pipe\discord-ipc-N`), with MM Launcher's public application ID; no tokens or secrets are involved and nothing is sent over the internet by the launcher. Replies are size-capped (64 KB) and read with a timeout; any error just drops the connection and retries every 30 seconds. It shows MM server names only; other servers appear as "a community server". Off with one setting. **Damaged-settings check** only reads DayZ's `DayZ.cfg` and `*_settings.DayZProfile`, and changes nothing unless the player clicks "Fix it", which renames the file (never deletes). Self-checks cover both, including a fake Discord.
+
 ## Review: 11 November 2026 (v0.17.0)
 
 **Mod lists.** Imported files go through the same preset reader as DayZ Editor presets: at most 1 MB and 500 mods, HTML patterns that give up after 2 seconds, names stripped of tags and control characters. Only Workshop IDs are taken from a file; nothing in it is run or opened. Downloads still go through the player's own Steam client, after a confirmation that names how many mods and roughly how big. **Repair on the MODS page** uses the same move-aside, download, restore-on-failure steps as a server's Repair. **Game display** edits only three keys (`Windowed`, `WindowWidth`, `WindowHeight`) in the player's own `Documents\DayZ\DayZ.cfg`, only when the player chose fullscreen or windowed, writes through a temporary file, and keeps the first original as a backup. Self-checks cover each of these.

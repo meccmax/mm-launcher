@@ -377,6 +377,7 @@ public partial class MainViewModel
             var command = GameLauncher.Build(new LaunchRequest(null, 0, mods, null), _service.Settings, _steam!);
             if (!GameLauncher.SteamIsRunning()) throw new LaunchException("Steam isn't running. Start Steam, then try again.");
             if (!await SteamPermissionsOkAsync()) return;
+            await CheckDayZSettingsFilesAsync(ask: true);
             Log.Info(GameDisplay.Apply(_service.Settings));
             GameLauncher.Start(command);
             ClearPanel();
@@ -389,6 +390,7 @@ public partial class MainViewModel
             if (started)
             {
                 TrackUsage(new() { Type = "editor", Count = mods.Count });
+                _ = ShowEditorStatusAsync();
                 ModUsage.Current.MarkUsed(mods.Select(m => m.Id));
                 ShowResult(true, "DayZ is starting with the Editor",
                     "Once you're at the main menu, open the Editor from there. Your work is saved from inside the Editor (File > Save), as .dze files.");

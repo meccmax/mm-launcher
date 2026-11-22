@@ -123,6 +123,7 @@ public partial class MainViewModel
             if (!GameLauncher.SteamIsRunning())
                 throw new LaunchException("Steam isn't running. Start Steam, then click JOIN SERVER again.");
             if (!auto && !await SteamPermissionsOkAsync()) return;
+            await CheckDayZSettingsFilesAsync(ask: !auto);
             Log.Info(GameDisplay.Apply(_service.Settings));
             GameLauncher.Start(command);
 
@@ -143,6 +144,7 @@ public partial class MainViewModel
                 StatusMessage = "DayZ launched";
                 StartRejoinWatch(server, password);
                 RememberRecent(server);
+                _ = ShowPlayingStatusAsync(server);
                 ModUsage.Current.MarkUsed(mods.Select(m => m.Id));
             }
             else
